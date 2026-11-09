@@ -1,0 +1,317 @@
+##### sp_aggrid.html
+G Grid 
+ AG Grid [http://ag-grid.com] is the company behind the data grid, charts, and dashboards powering over half of the Fortune 500. 
+ AG Studio [https://www.ag-grid.com/studio/] from AG Grid is an embedded analytics library (or, as some prefer to say, self-serve dashboard component). It brings dashboards, charts, and grids, together in one component. Developers set the guardrails once. Analysts and end users build and change dashboards inside them without having to write code. It comes with a built-in data engine, cross-filtering, and the Studio Agent Framework [https://www.ag-grid.com/blog/introducing-the-ag-studio-agent-framework/] , so agents can build, query, and edit dashboards for you and alongside you. 
+ Best Use of AG Grid 
+ This award covers both what your dashboard looks like and how you build it. 
+ Show us polish: custom widgets, theming, and layout tools, not just AG Grid or AG Charts on their own. Take Studio Agent Framework for a spin: a custom agent talking to Studio's built-in agents, or a swapped-in harness. 
+ Project ideas 
+ This is not a list of our expectations! Just something for you to start: 
+ Storefront analytics for Central Perk (Friends), Schrute Farms (The Office), Luke's Diner (The Gilmore Girls): revenue-by-product widgets, refund rate tiles, geographic sales maps 
+ Anomaly-alert agent: monitors transaction streams and auto-builds widgets flagging suspicious refund spikes or failed payments 
+ Nonprofit donation dashboard: live PayPal donation feed, donor leaderboard, campaign progress bars 
+ Natural-language finance agent: "show PayPal revenue by customer segment this month" generates a live widget 
+ Nudge-bot: a gentle-reminder agent that reads unpaid invoices and drafts friendly nudges ("hey, just a heads-up!") instead of demands, with a widget showing who still owes what, styled like a friendly scoreboard rather than a collections report. 
+ Take AG Studio to the next level. 
+ Bring your curiosity, creativity, and personality!  
+ Start Building 
+ Get building free of charge with the free 45-day trial license [https://www.ag-grid.com/studio/license-pricing/] .  
+ We prepared a boilerplate [https://github.com/paypaldev/hackathon-paypal-ag-grid-boilerplate] with AG Studio and PayPal set up to get you started. 
+ Resources 
+ Docs: Quick Start: https://www.ag-grid.com/studio/react/quick-start/ [https://www.ag-grid.com/studio/react/quick-start/]
+ Docs: Custom Widgets & Theming: https://www.ag-grid.com/studio/react/custom-widgets/ [https://www.ag-grid.com/studio/react/custom-widgets/]
+ Docs: Studio Agent Framework: https://www.ag-grid.com/studio/react/ai-agents/ [https://www.ag-grid.com/studio/react/ai-agents/]
+ Blog: Introducing the Studio Agent Framework: https://www.ag-grid.com/blog/introducing-the-ag-studio-agent-framework/ [https://www.ag-grid.com/blog/introducing-the-ag-studio-agent-framework/]
+ Recorded session: Self-serve dashboards in 30 lines of code: https://app.livestorm.co/ag-grid/self-service-dashboards-30-lines-of-code [https://app.livestorm.co/ag-grid/self-service-dashboards-30-lines-of-code]
+ Blog: Vibecoding a widget: www.ag-grid.com/blog/1-prompt-88-seconds-i-added-a-new-chart-type-to-ag-studio-dashboard/ [http://www.ag-grid.com/blog/1-prompt-88-seconds-i-added-a-new-chart-type-to-ag-studio-dashboard/] 
+ For any trial issues or hackathon questions: 
+ Connect with the AG Grid team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_apimatic.html
+bout APIMatic  
+ Build with APIMatic Context Plugins for PayPal 
+ APIMatic helps developers and AI agents build reliably with APIs. 
+ APIMatic turns API contracts into reliable interfaces that developers and AI agents can build against. From production-grade SDKs and API portals for Developers, to Context Plugins for AI coding agents, every output comes from the same source of truth and can remain aligned as the API changes. 
+ Learn more about APIMatic [https://www.apimatic.io/about]
+ Claim your APIMatic Free Subscriptions here [https://docs.google.com/forms/d/e/1FAIpQLScc2oCgAFACm7d6H3R4mgzv-O34DdyVnLIBNiwmUNggr_-hhA/viewform] 
+ Participants who used the Context Plugin to build their PayPal integration → 1 month of APImatic Basic, free. 
+ Winning teams that used the plugin → 6 months of APIMatic Business, free. This tier covers Context Plugins, SDKs, and a Documentation portal for their own API. 
+ Additional terms can be found on the form link above. 
+ Give your AI coding agent the context it needs to build with PayPal 
+ The APIMatic Context Plugin for PayPal gives AI coding tools like Claude Code the PayPal API context they need to integrate PayPal into your app. 
+ This means you don't have to dig through the API reference or SDKs docs yourself, your coding agent pulls in the relevant information when it needs it. 
+ To use Context Plugins, please refer to the resource page. Since PayPal is already enabled, you won't need any extra credentials or sign-in details through APIMatic. 
+ RESOURCE INFO PAGE [https://drive.google.com/file/d/1qa7Xkjt3PGJllHQVCP1IuE-XxlRNz4mN/view]
+ For any subscription issues or hackathon questions: 
+ Connect with the APIMatic team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_astropods.html
+bout Astropods 
+ Astropods is the agent operating system for running AI agents in production. It gives you everything an agent needs, including models, knowledge bases, tool integrations, and observability, plus the runtime and guardrails to keep it under control at scale. You define an agent with a declarative spec, build and push it with the CLI, and deploy it through the API or dashboard. Astropods [https://nam11.safelinks.protection.outlook.com/?url=https%3A%2F%2Fastropods.com%2F%3Futm_source%3Dblogs%26utm_medium%3Dblog%26utm_campaign%3Donboarding-to-astro&data=05%7C02%7Cnikchen%40paypal.com%7C8de25cfd3ef2408bd06608df24834985%7Cfb00791460204374977e21bac5f3f4c8%7C0%7C0%7C639269820533386530%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=2x9ngdVd7AiYL7Ofk%2F1f7K4JUuNggqg8gP4ZFCHVT0I%3D&reserved=0] brings that whole lifecycle into one platform, and this guide takes you from a local project to a deployed, monitored agent. 
+ Sign up for a free Astropods account here [https://astropods.com/]
+ Resources 
+ The full documentation lives at docs.astropods.com [http://docs.astropods.com] . For a written walkthrough, read How to Build, Deploy & Monitor AI Agents with Astropods [https://blog.postman.com/build-ai-agents-with-astropods/] . 
+ The videos work best in order: 
+ What is Astropods [https://www.youtube.com/watch?v=5pIqjeyIKAc] : covers the platform and how it runs real workflows. 
+ Build Your First Local Project [https://www.youtube.com/watch?v=rIeP9YADEZM] : hands-on setup for your first local project. 
+ Deploy Your Blueprints [https://www.youtube.com/watch?v=WlKHRIdc3fs] : how to take what you built locally and deploy it. 
+ Connect the Agent to Slack [https://www.youtube.com/watch?v=P9DamZDrrFU] : wire your deployed agent into your Slack workspace. 
+ Need help? 
+ For free tier issues or hackathon questions, connect with the Astropods team on the PayPal Discord [https://developer.paypal.com/discord] .
+##### sp_bryntum.html
+ryntum  
+ Bryntum [https://bryntum.com/] builds Gantt, Scheduler, and Calendar components that cover anything with a time dimension: tasks, resources, shifts, bookings, deadlines. 
+ Gantt lays out tasks on a timeline with dependencies, so moving one task automatically shifts the ones that depend on it. Built for managing project plans of any size. 
+ Scheduler assigns events to resources (people, rooms, equipment) on a timeline, with drag, drop, and resize built in. Think shift planning or flight scheduling. 
+ Calendar is a full day/week/month/year/agenda/resource calendar view, the kind of interface people already know how to read, with events, filters, and an editor out of the box. 
+ Best Use of Bryntum 
+ This prize goes to the project that puts Gantt, Scheduler, and/or Calendar to the best use, whether that's the cleanest timeline, the smartest resource booking, or an agent that drives the schedule itself. 
+ Project ideas 
+ This is not a list of our expectations! Just something for you to start: 
+ Agency delivery board (Gantt): multi-client project timelines with payment tranches marked as dependencies, so a late PayPal payment visibly blocks the next phase 
+ Equipment rental calendar (Scheduler): rental slots for gear or venues, booked and locked in only once a PayPal payment clears 
+ Event ticketing calendar (Calendar): ticketed events shown day by day, with PayPal sales volume per event visible at a glance 
+ Subscription revenue radar (Scheduler): Build a timeline with one row per customer account, showing billing periods, expected renewals, and failed payment markers + refunds. 
+ Dispute triage board (Scheduler): One Scheduler row per support agent, with work blocks for assigned disputes. Show disputed amount, response deadline, and evidence readiness. Highlight cases that have a deadline but no time allocated to handle them. 
+ Agent-driven rescheduler (Gantt + Scheduler + Calendar): an agent watches PayPal payment events and automatically moves or flags milestones, bookings, or events when a payment fails, succeeds late, or gets refunded 
+ Start building with a 45-day trial: https://bryntum.com/download [https://bryntum.com/download/] 
+ npm install @bryntum/scheduler@npm:@bryntum/scheduler-trial 
+ Resources 
+ Docs: Gantt [https://bryntum.com/products/gantt/]
+ Docs: Scheduler [https://bryntum.com/products/scheduler/]
+ Docs: Calendar   [https://bryntum.com/products/calendar/]
+ Live session: Intro to Bryntum [https://app.livestorm.co/ag-grid/intro-to-bryntum?s=8d4683b4-11bb-4512-b2cb-ffd17cdc536a]
+ Examples [https://bryntum.com/examples/]
+ For any trial issues or hackathon questions: 
+ Connect with the Bryntum team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_channel3.html
+BOUT CHANNEL3 
+ Channel3 lets anyone build an AI shopping experience in an afternoon. One API returns clean, normalized product data – titles, images, prices, variants, availability, and buy links – across 100M+ products from 25,000+ retailers. No scraping, no retailer feeds, no data cleanup. People use Channel3 to build shopping agents, personalized gift finders, AI stylists, product comparison tools and conversational search for retail sites. 
+ Channel3 
+ Your project may use the Channel3 API or our MCP server as a meaningful part of the product experience — search, product enrichment or recommendations.  Projects that only reference Channel3 without calling it will not meet this requirement. 
+ Eligibility: API keys are available to all hackathon participants. 
+ Getting started: Sign up at https://trychannel3.com/developers [https://trychannel3.com/developers] , grab your key from the dashboard, and you're live. No credit card required. Each hackathon key includes 20,000 free API credits with promo code PAYPAL-HACKATHON-2026 , good for 20,000 product searches. 
+ Running out of credits: Your app stays live and your key stays active. Message us in the #channel3 hackathon Discord channel [https://discord.gg/sJ2G6DyvSK] and we'll top you up, don't let credits block your demo. 
+ RESOURCES 
+ Channel3 docs [https://docs.trychannel3.com]
+ Examples: Penny Shop [https://penny.shop] , Zamana [https://signup.zamana.com] , Folk [https://www.folk.com]
+ MCP server setup [https://trychannel3.com/mcp]
+ Channel3 Discord [https://discord.com/invite/6J6MjctXrH]
+ For any hackathon questions: 
+ Connect with the Channel3 team via the PayPal Discord [https://discord.gg/sJ2G6DyvSK]!
+##### sp_elastic.html
+bout Elastic 
+ Elastic [https://www.elastic.co/] is the search AI company and makers of Elasticsearch. 
+ Elasticsearch [https://www.elastic.co/elasticsearch] is an open source, distributed search and analytics engine built for speed, scale, and AI applications. As a retrieval platform, it stores structured, unstructured, and vector data in real time. It delivers fast hybrid and vector search, real-time analytics on logs, metrics or events, and enables AI-driven applications with high performance, accuracy, and relevance. 
+ How to use Elastic 
+ You can build a multi-step AI agent that uses Elasticsearch combining a Jina embedding model. You are also free to combine it with one or more of Elastic’s available capabilities (such as Elastic Agent Builder, Elastic Workflows, Search, ES|QL, Observability, Security, or the A2A/MCP connectivity) to automate real-world tasks.  
+ How to Get Started 
+ NOTES: 
+ Once your 14-day free trial ends, y ou are able to self-extend for a further 30 days using this form. [https://www.elastic.co/trialextension] 
+You can also run Elasticsearch locally for free: https://www.elastic.co/downloads/elasticsearch [https://www.elastic.co/downloads/elasticsearch]
+ You are able to sign up to a 14-day free trial by following the below steps: 
+ Go to https://ela.st/elastic-paypal-hackathon [https://ela.st/elastic-paypal-hackathon] . 
+ Sign up for a free trial using your desired login method: 
+ Enter your firstname, lastname and company name when prompted. 
+ Select your project type (either Search or Vector Search is recommended). 
+ Select the region you would like your cluster to be created, and hit Launch . 
+ Wait until your serverless cluster is available to use. This will only take a few minutes. 
+ Enter Kibana: 
+ Now you’re ready to get started. Choose to connect your IDE to the skills and CLI, or follow one of our tutorials to get started with Elasticsearch, vector search or Agent Builder. 
+ Get building! 
+ Resources 
+ Elastic Getting Started Guides [https://www.elastic.co/getting-started]
+ Elastic Docs [https://www.elastic.co/docs]
+ Elastic Free Training [https://www.elastic.co/training]
+ Elastic Community [https://www.elastic.co/community]
+ For any trial or hackathon questions: 
+ Connect with the Elastic team via the PayPal Discord [https://discord.gg/sJ2G6DyvSK]!
+##### sp_kernel.html
+bout KERNEL 
+ KERNEL provides cloud infrastructure for AI agents to act on the internet. <30ms browser spin-up, reliable bot anti-detection for protected sites, and 24fps live session view with full replay. auth provides durable access, so agents log in and stay logged in. real headful chromium runs pop-ups, iframes, and new windows cleanly, and sessions stay stable instead of disconnecting mid-flow. KERNEL works with every agent harness and cua model out of the box. 
+ KERNEL Credits 
+ Follow this link to get $50 in KERNEL credits to use during this hackathon. [https://dashboard.onkernel.com/hackathon?code=KERNELDEVPOST2026]
+ Resources 
+ https://www.kernel.sh/docs [https://www.kernel.sh/docs] 
+ For any credits issues or hackathon questions: 
+ Connect with the KERNEL team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_postman.html
+ostman  
+ Postman is a unified platform for designing, testing, distributing, documenting, and monitoring APIs. It provides the governance enterprises require in a platform developers already know and love, enabling teams to collaborate seamlessly throughout API development. 
+ Resources 
+ Get Started with Postman for Free  [https://www.postman.com/]
+ Explore PayPal's API collection on Postman [https://www.postman.com/paypal]
+ Learning path: Learn API by doing [https://www.postman.com/liftoff/learning-paths/building-with-ai/?utm_source=paypal-hackathon]
+ For any plan issues or hackathon questions: 
+ Connect with the Postman team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_render.html
+bout Render  
+ Render is an intuitive cloud platform for developers who want to ship production-grade apps and agents without managing infrastructure. Push your code to instantly provision web services, databases, workflows, and long-lived workers with automatic networking. Render keeps you focused on your product as traffic grows through automatic scaling, zero-downtime deploys, and data redundancy. 
+ Start building with $50 of Render credits here! [https://credits-portal-mmdm.onrender.com/claim/paypal-ai-hackathon]
+ How to use Render 
+ Deploy your project on Render and use Render Workflows [https://render.com/docs/workflows] , an orchestration and execution engine for distributed tasks, to coordinate AI agents, background jobs, and data pipelines. Define tasks as standard functions using Render's lightweight SDK and dispatch them across hundreds of concurrent instances. 
+ Billing 
+ Follow these instructions [https://render.com/docs/credits] to apply Render credits to your account. Credits are deducted from your balance, which is billed at the end of the month. 
+ Connect 
+ Join the Render Discord [https://render.com/discord] to share your projects and connect with developers. For hackathon-specific questions, join the PayPal Discord [https://discord.gg/sJ2G6DyvSK] . 
+ For any billing or credits issues: 
+ Connect with the Render team via the Render Discord [https://render.com/discord] or the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### sp_zapier.html
+bout Zapier 
+ Zapier MCP lets AI tools like Claude, ChatGPT and Cursor take real action across 9,000+ apps, including PayPal. Zapier handles the logins and permissions, so participants can spend their time building. 
+ Free access: [https://zapier.com/sign-up] Anyone who creates a new Zapier account automatically gets a 14-day trial of the Zapier Professional plan, with no credit card needed. Once the trial ends, you will be automatically transferred to the Free plan. 
+ Resources: 
+ Zapier MCP quickstart [https://docs.zapier.com/mcp/get-started/quickstart] 
+ Zapier MCP documentation [https://docs.zapier.com/mcp/home] 
+ Zapier MCP overview [https://zapier.com/mcp] 
+ For any plan questions or hackathon questions: 
+ Connect with the Zapier team via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+##### up1.html
+ack to all updates
+ [/updates]
+ 4 days ago 
+Submission checklist: it's go time! ⏳ [/updates/47307-submission-checklist-it-s-go-time]
+ Hi Builders,
+ One week left! Submissions close Thursday, November 12 at 12:00 pm PST . Submit today to still get an early eligibility check.
+ 📋 Checklist 
+Project meaningfully uses PayPal (sandbox is fine) and AI 
+Judges can run it: hosted demo URL or run instructions in your repo
+Public repo on GitHub, GitLab, or Bitbucket with a README and open source license
+Public YouTube video under 3 minutes 
+Sponsor tools selected on the form if you're going for a sponsor prize
+Teammates invited and accepted 
+ 🔌 Keep your demo, test credentials, and any trials or credits active until winners are announced on Dec 21 .
+ ⚠️ After the deadline, submissions are locked. Don't edit your repo, video, or linked materials until after the winner announcement.
+ You've got this! 💪
+##### up2.html
+ack to all updates
+ [/updates]
+ 7 days ago 
+Lights, camera, PayPal! Video tips and how judging works 🎬 [/updates/47306-lights-camera-paypal-video-tips-and-how-judging-works]
+ Hi Builders,
+ 10 days to go! Your video is often the first thing judges see, so make it count.
+ 🎬 Video tips 
+ Under 3 minutes , on YouTube , set to public .
+Open with the problem and who it's for, then show PayPal and AI working end to end.
+Cut loading screens and setup steps. An AI voiceover is fine.
+ Upload early. Processing can take hours.
+ 🧑‍⚖️ How judging works 
+ Stage One: after the Nov 12 deadline, the review team checks each project for a working build, a public repo with an open source license, a public video under 3 minutes, and meaningful use of PayPal and AI.
+ Stage Two: judges score eligible projects 1 to 5 on Technological Implementation, Design, Potential Impact, Innovation/Idea, and Presentation. Judges aren't required to run your project, so your video carries a lot of weight.
+ ⏰ Submit by Thursday, Nov 5 for an early eligibility check. Best of luck!
+##### up3.html
+ack to all updates
+ [/updates]
+ 12 days ago 
+Two weeks to go: get your project checked early 🥇 [/updates/47305-two-weeks-to-go-get-your-project-checked-early]
+ Hi Builders,
+ Submissions close Thursday, November 12 at 12:00 pm PST . Submit by Thursday, Nov 5 and our review team will check your project for eligibility early and flag anything to fix. You can keep editing until the deadline.
+ 🏆 How to stand out 
+ Make PayPal and AI impossible to miss. Name both in your description, "Built With" section, and video, and show them working.
+ Give judges something to run: a hosted demo URL or clear run instructions in your repo.
+ Hide your API keys. Use environment variables, never commit secrets.
+ 💰 $69,750 in prizes, including $12,000 for 1st place and five $5,000 special awards. See the Prizes section [https://paypalaihackathon.devpost.com/#prizes].
+ 💬 Questions? Check the FAQs [https://paypalaihackathon.devpost.com/details/faqs] or ask on the PayPal Discord [https://discord.gg/sJ2G6DyvSK].
+ Happy building! 🚀
+##### up4.html
+ack to all updates
+ [/updates]
+ about 1 month ago 
+The PayPal build session recording is up [/updates/46851-the-paypal-build-session-recording-is-up]
+ Hi Builders,
+The recording of Start Building with PayPal is now on YouTube: https://bit.ly/paypalai26recue [https://bit.ly/paypalai26recue]
+Jo, Marco, and Eddie from PayPal's DevRel team cover the hackathon rules and prizes, the PayPal AI Toolkit, and a full sandbox setup. The chapters are in the video description, so you can jump to what you need.
+ Links from the session: 
+- PayPal Developer Docs [https://developer.paypal.com]
+- PayPal AI Tools [https://developer.paypal.com/ai-tools/get-started]
+- PayPal AI Toolkit (GitHub) [https://github.com/paypal/AI-Toolkit]
+- PayPal Sandbox [https://sandbox.paypal.com]
+- PayPal Postman collection [https://postman.com/paypal]
+- PayPal example code [https://github.com/paypal-examples/docs-examples]
+If you joined live, we'd appreciate your feedback! The survey is short, and your answers help us and PayPal decide what to cover next:
+https://s.zoom.us/m/bPlRzvh1C [https://s.zoom.us/m/bPlRzvh1C]
+ Questions about the hackathon? Post them on the PayPal Discord [https://discord.gg/sJ2G6DyvSK]!
+##### up5.html
+ack to all updates
+ [/updates]
+ about 1 month ago 
+Live Build Session Oct 6 [/updates/46772-live-build-session-oct-6]
+Hi Builders, 
+ PayPal's DevRel team is kicking things off with a live build session before you start building. 
+ Start Building with PayPal 
+ Oct 6 — 9am PT / 12pm ET — Zoom 
+ Jo Franchetti, Marco Podien, and Eddie Jaoude will walk through: 
+ Getting your sandbox environment set up from scratch 
+ The PayPal APIs and SDKs you'll actually use for this hackathon 
+ How to pair them with AI to build agents, automations, and new payment experiences 
+ Live examples going from idea to working prototype 
+ Live Demo + Q&A. Whether you're still deciding what to build or already have an idea, this one's worth your time. 
+ Recording: https://www.youtube.com/watch?v=FFJfCW9z3Do [https://www.youtube.com/watch?v=FFJfCW9z3Do] 
+ Questions? 
+ If you have any questions about the hackathon, please post on the discussion forum [https://paypalaihackathon.devpost.com/forum_topics].
+##### updates.html
+days ago 
+Submission checklist: it's go time! ⏳ [/updates/47307-submission-checklist-it-s-go-time]
+ Hi Builders,
+ One week left! Submissions close Thursday, November 12 at 12:00 pm PST . Submit today to still get an early eligibility check.
+ 📋 Checklist 
+Project meaningfully uses PayPal (sandbox is fine) and AI 
+Judges can run it: hosted demo URL or run instructions in your repo
+Public repo on GitHub, GitLab, or Bitbucket with a README and open source license
+Public YouTube video under 3 minutes 
+Sponsor tools selected on the form if you're going for a sponsor prize
+Teammates invited and accepted 
+ 🔌 Keep your demo, test credentials, and any trials or credits active until winners are…
+ Read more [/updates/47307-submission-checklist-it-s-go-time]
+ 7 days ago 
+Lights, camera, PayPal! Video tips and how judging works 🎬 [/updates/47306-lights-camera-paypal-video-tips-and-how-judging-works]
+ Hi Builders,
+ 10 days to go! Your video is often the first thing judges see, so make it count.
+ 🎬 Video tips 
+ Under 3 minutes , on YouTube , set to public .
+Open with the problem and who it's for, then show PayPal and AI working end to end.
+Cut loading screens and setup steps. An AI voiceover is fine.
+ Upload early. Processing can take hours.
+ 🧑‍⚖️ How judging works 
+ Stage One: after the Nov 12 deadline, the review team checks each project for a working build, a public repo with an open source license, a public video under…
+ Read more [/updates/47306-lights-camera-paypal-video-tips-and-how-judging-works]
+ 12 days ago 
+Two weeks to go: get your project checked early 🥇 [/updates/47305-two-weeks-to-go-get-your-project-checked-early]
+ Hi Builders,
+ Submissions close Thursday, November 12 at 12:00 pm PST . Submit by Thursday, Nov 5 and our review team will check your project for eligibility early and flag anything to fix. You can keep editing until the deadline.
+ 🏆 How to stand out 
+ Make PayPal and AI impossible to miss. Name both in your description, "Built With" section, and video, and show them working.
+ Give judges something to run: a hosted demo URL or clear run instructions in your repo.
+ Hide your API keys. Use environment variables, never commit secrets.
+ 💰 $69,750 in prizes, including $12,000 for 1st…
+ Read more [/updates/47305-two-weeks-to-go-get-your-project-checked-early]
+ about 1 month ago 
+The PayPal build session recording is up [/updates/46851-the-paypal-build-session-recording-is-up]
+ Hi Builders,
+The recording of Start Building with PayPal is now on YouTube: https://bit.ly/paypalai26recue [https://bit.ly/paypalai26recue]
+Jo, Marco, and Eddie from PayPal's DevRel team cover the hackathon rules and prizes, the PayPal AI Toolkit, and a full sandbox setup. The chapters are in the video description, so you can jump to what you need.
+ Links from the session: 
+- PayPal Developer Docs [https://developer.paypal.com]
+- PayPal AI Tools [https://developer.paypal.com/ai-tools/get-started]
+- PayPal AI Toolkit (GitHub) [https://github.com/paypal/AI-Toolkit]
+- PayPal Sandbox [https://sandbox.paypal.com]
+- PayPal Postman collection [https://postman.com/paypal]
+- PayPal example code [https://github.com/paypal-examples/docs-examples]
+If you joined live, we'd appreciate your feedback! The survey is short, and your answers help us and PayPal decide…
+ Read more [/updates/46851-the-paypal-build-session-recording-is-up]
+ about 1 month ago 
+FAQs [/updates/46849-faqs]
+ Hi everyone!
+ We've started a FAQs page [https://paypalaihackathon.devpost.com/details/faqs] for this hackathon. Please check this page as your question may have already been answered!
+ If you have any questions regarding the Sponsor tools or PayPal, please head over to the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]. 
+ about 1 month ago 
+Live Build Session Oct 6 [/updates/46772-live-build-session-oct-6]
+Hi Builders, 
+ PayPal's DevRel team is kicking things off with a live build session before you start building. 
+ Start Building with PayPal 
+ Oct 6 — 9am PT / 12pm ET — Zoom 
+ Jo Franchetti, Marco Podien, and Eddie Jaoude will walk through: 
+ Getting your sandbox environment set up from scratch 
+ The PayPal APIs and SDKs you'll actually use for this hackathon 
+ How to pair them with AI to build agents, automations, and new payment experiences 
+ Live examples going from idea to working prototype 
+ Live Demo + Q&A. Whether you're still deciding what to build or already have an idea, this …
+ Read more [/updates/46772-live-build-session-oct-6]

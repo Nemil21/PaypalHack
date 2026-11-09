@@ -1,0 +1,55 @@
+ Any questions? Connect with the PayPal and Sponsor teams on the PayPal Discord [https://discord.gg/sJ2G6DyvSK]! 
+ Sponsor Resources 
+AG Grid [https://paypalaihackathon.devpost.com/details/aggrid]
+APIMatic [https://paypalaihackathon.devpost.com/details/apimatic]
+Astropods [https://paypalaihackathon.devpost.com/details/astropods]
+Bryntum [https://paypalaihackathon.devpost.com/details/bryntum]
+Channel3 [https://paypalaihackathon.devpost.com/details/channel3]
+Elastic [https://paypalaihackathon.devpost.com/details/elastic]
+KERNEL [https://paypalaihackathon.devpost.com/details/kernel]
+Postman [https://paypalaihackathon.devpost.com/details/postman]
+Render [https://paypalaihackathon.devpost.com/details/render]
+Zapier [https://paypalaihackathon.devpost.com/details/zapier]
+ Webinars 
+Oct 6th 9am PT - 9:45am PT ~ Start building with PayPal Recording [https://www.google.com/url?q=https://www.youtube.com/watch?v%3DFFJfCW9z3Do&sa=D&source=docs&ust=1791396304192764&usg=AOvVaw1QmtU6wBI4IolP_DEXnkwB]
+Oct 7th 9am PT - 9:30am PT ~ Power Your PayPal Hackathon Project with APIMatic Context Plugins [https://youtu.be/zRWixN68tDg] 
+Oct 12th 7am PT - 7:45am PT ~ Build a payments dashboard without building a dashboard [https://www.youtube.com/watch?v=LGfG44i1Fj8&feature=youtu.be]
+Oct 13th 1am PT - 2am PT ~ Start building with PayPal [https://youtu.be/ck_zyB66p_Y]
+ Core PayPal integration 
+ PayPal Developer docs [https://developer.paypal.com?utm_source=Devpost&utm_medium=LP&utm_campaign=PayPalAIHackathon]
+ PayPal Payments [https://developer.paypal.com/payments/]
+ PayPal Checkout [https://developer.paypal.com/checkout/]
+ PayPal JavaScript SDK v6 [https://developer.paypal.com/sdk/js/]
+ PayPal REST API [https://developer.paypal.com/api/rest/]
+ PayPal Developer Dashboard [https://developer.paypal.com/dashboard/]
+ Getting Started with PayPal sandbox [https://github.com/paypaldev/getting-started-with-paypal-sandbox]
+ Useful payment capabilities 
+ Low-Code/No-Code Solutions [https://developer.paypal.com/payment-links-buttons/overview]
+ Pay Later [https://developer.paypal.com/pay-later/overview]
+ Subscriptions [https://developer.paypal.com/platforms/subscriptions]
+ Invoicing [https://developer.paypal.com/invoicing/about]
+ Payouts [https://developer.paypal.com/docs/payouts/]
+ Disputes [https://developer.paypal.com/platforms/disputes/overview]
+ Donations [https://developer.paypal.com/sdk/donate/]
+ Webhooks [https://developer.paypal.com/api/webhooks/overview]
+ AI and agent development 
+ PayPal AI Toolkit on GitHub [https://github.com/paypal/AI-Toolkit]
+ PayPal AI docs [https://docs.paypal.ai/]
+ PayPal Agent Toolkit quickstart [https://docs.paypal.ai/developer/tools/ai/agent-toolkit-quickstart]
+ PayPal MCP server quickstart [https://docs.paypal.ai/developer/tools/ai/mcp-quickstart]
+ Agent tools reference [https://docs.paypal.ai/developer/tools/ai/agent-tools-ref]
+ Inspiration 
+ AI Agents or Automation 
+ Build autonomous agents or workflows that use PayPal to take action on a user's behalf — not just recommend, but actually transact. Think: an AI agent that shops and checks out for you, a scheduling assistant that pays contractors automatically when a job is marked complete, or two agents negotiating and settling a payment between themselves (agent-to-agent commerce). 
+ Money Movement Experiences 
+ Build a new way to move money that's faster, simpler, or more flexible than what exists today. 
+ Think: an app that lets you send a friend money with just a phone number, a dashboard that shows freelancers every payment they've received across clients, a payout tool for gig workers that pays out the moment a task is approved, splitting a group dinner bill automatically by scanning a receipt, or a fundraising page that lets donors split a donation across multiple causes in one transaction. 
+ Business Solutions 
+ Build tools that help merchants, freelancers, creators, platforms, or marketplace operators run and grow their business. 
+ Think: an invoicing tool built for freelancers who bill in multiple currencies, a tipping or membership payment tool for creators to get paid directly by fans, a marketplace checkout flow that splits payment automatically between a platform and its sellers, or a point-of-sale add-on for small merchants. 
+ Consumer Experiences 
+ Build something that makes it easier for everyday people to pay, get paid, or track their money. 
+ Think: a budgeting app that categorizes PayPal transactions automatically, a "request money" experience embedded in a chat app, or a simpler checkout flow for a niche audience (students, families, seniors) that PayPal doesn't fully serve today. 
+ Social Impact Ideas 
+ Build something that uses PayPal to expand access or drive good in the world. 
+ Think: a donation platform designed for accessibility (screen-reader friendly, multi-language), a microloan or fundraising tool for underbanked users to advance financial inclusion, a nonprofit tool that automates recurring donor payouts to field partners, or a tool that lets neighbors pool money for a shared community or climate project (like a block's solar co-op or a local cleanup fund). 

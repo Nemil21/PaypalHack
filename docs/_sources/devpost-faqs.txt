@@ -1,0 +1,21 @@
+ Any questions not answered here?  Please reach out via the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]!
+ - 
+ Question: Is there a maximum number of members per team?
+ Answer: No. The Official Rules don't set a maximum team size, so you can enter solo, as a team, or as an organization. If you enter as a team, choose one member to be your Representative, who submits the project on the team's behalf. You can also be on more than one team and still enter on your own.
+ -
+ Question: Can I create a PayPal developer account from my country?
+ Answer: To build your project you'll use the free PayPal sandbox, with either an existing PayPal account or a free account [https://developer.paypal.com/]. PayPal account sign-up options vary by country, so if you can't complete sign-up from where you live (for example, your country or phone number isn't offered), please ask the PayPal team in the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK]. Being able to open a PayPal account is separate from hackathon eligibility, which is covered in Section 3 of the Official Rules.
+ -
+ Question: I live in Brazil. Am I eligible to participate?
+ Answer:  No. Section 3 of the Official Rules excludes residents of places where U.S. or local law prohibits participating in or receiving a prize in the hackathon, and Brazil is specifically listed, along with Quebec, Russia, Crimea, Cuba, Iran, North Korea, and any other country comprehensively sanctioned by the U.S. Treasury's Office of Foreign Assets Control (OFAC). This applies to every member of a team. Being able to register on Devpost does not make you eligible. Full rules: https://paypalaihackathon.devpost.com/rules [https://paypalaihackathon.devpost.com/rules]
+ -
+ Question: How do I get access to the sponsor tools, and can I use more than one?
+ Answer:  Each sponsor's page on the hackathon site explains how to access their tools. Using a sponsor tool is optional: any AI tool, model, or platform works, as long as PayPal integration is central to your project. You can use more than one sponsor tool, and you'll be considered for the sponsor prize of each tool you use, but a single project can win at most one Sponsor Prize plus either one Grand Prize or one Honorable Mention Prize (Section 8 of the Official Rules). For help with sponsor tool access or setup, ask in the PayPal Discord [https://discord.com/invite/sJ2G6DyvSK].
+ -
+ Question: How do I join a team or add teammates?
+ Answer:  Teammates are added through your Devpost project, not through an accept/reject button in an email.
+Make sure every teammate has registered for the PayPal AI Hackathon.
+One teammate starts the project from the hackathon site (Enter a submission).
+In the project's team section, invite teammates by email or copy the team invite link and share it.
+Each teammate opens the link while logged in to their own Devpost account and accepts, and they'll appear as team members on the project.
+ -

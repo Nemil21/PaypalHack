@@ -1,0 +1,18 @@
+# PayPal Developer Documentation
+
+> PayPal's developer documentation for integrating payments, managing transactions, and building commerce experiences.
+
+This file describes how the documentation is structured. Each section below links to a detailed index of pages in that area.
+
+## Sections
+
+- [Business — Get Started](/get-started/llms.txt): Account setup, environment configuration, first API request, and PayPal 101 (5 pages)
+- [Business — Payments](/payments/llms.txt): Checkout, cards, digital wallets, payment links, fraud protection, and payment methods (277 pages)
+- [Business — Revenue](/revenue/llms.txt): Invoicing, reports, disputes, subscriptions, payouts, and agentic commerce (118 pages)
+- [Business — Developer Resources](/developer-resources/llms.txt): Developer tools, sandbox testing, legacy integrations, and reference materials (311 pages)
+- [Platforms — Get Started](/platforms/get-started/llms.txt): Platform account setup, seller onboarding, and getting started guides (9 pages)
+- [Platforms — Payments](/platforms/payments/llms.txt): Platform checkout, embedded integrations, plugins, and multi-party payments (147 pages)
+- [Platforms — Revenue](/platforms/revenue/llms.txt): Platform disputes, invoicing, reports, and subscriptions (51 pages)
+- [Platforms — Developer Resources](/platforms/developer-resources/llms.txt): Platform developer resources and troubleshooting guides (1 pages)
+- [Braintree API Reference](/braintree/graphql/reference/llms.txt): Braintree GraphQL types, mutations, queries, and generated API reference (904 pages)
+- [Other](/other/llms.txt): Additional guides and documentation (2985 pages)
