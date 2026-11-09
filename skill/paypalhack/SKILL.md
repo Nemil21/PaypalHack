@@ -44,8 +44,13 @@ Everything the team agent needs about the PayPal AI Hackathon (Devpost, 2026). T
 - Grand: 1st $12,000 · 2nd $8,000 · 3rd $5,000
 - Honorable Mentions, $5,000 each: Most Creative · Most Impactful · Best Demo Delivery · Best Use of PayPal + AI · Best Use of Agentic Commerce
 - Sponsor: AG Grid $5k/$2k/3×$1k · APIMatic 3×($1k + 6 mo Business) · Bryntum 3×$1k · Channel3 $1.5k · Render $1k/$750/$500 credits
-- **Cap per project: 1 Grand OR 1 Honorable Mention, plus 1 Sponsor prize.** Multiple submissions are allowed if substantially different, and each is judged separately.
-- Sponsors with **no prize**: Elastic, Astropods, KERNEL, Postman, Zapier.
+- **Cap per project (Rules §8):** "A project can only win up to one (1) Grand Prize and one (1) Sponsor Prize OR one (1) Honorable Mention Prize and one (1) Sponsor Prize."
+  - That makes the per-project ceiling **$17,000** (1st $12k + AG Grid 1st $5k). This number is derived, not stated in the rules. The Honorable Mention route tops out at $10k ($5k + $5k).
+  - Grand and Honorable Mention are separate groups, and a project can win one or the other, never both. In practice the Honorable Mentions work as the fallback if a project misses the top 3.
+- **Every eligible submission is automatically considered for all Grand and Honorable Mention prizes.** There's no opt-in.
+- **Sponsor prizes:** you can use several sponsor tools. You're considered for each one you **use meaningfully and tick on the submission form**, but you can win only one. Channel3 explicitly rejects projects that only reference it without calling the API.
+- **Multiple submissions (§4):** allowed if each is "unique and substantially different." Each has its own cap. People may be on several teams and also enter solo (§3).
+- Sponsors with **no prize**: Elastic, Astropods, KERNEL, Postman, Zapier. Using them adds zero prize chances.
 
 ## Sponsor quick reference (full detail: references/08-sponsor-tools.md)
 
@@ -79,6 +84,54 @@ Watch trial expirations: the demo must keep working until Dec 21.
 - Not eligible with Reference Transaction / Recurring Payment integrations. It needs a one-time payment integration in the merchant's local currency.
 - Only on HTTPS, client-side only (no SSR). Recalculate amounts server-side. Wrap `fetchContent()` in try/catch (unsupported country/currency throws).
 - US: Pay in 4 ($10–$2,000, every 2 weeks) and Pay Monthly ($49–$10,000, 3/6/12/24 months, APR 9.99–35.99%, WebBank).
+
+## Our team strategy (decided, 2026-11-09)
+
+**Goal: maximize reward.** Every submission is built to compete for **all 3 Grand Prizes AND all 5 Honorable Mentions**, plus up to **5 sponsor prizes** (we can win at most one of them).
+
+### Honorable Mention lanes: the project must be visibly strong in each
+Four Honorable Mentions follow from the judging criteria, so scoring high everywhere covers them. **Agentic Commerce is a theme**, so the project must be agentic commerce at its core or it isn't in that race.
+
+| Honorable Mention | Matching criterion | What the project must clearly show |
+|---|---|---|
+| Best Use of Agentic Commerce | (theme) | An agent that finds, decides, and **pays** in PayPal sandbox, not just recommends |
+| Best Use of PayPal + AI | Technological Implementation | Several PayPal APIs used for real (orders, invoices, payouts, refunds, disputes, webhooks), driven by AI tool calls |
+| Most Impactful | Potential Impact | A named audience with a concrete, measurable pain |
+| Most Creative | Innovation/Idea | Something new: agent-to-agent negotiation and settlement |
+| Best Demo Delivery | Presentation | A tight video under 3 minutes showing money actually moving end to end |
+
+Risk: a project built entirely around one theme can beat an all-rounder in that category, so each lane must be clearly strong, not merely present.
+
+### Concept: an AI purchasing agent for small businesses (café or small shop)
+- **Owner gives an instruction:** e.g. "restock oat milk and cups, under $300, delivered by Friday."
+- **Channel3 finds and compares** products across retailers.
+- **PayPal Agent Toolkit creates and pays orders** within the owner's spend limits; one-tap approval above the limit.
+- **Supplier agent negotiates and settles** the payment with ours (agent-to-agent), with a PayPal invoice issued and paid.
+- **After the purchase:** the agent handles refunds and disputes through the Agent Toolkit.
+- **AG Studio spend dashboard built by the agent:** "spend by supplier this month" becomes a live widget.
+- **Bryntum Scheduler/Calendar** shows restock deliveries, payment due dates, and recurring orders. The agent reschedules when a payment fails or a delivery slips.
+- **Hosted on Render**, with Render Workflows coordinating the agents (gives judges a hosted demo URL).
+- **Built with the APIMatic PayPal Context Plugin** in Claude Code.
+
+### Sponsors: use all 5 that have prizes, and tick all of them on the form
+| Sponsor | Prize | Role in the product |
+|---|---|---|
+| AG Grid | $5k / $2k / 3 × $1k (largest pool, 5 winners) | Spend dashboard built by the agent. Needs custom widgets, theming, and the Studio Agent Framework |
+| Channel3 | $1.5k | Product search (must make real API calls) |
+| Render | $1k / $750 / $500 credits | Hosting + Render Workflows |
+| APIMatic | 3 × $1k + 6 mo Business | Building the PayPal integration (say so in README and video) |
+| Bryntum | 3 × $1k | Delivery and payment schedule |
+| KERNEL (no prize) | Optional only | Lets the agent check out on real retailer sites Channel3 can't buy from |
+| Elastic, Postman, Astropods, Zapier | No prize | Skip. They add no prize chance, cost time, add things that can break, and hurt Design |
+
+**Cut order if time runs short:** KERNEL first, then **Bryntum** ($1k per winner, against AG Grid's $10k pool). Never cut PayPal depth, the agentic payment flow, or the AG Grid polish.
+
+### Execution priorities
+1. The video decides a lot (judges may never run it). Record by **Nov 11**; upload to YouTube early.
+2. Make PayPal and AI unmissable in the description, "Built With", and video. Name every sponsor tool too.
+3. Submit a Devpost draft early and keep editing until **Nov 12, 12:00 pm PST**.
+4. Keep the demo, sandbox creds, and sponsor trials and credits alive until **Dec 21**. AG Grid and Bryntum trials last 45 days, so start them after Nov 6 or extend them.
+5. A second submission is allowed only if it's substantially different. Give it a different Honorable Mention lane so it doesn't compete with this one. Don't split the team unless both can be polished.
 
 ## When writing code for this project
 

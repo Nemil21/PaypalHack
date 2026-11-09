@@ -38,7 +38,16 @@ Use PayPal to expand access or drive good.
 - Nonprofit tool automating recurring donor payouts to field partners
 - Neighbors pooling money for a shared community/climate project (block solar co-op, local cleanup fund)
 
-## Strategy notes (ours, not official)
+## Team strategy (decided 2026-11-09)
+
+The canonical, up-to-date version lives in the skill: `skill/paypalhack/SKILL.md` → "Our team strategy". Summary:
+- **Goal: maximize reward.** Per-project ceiling is **$17k** (1st $12k + AG Grid 1st $5k), derived from Rules §8: one Grand OR one Honorable Mention, plus one Sponsor prize.
+- Every submission is automatically considered for all Grand and Honorable Mention prizes. We design so the project is strong in **all 5 Honorable Mention lanes**. Agentic Commerce is a theme, so the product must be agentic commerce at its core.
+- **Concept:** an AI purchasing agent for small businesses. It finds products with Channel3, pays through the PayPal Agent Toolkit within spend limits, runs agent-to-agent supplier negotiation and settlement with PayPal invoices, handles refunds and disputes, builds an AG Studio spend dashboard, shows a Bryntum delivery and payment schedule, is hosted on Render with Workflows, and is built with the APIMatic Context Plugin.
+- **Sponsors:** use and tick all 5 that have prizes (AG Grid, Channel3, Render, APIMatic, Bryntum). KERNEL is optional. Skip Elastic, Postman, Astropods, Zapier (no prize).
+- **Cut order:** KERNEL → Bryntum. Never cut PayPal depth, the agentic payment flow, or the AG Grid polish.
+
+## Earlier strategy notes (ours, not official)
 
 **Prize-stacking target:** 1 Grand/Honorable + 1 Sponsor. Pick one Honorable Mention lane deliberately — **Best Use of Agentic Commerce** and **Best Use of PayPal + AI** are the most aligned with what PayPal judges are pushing.
 
