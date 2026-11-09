@@ -85,7 +85,7 @@ Watch trial expirations: the demo must keep working until Dec 21.
 - Only on HTTPS, client-side only (no SSR). Recalculate amounts server-side. Wrap `fetchContent()` in try/catch (unsupported country/currency throws).
 - US: Pay in 4 ($10–$2,000, every 2 weeks) and Pay Monthly ($49–$10,000, 3/6/12/24 months, APR 9.99–35.99%, WebBank).
 
-## Our team strategy (decided, 2026-11-09)
+## Our team strategy (updated 2026-11-10)
 
 **Goal: maximize reward.** Every submission is built to compete for **all 3 Grand Prizes AND all 5 Honorable Mentions**, plus up to **5 sponsor prizes** (we can win at most one of them).
 
@@ -102,29 +102,27 @@ Four Honorable Mentions follow from the judging criteria, so scoring high everyw
 
 Risk: a project built entirely around one theme can beat an all-rounder in that category, so each lane must be clearly strong, not merely present.
 
-### Concept: an AI purchasing agent for small businesses (café or small shop)
-- **Owner gives an instruction:** e.g. "restock oat milk and cups, under $300, delivered by Friday."
-- **Channel3 finds and compares** products across retailers.
-- **PayPal Agent Toolkit creates and pays orders** within the owner's spend limits; one-tap approval above the limit.
-- **Supplier agent negotiates and settles** the payment with ours (agent-to-agent), with a PayPal invoice issued and paid.
-- **After the purchase:** the agent handles refunds and disputes through the Agent Toolkit.
-- **AG Studio spend dashboard built by the agent:** "spend by supplier this month" becomes a live widget.
-- **Bryntum Scheduler/Calendar** shows restock deliveries, payment due dates, and recurring orders. The agent reschedules when a payment fails or a delivery slips.
-- **Hosted on Render**, with Render Workflows coordinating the agents (gives judges a hosted demo URL).
-- **Built with the APIMatic PayPal Context Plugin** in Claude Code.
+### Lead submission: Standing Orders (decided 2026-11-10; replaces the café purchasing agent)
+Full spec: references/STANDING-ORDERS.md. API map and risks: references/first-principles/05-gstack-standing-orders.md.
+- **One line:** a private "dark pool" for brand overstock. Shoppers' AI agents place bids backed by **PayPal AUTHORIZE holds**; the brand sees committed demand and clears it without posting a public price (no MAP damage).
+- **Flow:** buyer agent anchors on Channel3 prices → AUTHORIZE hold → Channel3 price webhook voids the hold if a retailer undercuts → outside agents bid via our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) → brand console (AG Grid/AG Studio) with a brand agent → 72-hour uniform-price call auction → Render Workflows captures winners at the clearing price, voids losers, promotes the next bidder on a decline → Payouts to the brand.
+- **Pitch line:** "Agents negotiate by bidding; code clears; PayPal settles."
+- **Status:** conditional GO. Spikes S1 (many holds per buyer) and S3 (fan-out + injected decline + idempotency) must pass; script at `spikes/paypal-spikes.mjs`. Fallback on the same engine: **Fair Drop** (held bids decide limited-restock allocation).
+- **Second submission:** not locked. Candidates ProofLoop or SafeHandoff (references/research/00-shortlist.md); it must lead a different Honorable Mention lane (Most Impactful).
 
-### Sponsors: use all 5 that have prizes, and tick all of them on the form
+### Sponsors for Standing Orders
 | Sponsor | Prize | Role in the product |
 |---|---|---|
-| AG Grid | $5k / $2k / 3 × $1k (largest pool, 5 winners) | Spend dashboard built by the agent. Needs custom widgets, theming, and the Studio Agent Framework |
-| Channel3 | $1.5k | Product search (must make real API calls) |
-| Render | $1k / $750 / $500 credits | Hosting + Render Workflows |
-| APIMatic | 3 × $1k + 6 mo Business | Building the PayPal integration (say so in README and video) |
-| Bryntum | 3 × $1k | Delivery and payment schedule |
-| KERNEL (no prize) | Optional only | Lets the agent check out on real retailer sites Channel3 can't buy from |
-| Elastic, Postman, Astropods, Zapier | No prize | Skip. They add no prize chance, cost time, add things that can break, and hurt Design |
+| AG Grid / AG Studio | $5k / $2k / 3 × $1k (largest pool) | Brand console: held-demand curve, bids grid, clearing simulation. Polish this most. Licence key in `.env` as `AG_GRID_LICENSE_KEY` (trial ends 24 Dec 2026) |
+| Channel3 | $1.5k | Product lookup, live offers, `offer.price.changed` webhooks (real API calls on the critical path) |
+| Render | $1k / $750 / $500 credits | Hosting + Render Workflows clearing fan-out (`idempotencyKey`, retries). Avoid free Postgres (expires ~30 days) |
+| APIMatic | 3 × $1k + 6 mo Business | PayPal Context Plugin used while building the REST money path (say so in README and video) |
+| Bryntum | 3 × $1k | Cut-list item; only if time remains |
+| KERNEL, Elastic, Postman, Astropods, Zapier | No prize | Skip |
 
-**Cut order if time runs short:** KERNEL first, then **Bryntum** ($1k per winner, against AG Grid's $10k pool). Never cut PayPal depth, the agentic payment flow, or the AG Grid polish.
+**Cut order:** reauthorize → multiparty/platform fees → free-form haggling → multi-brand books → Bryntum → pre-season books → Pay Later. Never cut the hold → clear → capture/void → payout path or the AG Grid polish.
+
+**PayPal path:** mostly direct REST, because the Agent Toolkit lacks authorize/capture/void and Payouts. In the sandbox we are merchant of record and pay the brand via Payouts; production would use multiparty (`platform_fees`, delayed disbursement), which needs approved-partner status.
 
 ### Execution priorities
 1. The video decides a lot (judges may never run it). Record by **Nov 11**; upload to YouTube early.
