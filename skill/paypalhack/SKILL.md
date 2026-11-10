@@ -107,7 +107,7 @@ Full spec: references/STANDING-ORDERS.md. API map and risks: references/first-pr
 - **One line:** a private "dark pool" for brand overstock. Shoppers' AI agents place bids backed by **PayPal AUTHORIZE holds**; the brand sees committed demand and clears it without posting a public price (no MAP damage).
 - **Flow:** buyer agent anchors on Channel3 prices → AUTHORIZE hold → Channel3 price webhook voids the hold if a retailer undercuts → outside agents bid via our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) → brand console (AG Grid/AG Studio) with a brand agent → 72-hour uniform-price call auction → Render Workflows captures winners at the clearing price, voids losers, promotes the next bidder on a decline → Payouts to the brand.
 - **Pitch line:** "Agents negotiate by bidding; code clears; PayPal settles."
-- **Status:** conditional GO. Spikes S1 (many holds per buyer) and S3 (fan-out + injected decline + idempotency) must pass; script at `spikes/paypal-spikes.mjs`. Fallback on the same engine: **Fair Drop** (held bids decide limited-restock allocation).
+- **Status:** GO (2026-11-10). Spikes S1, S2, S3-local and S4 passed in sandbox (results in references/STANDING-ORDERS.md §6). Use a US sandbox business account. Script: `spikes/paypal-spikes.mjs`. Fallback on the same engine: **Fair Drop**.
 - **Second submission:** not locked. Candidates ProofLoop or SafeHandoff (references/research/00-shortlist.md); it must lead a different Honorable Mention lane (Most Impactful).
 
 ### Sponsors for Standing Orders

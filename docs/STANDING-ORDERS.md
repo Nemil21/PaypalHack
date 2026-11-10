@@ -2,7 +2,7 @@
 
 > **One line:** Brands clear overstock into money that's already waiting, without ever posting a lower price. Shoppers' AI agents hold the money; PayPal makes every bid real.
 >
-> Status: **conditional GO** (see the day-1 spikes). Derived from first principles in `docs/first-principles/04-matrix-and-ideas.md` and stress-tested in `docs/first-principles/05-gstack-standing-orders.md` (full rounds, fact-checks, API map).
+> Status: **GO** on the money path (spikes passed 2026-11-10, see §6). Derived from first principles in `docs/first-principles/04-matrix-and-ideas.md` and stress-tested in `docs/first-principles/05-gstack-standing-orders.md`.
 
 ## 1. The problem
 - **Brands sit on end-of-life inventory** (last-gen headphones, outdoor gear) every quarter.
@@ -85,6 +85,16 @@ They negotiate through a **structured auction, not chat**:
 | S6 | `platform_fees` + DELAYED disbursement (30-minute timebox) | Production-path note |
 
 Sandbox credentials go in `.env` (git-ignored). Never commit them.
+
+**Results, 2026-11-10** (`node spikes/paypal-spikes.mjs all`, US sandbox business account, card payment source):
+- **S1 PASS:** 10 holds on one card; 6 partial `final_capture`s at $219…$214 all COMPLETED; 4 voids.
+- **S2 PASS:** card vaulted on the first hold; merchant-initiated hold from `vault_id` (no buyer present) CREATED.
+- **S3 local PASS:** 50 parallel holds; 39 captures + 10 voids settled, the injected `INSTRUMENT_DECLINED` caught on the right bid; replaying a capture with the same `PayPal-Request-Id` returned the same capture id. The Render Workflows half is still to do.
+- **S4 PASS:** Payouts to the sandbox brand account returned 201 (batch PENDING).
+- Gotcha: an India (IN) sandbox business account fails card holds (`PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING`) and Payouts (`PAYOUT_NOT_AVAILABLE`). Use a **US** business account.
+- Not yet tested: PayPal-wallet holds (need buyer approval in a browser), S5 Channel3 webhook, S6 `platform_fees`.
+
+**Verdict: GO** on the money path.
 
 ## 7. Demo (≤ 3:00), beat by beat
 1. **The brand's problem:** 300 units, a $38-a-unit liquidator quote, MAP risk.
