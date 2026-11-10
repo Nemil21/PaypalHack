@@ -117,10 +117,10 @@ Full spec: references/STANDING-ORDERS.md. API map and risks: references/first-pr
 | Channel3 | $1.5k | Product lookup, live offers, `offer.price.changed` webhooks (real API calls on the critical path) |
 | Render | $1k / $750 / $500 credits | Hosting + Render Workflows clearing fan-out (`idempotencyKey`, retries). Avoid free Postgres (expires ~30 days) |
 | APIMatic | 3 × $1k + 6 mo Business | PayPal Context Plugin used while building the REST money path (say so in README and video) |
-| Bryntum | 3 × $1k | Cut-list item; only if time remains |
+| Bryntum | 3 × $1k | **Bryntum Gantt = order-status timeline** (window → capture fan-out → payout → shipping) on console, settlement, payouts and shopper bid detail |
 | KERNEL, Elastic, Postman, Astropods, Zapier | No prize | Skip |
 
-**Cut order:** reauthorize → multiparty/platform fees → free-form haggling → multi-brand books → Bryntum → pre-season books → Pay Later. Never cut the hold → clear → capture/void → payout path or the AG Grid polish.
+**Cut order:** reauthorize → multiparty/platform fees → free-form haggling → multi-brand books → pre-season books → Pay Later. Never cut the hold → clear → capture/void → payout path or the AG Grid polish.
 
 **PayPal path:** mostly direct REST, because the Agent Toolkit lacks authorize/capture/void and Payouts. In the sandbox we are merchant of record and pay the brand via Payouts; production would use multiparty (`platform_fees`, delayed disbursement), which needs approved-partner status.
 

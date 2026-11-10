@@ -134,7 +134,8 @@ P0 = must ship for the demo. P1 = ship if time allows. P2 = describe in README o
 - [ ] Video under 3 min, public on YouTube.
 
 ## Designs
-All screens are in Figma: file **PayPal-Hack26** (https://www.figma.com/design/BRS9LZjjFKWxvZqv5sQZcG/PayPal-Hack26), page **"Standing Orders — UI"**.
-- Boards: 00 Foundations · 01 Web Marketing & Brand (W01–W11) · 02 Web Shopper (W12–W18) · 03 Web Developers, Ops & States (W19–W21) · 04 Mobile Shopper (M01–M09, M12) · 05 Mobile Brand & Notifications (M10a, M10b, M11).
-- W05 is split into W05a (product match) and W05b (terms & review); M10 into M10a (lock-screen alert) and M10b (approve clear).
-- Type: Instrument Sans (headings/UI) + Geist Mono (labels). Backgrounds come from the file's "bgs" page.
+Figma file **PayPal-Hack26** (https://www.figma.com/design/BRS9LZjjFKWxvZqv5sQZcG/PayPal-Hack26):
+- **SO v2 — Design System**: semantic colour variables (sampled from the "bgs" paintings: night indigo, ridge violet, meadow periwinkle, grass gold), space/radius variables, effect styles, 36 icons, and components with state variants wired for Smart Animate (Button, Badge, Toggle, Chip, Input, Stat tile, Nav item, Sidebar, Tab item/bar, Status bar, Toast + Toast host, Demand chart Loading→Live, Progress, Gantt bar (Bryntum), Marketing nav). Type + motion specs included.
+- **SO v2 — Screens**: all web (W01–W21) and mobile (M01–M12) screens in Sections, built only from those components, with prototype links between steps.
+- **Standing Orders — UI v1 (archive)**: first pass, kept for reference only.
+- Order status everywhere uses a **Bryntum Gantt** (window → price watch → signal → lock → capture fan-out → payout → shipping).

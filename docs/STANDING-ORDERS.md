@@ -59,6 +59,7 @@ They negotiate through a **structured auction, not chat**:
 | Brand console | **AG Grid + AG Charts + AG Studio** agent | Demand curve, bids grid, clearing simulation, Clear button (largest prize pool, so polish it) |
 | Clearing | **Render** web service + **Render Workflows** | One task per authorization, retries, `idempotencyKey`, next-bidder promotion |
 | Agents | Claude (buyer agent, brand agent) + our **MCP server** | Bidding, protection, recommendations; outside-agent access |
+| Order status | **Bryntum Gantt** | Window timeline (open → price watch → signal → lock → capture fan-out → payout → shipping) on the brand console, settlement view, payouts, and the shopper's bid detail |
 | Build | **APIMatic** PayPal Context Plugin | Grounds our coding agents while writing the REST money path (say so in the README) |
 
 **Sandbox reality:** Channel3 offers are affiliate links, so in the demo **we are the merchant of record** and pay the sandbox brand through Payouts. Production would use PayPal multiparty (partner referrals, `platform_fees`, delayed disbursement), which needs approved-partner status. That's documented as the production path.
@@ -72,7 +73,7 @@ They negotiate through a **structured auction, not chat**:
 5. The MCP server, with a Claude Desktop bid.
 6. Honest UX copy ("held, not charged") and an honest README.
 
-**Cut first:** reauthorize (untestable before the deadline) → multiparty / platform fees → free-form haggling → multi-brand books → Bryntum / KERNEL / Zapier / Elastic → pre-season books → Pay Later.
+**Cut first:** reauthorize (untestable before the deadline) → multiparty / platform fees → free-form haggling → multi-brand books → KERNEL / Zapier / Elastic → pre-season books → Pay Later.
 
 ## 6. Day-1 spikes (go/no-go)
 | # | Test | Why |
