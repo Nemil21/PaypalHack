@@ -1,6 +1,7 @@
 {
   "name": "holdfast",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Holdfast: brands clear overstock into money that's already waiting.",
   "engines": {
