@@ -1,0 +1,49 @@
+{
+  "id": "WH-0HF033PAYOUTDENIED01",
+  "event_version": "1.0",
+  "create_time": "2026-11-11T13:21:29Z",
+  "resource_type": "payouts",
+  "resource_version": "1.0",
+  "event_type": "PAYMENT.PAYOUTSBATCH.DENIED",
+  "summary": "Payouts batch got denied.",
+  "resource": {
+    "batch_header": {
+      "payout_batch_id": "5UXD2E8A7EBQJ",
+      "batch_status": "DENIED",
+      "time_created": "2026-11-11T13:21:00Z",
+      "time_completed": "2026-11-11T13:21:29Z",
+      "sender_batch_header": {
+        "sender_batch_id": "00000000-0000-4000-8000-000000000000:1",
+        "email_subject": "Your Holdfast payout"
+      },
+      "amount": {
+        "currency": "USD",
+        "value": "1000.00"
+      },
+      "fees": {
+        "currency": "USD",
+        "value": "0.25"
+      },
+      "payments": 1
+    },
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v1/payments/payouts/5UXD2E8A7EBQJ",
+        "rel": "self",
+        "method": "GET"
+      }
+    ]
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033PAYOUTDENIED01",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033PAYOUTDENIED01/resend",
+      "rel": "resend",
+      "method": "POST"
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "id": "WH-0HF033AUTHVOIDED0001",
+  "event_version": "1.0",
+  "create_time": "2026-11-11T17:15:44Z",
+  "resource_type": "authorization",
+  "resource_version": "2.0",
+  "event_type": "PAYMENT.AUTHORIZATION.VOIDED",
+  "summary": "A payment authorization was voided",
+  "resource": {
+    "id": "6P562205412054447",
+    "status": "VOIDED",
+    "amount": {
+      "currency_code": "USD",
+      "value": "219.00"
+    },
+    "invoice_id": "0b0e54b4-1b5a-4b76-bbec-e65c25710ab5",
+    "custom_id": "0b0e54b4-1b5a-4b76-bbec-e65c25710ab5",
+    "seller_protection": {
+      "status": "NOT_ELIGIBLE"
+    },
+    "processor_response": {
+      "avs_code": "",
+      "cvv_code": "M",
+      "response_code": "0000"
+    },
+    "supplementary_data": {
+      "related_ids": {
+        "order_id": "4N164189C8142250N"
+      }
+    },
+    "payee": {
+      "email_address": "merchant@business.example.com",
+      "merchant_id": "3577KX6N3L5AY"
+    },
+    "expiration_time": "2026-12-10T17:15:42Z",
+    "create_time": "2026-11-11T17:15:42Z",
+    "update_time": "2026-11-11T17:15:44Z",
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/6P562205412054447",
+        "rel": "self",
+        "method": "GET"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/6P562205412054447/capture",
+        "rel": "capture",
+        "method": "POST"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/6P562205412054447/void",
+        "rel": "void",
+        "method": "POST"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/6P562205412054447/reauthorize",
+        "rel": "reauthorize",
+        "method": "POST"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/4N164189C8142250N",
+        "rel": "up",
+        "method": "GET"
+      }
+    ]
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033AUTHVOIDED0001",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033AUTHVOIDED0001/resend",
+      "rel": "resend",
+      "method": "POST"
+    }
+  ]
+}

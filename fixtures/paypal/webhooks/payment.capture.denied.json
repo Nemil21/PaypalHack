@@ -1,0 +1,65 @@
+{
+  "id": "WH-0HF033CAPDENIED00001",
+  "event_version": "1.0",
+  "create_time": "2026-11-11T17:15:38Z",
+  "resource_type": "capture",
+  "resource_version": "2.0",
+  "event_type": "PAYMENT.CAPTURE.DENIED",
+  "summary": "Payment denied for $ 219.0 USD",
+  "resource": {
+    "id": "90Y08719AU802670V",
+    "amount": {
+      "currency_code": "USD",
+      "value": "219.00"
+    },
+    "final_capture": true,
+    "seller_protection": {
+      "status": "NOT_ELIGIBLE"
+    },
+    "disbursement_mode": "INSTANT",
+    "invoice_id": "6a9ec615-f5a9-4e98-aa45-588f190dda15",
+    "custom_id": "6a9ec615-f5a9-4e98-aa45-588f190dda15",
+    "status": "DECLINED",
+    "processor_response": {
+      "avs_code": "",
+      "cvv_code": "M",
+      "response_code": "0000"
+    },
+    "supplementary_data": {
+      "related_ids": {
+        "order_id": "6RD332022X242781T",
+        "authorization_id": "32L18808C7119720N"
+      }
+    },
+    "payee": {
+      "email_address": "merchant@business.example.com",
+      "merchant_id": "3577KX6N3L5AY"
+    },
+    "create_time": "2026-11-11T17:15:38Z",
+    "update_time": "2026-11-11T17:15:38Z",
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/captures/90Y08719AU802670V",
+        "rel": "self",
+        "method": "GET"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/32L18808C7119720N",
+        "rel": "up",
+        "method": "GET"
+      }
+    ]
+  },
+  "links": [
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033CAPDENIED00001",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api.sandbox.paypal.com/v1/notifications/webhooks-events/WH-0HF033CAPDENIED00001/resend",
+      "rel": "resend",
+      "method": "POST"
+    }
+  ]
+}
