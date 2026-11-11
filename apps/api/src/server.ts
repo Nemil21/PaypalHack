@@ -10,6 +10,7 @@ import { isCsrfAndKeyExempt, isMutating, isRestLimited, pathOf } from './http/pa
 import { applyRateDecision, RateLimiter } from './http/rate-limit.js';
 import { loggerOptions } from './http/redact.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
+import { registerBookRoutes } from './routes/book.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
@@ -82,6 +83,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   registerHealthz(app, deps.db);
   if (deps.clear) registerClearRoute(app, deps.clear);
   if (deps.bids) registerBidRoutes(app, deps.bids);
+  if (deps.sql) registerBookRoutes(app, deps.sql);
 
   registerAuthRoutes(app, {
     config,
