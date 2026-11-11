@@ -11,6 +11,8 @@ export const paths = {
   brandPayouts: '/brand/payouts',
   brandEmbed: '/brand/embed',
   brandSettings: '/brand/settings',
+  /** Invite link landing (HF-056): `/brand/join#hfi_…`. */
+  brandJoin: '/brand/join',
   listingConsole: (id: string) => `/brand/listings/${encodeURIComponent(id)}`,
   listingSettlement: (id: string) => `/brand/listings/${encodeURIComponent(id)}/settlement`,
   offer: (slug: string) => `/o/${encodeURIComponent(slug)}`,

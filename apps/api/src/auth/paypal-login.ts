@@ -227,11 +227,37 @@ function sealKey(secret: string, purpose: string): Buffer {
   return createHmac('sha256', secret).update(`holdfast:${purpose}`).digest();
 }
 
-export function sealPending(secret: string, identity: PendingBrandIdentity): string {
+function seal(secret: string, purpose: string, value: object): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', sealKey(secret, 'brand-pending'), iv);
-  const body = Buffer.concat([cipher.update(JSON.stringify(identity), 'utf8'), cipher.final()]);
+  const cipher = createCipheriv('aes-256-gcm', sealKey(secret, purpose), iv);
+  const body = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64url');
+}
+
+/** The sealed JSON object, or null when malformed, forged or sealed for another purpose. */
+function unseal(
+  secret: string,
+  purpose: string,
+  sealed: string | undefined,
+): Record<string, unknown> | null {
+  if (!sealed || sealed.length > 4096) return null;
+  try {
+    const raw = Buffer.from(sealed, 'base64url');
+    if (raw.length < 29) return null;
+    const decipher = createDecipheriv('aes-256-gcm', sealKey(secret, purpose), raw.subarray(0, 12));
+    decipher.setAuthTag(raw.subarray(12, 28));
+    const text = Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString(
+      'utf8',
+    );
+    const v = JSON.parse(text) as unknown;
+    return v && typeof v === 'object' ? (v as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function sealPending(secret: string, identity: PendingBrandIdentity): string {
+  return seal(secret, 'brand-pending', identity);
 }
 
 export function openPending(
@@ -239,30 +265,56 @@ export function openPending(
   sealed: string | undefined,
   now: number = Date.now(),
 ): PendingBrandIdentity | null {
-  if (!sealed || sealed.length > 4096) return null;
-  try {
-    const raw = Buffer.from(sealed, 'base64url');
-    if (raw.length < 29) return null;
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      sealKey(secret, 'brand-pending'),
-      raw.subarray(0, 12),
-    );
-    decipher.setAuthTag(raw.subarray(12, 28));
-    const text = Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString(
-      'utf8',
-    );
-    const v = JSON.parse(text) as Partial<PendingBrandIdentity>;
-    if (typeof v.email !== 'string' || typeof v.exp !== 'number' || v.exp <= now) return null;
-    return {
-      email: v.email,
-      payerId: typeof v.payerId === 'string' ? v.payerId : null,
-      name: typeof v.name === 'string' ? v.name : null,
-      exp: v.exp,
-    };
-  } catch {
+  const v = unseal(secret, 'brand-pending', sealed);
+  if (!v || typeof v.email !== 'string' || typeof v.exp !== 'number' || v.exp <= now) return null;
+  return {
+    email: v.email,
+    payerId: typeof v.payerId === 'string' ? v.payerId : null,
+    name: typeof v.name === 'string' ? v.name : null,
+    exp: v.exp,
+  };
+}
+
+// --- Payout account re-login (HF-056) ---------------------------------------------------------
+
+/**
+ * W11 "Change payout account": an OWNER signs in with PayPal again, as the account payouts should
+ * go to. The fresh identity is kept for 10 minutes in a sealed cookie bound to that OWNER's
+ * `brand_users.id`; `POST /api/brands/me/payout-account` consumes it.
+ */
+export interface PayoutReauthIdentity {
+  brandUserId: string;
+  email: string;
+  payerId: string | null;
+  /** Expiry, epoch ms. */
+  exp: number;
+}
+
+export function sealPayoutReauth(secret: string, identity: PayoutReauthIdentity): string {
+  return seal(secret, 'payout-reauth', identity);
+}
+
+export function openPayoutReauth(
+  secret: string,
+  sealed: string | undefined,
+  now: number = Date.now(),
+): PayoutReauthIdentity | null {
+  const v = unseal(secret, 'payout-reauth', sealed);
+  if (
+    !v ||
+    typeof v.brandUserId !== 'string' ||
+    typeof v.email !== 'string' ||
+    typeof v.exp !== 'number' ||
+    v.exp <= now
+  ) {
     return null;
   }
+  return {
+    brandUserId: v.brandUserId,
+    email: v.email,
+    payerId: typeof v.payerId === 'string' ? v.payerId : null,
+    exp: v.exp,
+  };
 }
 
 /** Constant-time string compare for the OAuth `state`. */

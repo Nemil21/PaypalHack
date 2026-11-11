@@ -26,6 +26,10 @@ import { registerBookRoutes } from './routes/book.js';
 import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
+import {
+  registerBrandSettingsRoutes,
+  type BrandSettingsRouteDeps,
+} from './routes/brand-settings.js';
 import { registerAdminPriceEventRoutes } from './routes/admin-price-events.js';
 import {
   registerChannel3WebhookRoute,
@@ -112,6 +116,8 @@ export interface ServerDeps {
   priceWatch?: PriceWatchDeps;
   /** Test overrides for the Channel3 webhook route (secret, schedule, clock). */
   channel3Webhook?: Partial<Omit<Channel3WebhookRouteDeps, keyof PriceWatchDeps>>;
+  /** W11 settings (HF-056): the DNS TXT resolver (default `dns.promises`), re-check gap, clock. */
+  brandSettings?: Pick<BrandSettingsRouteDeps, 'resolveTxt' | 'recheckMs' | 'now'>;
 }
 
 /**
@@ -181,6 +187,10 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });
+  // W11 settings (HF-056): team + invite links, allowlist, DNS check, payout account.
+  if (deps.sql) {
+    registerBrandSettingsRoutes(app, { db: deps.sql, config, sessions, ...deps.brandSettings });
+  }
   if (deps.priceWatch) {
     registerAdminPriceEventRoutes(app, deps.priceWatch);
     registerChannel3WebhookRoute(app, {

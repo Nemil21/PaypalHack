@@ -5,10 +5,10 @@ import type { Db, Queryable } from '../db.js';
 /**
  * Brand verification (HF-011a; features/01-brand-onboarding.md §Logic 0, 5–6).
  *
- * A brand becomes VERIFIED only through admin approval: `POST /api/admin/brands/:id/verify`
- * (session email in `ADMIN_EMAILS`, D13) or `npm run admin:verify <domain>`. Both call
- * `verifyBrand`. The DNS TXT check (HF-056) will call it too. Publishing is gated on the result
- * by `assertBrandVerified` / `lockVerifiedBrand` (used by HF-012a).
+ * A brand becomes VERIFIED through admin approval (`POST /api/admin/brands/:id/verify`, session
+ * email in `ADMIN_EMAILS`, D13, or `npm run admin:verify <domain>`) or through the DNS TXT check
+ * (HF-056, `checkDnsVerification`). All of them call `verifyBrand`. Publishing is gated on the
+ * result by `assertBrandVerified` / `lockVerifiedBrand` (used by HF-012a).
  */
 
 export const BRAND_VERIFICATION_STATUSES = ['PENDING', 'VERIFIED', 'REJECTED'] as const;
@@ -27,6 +27,9 @@ export type VerifyActor =
   { type: 'BRAND_USER'; id: string } | { type: 'SYSTEM'; via: 'cli' | (string & {}) };
 
 export type VerifyBrandTarget = { brandId: string } | { domain: string };
+
+/** How the brand proved itself: an admin approval, or its DNS TXT record (HF-056). */
+export type VerifyMethod = 'ADMIN' | 'DNS_TXT';
 
 export type VerifyBrandResult =
   | { ok: true; brand: BrandVerificationView; changed: boolean }
@@ -60,6 +63,7 @@ export async function verifyBrand(
   db: Db,
   target: VerifyBrandTarget,
   actor: VerifyActor,
+  method: VerifyMethod = 'ADMIN',
 ): Promise<VerifyBrandResult> {
   return db.tx(async (tx) => {
     const brandId = await resolveBrandId(tx, target);
@@ -81,7 +85,8 @@ export async function verifyBrand(
         entityId: brand.id,
         action: 'BRAND_VERIFIED',
         data: {
-          admin: true,
+          admin: method === 'ADMIN',
+          ...(method === 'ADMIN' ? {} : { method }),
           via: actor.type === 'BRAND_USER' ? 'api' : actor.via,
           from: 'PENDING',
           domain: brand.domain,

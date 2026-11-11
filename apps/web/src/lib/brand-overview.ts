@@ -13,13 +13,13 @@ import { paths } from './routes';
  * gating are unit-tested without a DOM.
  */
 
-/** Left nav. Payouts / Embed / Settings land with HF-059b / HF-055 / HF-056 (placeholders now). */
+/** Left nav. Payouts lands with HF-059b (placeholder now); Embed is HF-055, Settings HF-056. */
 export const BRAND_NAV: ReadonlyArray<{ label: string; to: string; soon?: string }> = [
   { label: 'Overview', to: paths.brand },
   { label: 'Listings', to: `${paths.brand}#listings` },
   { label: 'Payouts', to: paths.brandPayouts, soon: 'HF-059b' },
   { label: 'Embed', to: paths.brandEmbed },
-  { label: 'Settings', to: paths.brandSettings, soon: 'HF-056' },
+  { label: 'Settings', to: paths.brandSettings },
 ];
 
 /** Re-read the overview at least this often, even with no SSE notice (payout polls, expiry). */

@@ -20,6 +20,7 @@ import {
   type OnboardingStep,
   type VerificationStatus,
 } from '../../lib/brand-onboarding';
+import { dnsCheckMessage, type DnsCheckAnswer } from '../../lib/brand-settings';
 import { cn } from '../../lib/cn';
 import { paths } from '../../lib/routes';
 
@@ -28,7 +29,8 @@ import { paths } from '../../lib/routes';
  * Company → Domain → Payout. Step 1 upserts the PENDING brand (`POST /api/brands/verification`),
  * which also swaps HF-010's pending PayPal identity for a brand session, so brand endpoints work
  * from here on without signing in again. Verification is an admin approval in the demo
- * ("Verified by Holdfast team"); admins see "Verify now" (HF-011a). The DNS TXT check is HF-056.
+ * ("Verified by Holdfast team"); admins see "Verify now" (HF-011a). "Check now" and the 30 s
+ * re-check look up the DNS TXT record (`POST /api/brands/verification/check`, HF-056).
  */
 
 type Load =
@@ -48,6 +50,7 @@ export function BrandOnboarding() {
   const [errors, setErrors] = useState<CompanyErrors>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | 'next' | 'exit' | 'verify' | 'check'>(null);
+  const [dnsAnswer, setDnsAnswer] = useState<DnsCheckAnswer | null>(null);
   // One action per distinct body: retries of the same save share an Idempotency-Key.
   const saver = useMemo(() => new ApiAction(api), []);
   const verifier = useMemo(() => new ApiAction(api), []);
@@ -95,12 +98,22 @@ export function BrandOnboarding() {
     return fresh;
   }, [fetchState]);
 
-  // While PENDING on the domain step, re-check every 30 s (admin approval lands here).
+  /** DNS TXT lookup (HF-056), then a reload (an admin approval also lands this way). */
+  const dnsCheck = useCallback(async () => {
+    const answer = await new ApiAction(api).run<DnsCheckAnswer>({
+      method: 'POST',
+      path: '/api/brands/verification/check',
+    });
+    setDnsAnswer(answer);
+    return recheck();
+  }, [recheck]);
+
+  // While PENDING on the domain step, re-check every 30 s.
   useEffect(() => {
     if (step !== 1 || !pending) return;
-    const t = setInterval(() => void recheck().catch(() => undefined), RECHECK_MS);
+    const t = setInterval(() => void dnsCheck().catch(() => undefined), RECHECK_MS);
     return () => clearInterval(t);
-  }, [step, pending, recheck]);
+  }, [step, pending, dnsCheck]);
 
   if (load.state === 'loading') {
     return (
@@ -187,7 +200,7 @@ export function BrandOnboarding() {
     if (busy) return;
     setBusy('check');
     try {
-      await recheck();
+      await dnsCheck();
     } catch (err) {
       setSaveError(toApiError(err).message);
     } finally {
@@ -227,6 +240,7 @@ export function BrandOnboarding() {
             brand={brand}
             isAdmin={isAdmin}
             busy={busy}
+            dnsAnswer={dnsAnswer}
             onCheck={checkNow}
             onVerify={verifyNow}
           />
@@ -367,12 +381,14 @@ function DomainStep({
   brand,
   isAdmin,
   busy,
+  dnsAnswer,
   onCheck,
   onVerify,
 }: {
   brand: OnboardingBrand;
   isAdmin: boolean;
   busy: string | null;
+  dnsAnswer: DnsCheckAnswer | null;
   onCheck(): void;
   onVerify(): void;
 }) {
@@ -409,14 +425,16 @@ function DomainStep({
         >
           <p className="label text-[12px] text-orange">Pending</p>
           <p className="text-[14px] text-ink">
-            DNS changes can take up to an hour. During the demo the Holdfast team verifies brands by
-            hand; this page re-checks every 30 seconds.
+            {dnsAnswer
+              ? dnsCheckMessage(dnsAnswer)
+              : 'DNS changes can take up to an hour; this page re-checks every 30 seconds.'}{' '}
+            During the demo the Holdfast team can also verify brands by hand.
           </p>
         </div>
       )}
       {brand.verificationStatus === 'VERIFIED' && (
         <p role="status" className="text-[14px] text-success">
-          Verified by Holdfast team.
+          {dnsAnswer?.verified ? 'Verified: we found your TXT record.' : 'Verified.'}
         </p>
       )}
 
@@ -470,7 +488,7 @@ function VerifiedCard({ brand }: { brand: OnboardingBrand }) {
       className="mb-6 flex flex-col gap-3 border border-success/40 bg-white p-5 sm:flex-row sm:items-center sm:justify-between"
     >
       <div className="flex flex-col gap-1">
-        <p className="label text-[12px] text-success">Verified by Holdfast team</p>
+        <p className="label text-[12px] text-success">Brand verified</p>
         <p className="text-[15px] text-ink">
           {brand.name} is verified. Shoppers see the Verified brand badge on your offers.
         </p>
