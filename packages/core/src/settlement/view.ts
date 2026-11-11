@@ -1,4 +1,10 @@
-import type { SettlementCounts, SettlementRow } from '@holdfast/shared';
+import type {
+  ListingStatus,
+  PayoutStatus,
+  SettlementCounts,
+  SettlementRow,
+  SettlementView,
+} from '@holdfast/shared';
 import type { Queryable } from '../db.js';
 import { emit } from '../money/emit.js';
 
@@ -127,4 +133,100 @@ export async function emitSettlementUpdated(
     row,
     counts,
   });
+}
+
+/**
+ * `GET /api/listings/:id/settlement` (HF-030a): the `SettlementView` payload W08 (HF-035) renders.
+ * `brandId` scopes the read to one tenant (another brand's listing is null, like a missing one);
+ * pass null for admin reads.
+ */
+export async function loadSettlementView(
+  q: Queryable,
+  listingId: string,
+  brandId: string | null,
+): Promise<SettlementView | null> {
+  const head = (
+    await q.query(
+      `SELECT l.status, coalesce(l.cleared_quantity, l.quantity) AS quantity, l.gross_cents,
+              l.cutoff_cents, br.fee_bps, l.updated_at,
+              (SELECT coalesce(sum(s.amount_cents), 0)::int FROM settlements s
+                WHERE s.listing_id = l.id AND s.action = 'CAPTURE' AND s.status = 'SUCCEEDED')
+                AS captured_cents,
+              (SELECT count(*)::int FROM (
+                 SELECT b.unit_root_bid_id FROM bids b
+                   JOIN settlements s ON s.bid_id = b.id AND s.action = 'CAPTURE'
+                  WHERE b.listing_id = l.id AND b.unit_root_bid_id IS NOT NULL
+                  GROUP BY b.unit_root_bid_id
+                 HAVING bool_and(s.status IN ('FAILED', 'CANCELLED'))) u) AS unfilled_units,
+              (SELECT max(s.updated_at) FROM settlements s WHERE s.listing_id = l.id)
+                AS settlements_updated_at
+         FROM listings l JOIN brands br ON br.id = l.brand_id
+        WHERE l.id = $1 AND ($2::uuid IS NULL OR l.brand_id = $2::uuid)`,
+      [listingId, brandId],
+    )
+  ).rows[0] as
+    | {
+        status: ListingStatus;
+        quantity: number;
+        gross_cents: number | null;
+        cutoff_cents: number | null;
+        fee_bps: number;
+        updated_at: Date;
+        captured_cents: number;
+        unfilled_units: number;
+        settlements_updated_at: Date | null;
+      }
+    | undefined;
+  if (!head) return null;
+
+  const [rows, counts, payoutRes] = await Promise.all([
+    settlementRows(q, listingId),
+    settlementCounts(q, listingId),
+    q.query(
+      `SELECT id, attempt, status, gross_cents, fee_cents, net_cents, paypal_batch_id, item_status,
+              error_code
+         FROM payouts WHERE listing_id = $1 ORDER BY attempt DESC LIMIT 1`,
+      [listingId],
+    ),
+  ]);
+  const p = payoutRes.rows[0] as
+    | {
+        id: string;
+        attempt: number;
+        status: PayoutStatus;
+        gross_cents: number | null;
+        fee_cents: number | null;
+        net_cents: number | null;
+        paypal_batch_id: string | null;
+        item_status: string | null;
+        error_code: string | null;
+      }
+    | undefined;
+  const updated = [head.updated_at, head.settlements_updated_at].filter((d): d is Date => !!d);
+  return {
+    listingId,
+    listingStatus: head.status,
+    quantity: head.quantity,
+    unfilledUnits: head.unfilled_units,
+    clearedCents: head.gross_cents ?? 0,
+    capturedCents: head.captured_cents,
+    cutoffCents: head.cutoff_cents,
+    feeBps: head.fee_bps,
+    counts,
+    rows,
+    payout: p
+      ? {
+          payoutId: p.id,
+          attempt: p.attempt,
+          status: p.status,
+          grossCents: p.gross_cents ?? 0,
+          feeCents: p.fee_cents ?? 0,
+          netCents: p.net_cents ?? 0,
+          paypalBatchId: p.paypal_batch_id,
+          itemStatus: p.item_status,
+          failureReason: p.error_code,
+        }
+      : null,
+    updatedAt: new Date(Math.max(...updated.map((d) => d.getTime()))).toISOString(),
+  };
 }
