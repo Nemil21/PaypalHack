@@ -17,6 +17,14 @@ const toApi: ProxyOptions = {
   },
 };
 
+// HF-036a fixture replay (`npm run dev:rounds-replay -- --serve 4036`): with ROUNDS_REPLAY_PORT
+// set, listing event streams come from the replay instead of the API; everything else (the book,
+// the rounds buttons) still goes to the API. Dev only.
+const replayPort = process.env.ROUNDS_REPLAY_PORT;
+const replayProxy: Record<string, ProxyOptions> = replayPort
+  ? { '^/api/listings/[^/]+/events': { target: `http://127.0.0.1:${replayPort}` } }
+  : {};
+
 // `source` resolves workspace packages to their TypeScript sources, so the browser bundle is
 // built from packages/shared/src directly. No Node polyfills are configured: if shared ever
 // imports a Node built-in, this build breaks (see HF-001).
@@ -25,7 +33,8 @@ export default defineConfig({
   resolve: { conditions: ['source', ...defaultClientConditions] },
   server: {
     port: 5173,
-    proxy: { '/api': toApi, '/mcp': toApi, '/webhooks': toApi },
+    // Insertion order matters: the replay route must be tried before `/api`.
+    proxy: { ...replayProxy, '/api': toApi, '/mcp': toApi, '/webhooks': toApi },
   },
   build: {
     outDir: 'dist',

@@ -3,6 +3,8 @@ import {
   LISTING_EVENT_TYPES,
   LISTING_EVENTS_RESYNC,
   listingEventNoticeSchema,
+  listingEventSchema,
+  type ListingEvent,
   type ListingEventNotice,
 } from '@holdfast/shared';
 
@@ -12,7 +14,9 @@ import {
  *
  * The server sends named frames (`event: bid.held`) whose data is the small notice
  * `{listingId, type, ids}`: which entities changed, never the details. Handlers re-fetch (debounced)
- * on each notice. Frames that don't parse as a `ListingEventNotice` are dropped. The browser's
+ * on each notice. The HF-036a fixture replay (`dev:rounds-replay`) sends full `ListingEvent`s
+ * instead: those are turned into the same notice and also handed over as `event`, so the console
+ * can show the replayed round without a matching book. Frames that parse as neither are dropped. The browser's
  * EventSource reconnects by itself; on every reconnect, and on a server `resync` frame (its LISTEN
  * connection dropped), we call `onReconnect` because notices may have been missed.
  */
@@ -20,7 +24,8 @@ import {
 export type ListingEventsStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 export interface ListingEventHandlers {
-  onEvent: (notice: ListingEventNotice) => void;
+  /** `event` is set only for full events (the fixture replay), never for the server's notices. */
+  onEvent: (notice: ListingEventNotice, event?: ListingEvent) => void;
   /** Called when the stream comes back after a drop. Re-fetch the book here. */
   onReconnect?: () => void;
   onStatus?: (status: ListingEventsStatus) => void;
@@ -110,7 +115,14 @@ function subscribe(
       return;
     }
     const parsed = listingEventNoticeSchema.safeParse(json);
-    if (parsed.success && accept(parsed.data)) handlers.onEvent(parsed.data);
+    if (parsed.success) {
+      if (accept(parsed.data)) handlers.onEvent(parsed.data);
+      return;
+    }
+    const full = listingEventSchema.safeParse(json);
+    if (!full.success) return;
+    const notice = noticeOf(full.data);
+    if (accept(notice)) handlers.onEvent(notice, full.data);
   };
 
   source.addEventListener('message', onFrame);
@@ -126,13 +138,21 @@ function subscribe(
   };
 }
 
+/** The id-only notice a full event would have travelled as. */
+function noticeOf(event: ListingEvent): ListingEventNotice {
+  const ids: Record<string, string> = {};
+  if ('bidId' in event) ids.bidId = event.bidId;
+  if (event.type === 'bid.raised') ids.replacesBidId = event.replacesBidId;
+  return { listingId: event.listingId, type: event.type, ids };
+}
+
 /**
  * React hook: subscribe while mounted (and while `listingId` is set). Handlers may change on every
  * render without resubscribing.
  */
 export function useListingEvents(
   listingId: string | null | undefined,
-  onEvent: (notice: ListingEventNotice) => void,
+  onEvent: (notice: ListingEventNotice, event?: ListingEvent) => void,
   opts: { onReconnect?: () => void } = {},
 ): ListingEventsStatus {
   const [status, setStatus] = useState<ListingEventsStatus>('connecting');
@@ -145,7 +165,7 @@ export function useListingEvents(
       return;
     }
     return subscribeListingEvents(listingId, {
-      onEvent: (e) => latest.current.onEvent(e),
+      onEvent: (n, e) => latest.current.onEvent(n, e),
       onReconnect: () => latest.current.onReconnect?.(),
       onStatus: setStatus,
     });

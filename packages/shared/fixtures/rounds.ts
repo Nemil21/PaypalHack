@@ -31,7 +31,17 @@ export interface RoundsReplayOptions {
   raises?: number;
   /** Start time (ISO); events are 1 s apart. */
   startAt?: string;
+  /**
+   * Round length in ms (HF-036b timer). Default: none, `roundEndsAt` is null as in the basic
+   * "Next round" mode. Set it to see the console's "ends in mm:ss" (HF-037a).
+   */
+  roundMs?: number;
+  /** Finish with `round.ended` (the brand stopped), for the console's ended banner (HF-037a). */
+  end?: boolean;
 }
+
+const roundEndsAtOf = (opts: RoundsReplayOptions, start: number) =>
+  opts.roundMs ? new Date(start + opts.roundMs).toISOString() : null;
 
 const uuid = (kind: number, i: number) =>
   `00000000-0000-4000-8${kind.toString(16).padStart(3, '0')}-${i.toString(16).padStart(12, '0')}`;
@@ -58,7 +68,7 @@ export function fixtureNudges(opts: RoundsReplayOptions = {}): Nudge[] {
   const q = opts.targetQuantity ?? 6;
   const start = opts.startAt ? Date.parse(opts.startAt) : T0;
   const result = clear(fixtureRoundsBook(opts), q, FLOOR_CENTS);
-  return selectNudges(result, { targetQuantity: q, roundEndsAt: null }).map((d, i) =>
+  return selectNudges(result, { targetQuantity: q, roundEndsAt: roundEndsAtOf(opts, start) }).map((d, i) =>
     nudgeSchema.parse({
       id: uuid(3, i + 1),
       listingId,
@@ -78,7 +88,8 @@ export function fixtureNudges(opts: RoundsReplayOptions = {}): Nudge[] {
 
 /**
  * The replay sequence: `listing.status` OPEN→ROUNDS, `round.started` → `round.nudged` × N →
- * `bid.raised` × M (the first M nudged bidders raise to their suggested amount). Each event is
+ * `bid.raised` × M (the first M nudged bidders raise to their suggested amount), then
+ * `round.ended` with `end`. Each event is
  * validated against the shared `ListingEvent` schema.
  */
 export function roundsReplayEvents(opts: RoundsReplayOptions = {}): ListingEvent[] {
@@ -102,7 +113,7 @@ export function roundsReplayEvents(opts: RoundsReplayOptions = {}): ListingEvent
       round: 1,
       targetQuantity: q,
       cutoffCents: result.cutoffCents,
-      roundEndsAt: null,
+      roundEndsAt: roundEndsAtOf(opts, start),
       roundsEndAt: at(6 * 3600),
     },
   ];
@@ -135,6 +146,18 @@ export function roundsReplayEvents(opts: RoundsReplayOptions = {}): ListingEvent
       isSimulated: simOf.get(n.bidId) ?? false,
     }),
   );
+  if (opts.end) {
+    const endAt = start + (5 + raises * 2) * 1_000;
+    events.push({
+      type: 'round.ended',
+      listingId,
+      at: at(5 + raises * 2),
+      round: 1,
+      reason: 'BRAND_STOPPED',
+      roundsEndAt: new Date(endAt).toISOString(),
+      clearDeadlineAt: new Date(endAt + 6 * 3_600_000).toISOString(),
+    });
+  }
   return events.map((e) => listingEventSchema.parse(e));
 }
 

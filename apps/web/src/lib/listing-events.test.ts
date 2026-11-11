@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ListingEventNotice } from '@holdfast/shared';
+import type { ListingEvent, ListingEventNotice } from '@holdfast/shared';
 import {
   bidEventsUrl,
   listingEventsUrl,
@@ -80,6 +80,50 @@ describe('subscribeListingEvents', () => {
     source.emit('message', { ...held, email: 'sam@example.com' });
     source.emit('message', { ...held, listingId: 'lst_other' });
     expect(events).toEqual([]);
+  });
+
+  it('turns full events from the fixture replay into notices and hands over the details', () => {
+    let source!: FakeSource;
+    const got: [ListingEventNotice, ListingEvent | undefined][] = [];
+    subscribeListingEvents(
+      'lst_1',
+      { onEvent: (n, e) => got.push([n, e]) },
+      (url) => (source = new FakeSource(url)),
+    );
+    const started: ListingEvent = {
+      type: 'round.started',
+      listingId: 'lst_1',
+      at: '2026-11-11T20:00:00.000Z',
+      round: 1,
+      targetQuantity: 6,
+      cutoffCents: 22_000,
+      roundEndsAt: null,
+      roundsEndAt: '2026-11-12T02:00:00.000Z',
+    };
+    source.emit('round.started', started);
+    const raised: ListingEvent = {
+      type: 'bid.raised',
+      listingId: 'lst_1',
+      at: started.at,
+      bidId: 'b2',
+      replacesBidId: 'b1',
+      oldCents: 21_900,
+      newCents: 24_100,
+      shopperLabel: 'Shopper #4',
+      source: 'SIM',
+      isSimulated: true,
+    };
+    source.emit('bid.raised', raised);
+    source.emit('round.started', { ...started, listingId: 'lst_other' });
+    source.emit('message', held);
+    expect(got).toEqual([
+      [{ listingId: 'lst_1', type: 'round.started', ids: {} }, started],
+      [
+        { listingId: 'lst_1', type: 'bid.raised', ids: { bidId: 'b2', replacesBidId: 'b1' } },
+        raised,
+      ],
+      [held, undefined],
+    ]);
   });
 
   it('treats a server resync frame like a reconnect', () => {
