@@ -59,3 +59,5 @@ jobs:
         run: npx vitest run packages/core/src/bids.test.ts apps/api/src/routes/bids.test.ts
       - name: SSE event bus integration tests (HF-008, incl. a second API process)
         run: npx vitest run apps/api/src/events
+      - name: Admin brand verification + publish guard integration tests (HF-011a)
+        run: npx vitest run packages/core/src/brands apps/api/src/routes/admin-brands.test.ts

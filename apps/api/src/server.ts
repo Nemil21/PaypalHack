@@ -12,6 +12,7 @@ import { loggerOptions } from './http/redact.js';
 import type { ListingEventBus } from './events/bus.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
+import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
@@ -105,6 +106,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.events && deps.sql) {
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });
   }
+  if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
 
   registerAuthRoutes(app, {
     config,
