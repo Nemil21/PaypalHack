@@ -9,6 +9,7 @@ import { registerIdempotency } from './http/idempotency.js';
 import { isCsrfAndKeyExempt, isMutating, isRestLimited, pathOf } from './http/paths.js';
 import { applyRateDecision, RateLimiter } from './http/rate-limit.js';
 import { loggerOptions } from './http/redact.js';
+import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
@@ -21,6 +22,8 @@ export interface ServerDeps {
   webDistDir?: string | null;
   /** `POST /api/listings/:id/clear` (HF-027); mounted once auth (HF-006) and PayPal (HF-004) are wired. */
   clear?: ClearRouteDeps;
+  /** `POST /api/bids` (HF-014a): the bid service's PayPal client and policies. */
+  bids?: BidRoutesDeps;
   /** Shared rate limiter (one web instance). Tests pass their own. */
   limiter?: RateLimiter;
   /** MCP token lookup (HF-043). Without it every MCP call is 401. */
@@ -78,6 +81,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
 
   registerHealthz(app, deps.db);
   if (deps.clear) registerClearRoute(app, deps.clear);
+  if (deps.bids) registerBidRoutes(app, deps.bids);
 
   registerAuthRoutes(app, {
     config,

@@ -9,3 +9,4 @@ export * from './events.js';
 export * from './settlement.js';
 export * from './copy.js';
 export * from './errors.js';
+export * from './bids.js';

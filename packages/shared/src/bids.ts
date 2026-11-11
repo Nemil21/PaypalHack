@@ -1,0 +1,25 @@
+import { z } from 'zod';
+import { amountCentsSchema } from './errors.js';
+
+/** `bids.payment_method` (api.md §`POST /bids`). */
+export const BID_PAYMENT_METHODS = ['PAYPAL', 'CARD', 'VAULT', 'TEST_CARD'] as const;
+export type BidPaymentMethodName = (typeof BID_PAYMENT_METHODS)[number];
+
+/**
+ * `POST /api/bids` body. Raw card data is never accepted: `TEST_CARD` uses the server's sandbox
+ * card (seed / labelled demo button only). `source` is set by the server, never by the client.
+ */
+export const placeBidRequestSchema = z
+  .object({
+    listingId: z.string().uuid(),
+    amountCents: amountCentsSchema,
+    paymentMethod: z.enum(BID_PAYMENT_METHODS),
+    /** Default true. Confirming the over-public-price warning sends false (03, 06). */
+    releaseIfCheaper: z.boolean().optional(),
+    intentId: z.string().uuid().nullable().optional(),
+    mandateId: z.string().uuid().nullable().optional(),
+    /** Share-link attribution (14). */
+    utmSource: z.string().trim().min(1).max(64).nullable().optional(),
+  })
+  .strict();
+export type PlaceBidRequest = z.infer<typeof placeBidRequestSchema>;
