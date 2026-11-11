@@ -111,6 +111,12 @@ export interface PlaceBidInput {
   initiator?: 'CUSTOMER' | 'MERCHANT';
   /** Which vault `shoppers.paypal_vault_id` holds. Default `card` (S2); `wallet` per S7 step 4. */
   vaultKind?: 'card' | 'wallet';
+  /**
+   * Auto-roll (HF-053): the shopper's terminal VOIDED bid this new bid re-places on another
+   * listing. Stored at insert, so `UNIQUE(replaces_bid_id)` stops a second roll of the same bid.
+   * Not a raise: the hold lands as a new bid (raises go through `raiseBid`).
+   */
+  replacesBidId?: string | null;
   /** Audit actor. Default: the shopper (or BUYER_AGENT / MCP_CLIENT by source). */
   actor?: Actor;
 }
@@ -269,6 +275,19 @@ async function place(
       // The same key was used concurrently for another listing.
       const other = await findByKey(deps.db.pool, input.shopperId, input.idempotencyKey);
       if (other) return replay(deps, input, other, publicOffer);
+    }
+    if (
+      pgErr.code === '23505' &&
+      pgErr.constraint === 'bids_replaces_bid_id_key' &&
+      input.replacesBidId
+    ) {
+      // Another bid already replaces this one (a roll under a different key): no second hold.
+      return fail({
+        code: 'STATE_CONFLICT',
+        bidId: input.replacesBidId,
+        reason: 'ALREADY_REPLACED',
+        released: false,
+      });
     }
     throw err;
   }
@@ -466,6 +485,20 @@ async function insertPending(
     });
   }
 
+  if (input.replacesBidId) {
+    const old = await tx.query(`SELECT 1 FROM bids WHERE id = $1 AND shopper_id = $2`, [
+      input.replacesBidId,
+      input.shopperId,
+    ]);
+    if (!old.rowCount) {
+      throw new PlacementRefused({
+        code: 'VALIDATION_ERROR',
+        field: 'replacesBidId',
+        message: 'Unknown bid.',
+      });
+    }
+  }
+
   if (input.intentId) {
     const intent = await tx.query(`SELECT 1 FROM intents WHERE id = $1 AND shopper_id = $2`, [
       input.intentId,
@@ -498,8 +531,8 @@ async function insertPending(
   const inserted = await tx.query(
     `INSERT INTO bids (listing_id, shopper_id, intent_id, mandate_id, amount_cents, payment_method,
                        source, public_price_at_placement, release_if_cheaper, utm_source,
-                       idempotency_key)
-     SELECT $1, $2, $3, $4, $5, $6, $7, p.best_public_price_cents, $8, $9, $10
+                       idempotency_key, replaces_bid_id)
+     SELECT $1, $2, $3, $4, $5, $6, $7, p.best_public_price_cents, $8, $9, $10, $11
        FROM listings l JOIN products p ON p.id = l.product_id
       WHERE l.id = $1
      RETURNING *`,
@@ -514,6 +547,7 @@ async function insertPending(
       input.releaseIfCheaper ?? true,
       input.utmSource ?? null,
       input.idempotencyKey,
+      input.replacesBidId ?? null,
     ],
   );
   const bid = inserted.rows[0] as BidRow;

@@ -706,6 +706,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-034 crons', { timeout: 60_000 }, () => {
       expect(holdfastCronJobs(deps()).map((j) => j.id)).toEqual([
         CRON_JOB_IDS.listingExpiry,
         CRON_JOB_IDS.holdSweeper,
+        CRON_JOB_IDS.autoRoll,
       ]);
     });
 
