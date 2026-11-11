@@ -12,9 +12,9 @@ import { ApiError } from '../http/errors.js';
  *              `cancel_bid`, `raise_bid` need `bid`) answers a `FORBIDDEN` tool error and never
  *              reaches the tools; everything else goes to `deps.handler`.
  *
- * HF-044a plugs the stateless `StreamableHTTPServerTransport` in as `handler` (the principal is
- * `req.auth.mcp`). Until then the placeholder speaks just enough MCP (initialize, ping, an empty
- * tools/list) for a client such as Claude Desktop to connect with a W19 token.
+ * HF-044a's stateless `StreamableHTTPServerTransport` (`server.ts`) is the `handler` whenever the
+ * bid service is wired (the principal is `req.auth.mcp`). Without it the placeholder speaks just
+ * enough MCP (initialize, ping, an empty tools/list) for a client to connect with a W19 token.
  */
 
 export type McpHandler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;

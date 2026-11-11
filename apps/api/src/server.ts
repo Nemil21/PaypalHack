@@ -47,6 +47,7 @@ import { registerProductRoutes } from './routes/products.js';
 import { registerAgentRoutes, type AgentRoutesDeps } from './routes/agent.js';
 import { registerMcpClientRoutes } from './routes/mcp-clients.js';
 import { registerMcpRoute, type McpRouteDeps } from './mcp/route.js';
+import { createMcpHandler } from './mcp/server.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -78,7 +79,10 @@ export interface ServerDeps {
    * every MCP call is 401.
    */
   mcpTokens?: McpTokenVerifier;
-  /** `/mcp` (HF-043 auth + scope gate); HF-044a passes its MCP server as `handler`. */
+  /**
+   * `/mcp` (HF-043 auth + scope gate). Default with `bids`: the HF-044a MCP server
+   * (`mcp/server.ts`); tests may pass their own `handler`.
+   */
   mcp?: McpRouteDeps;
   /** Magic-link delivery (default: printed locally; email in HF-054b). */
   sendMagicLink?: MagicLinkSender;
@@ -185,7 +189,19 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   // W19 tokens and `/mcp` (HF-043): bearer token only, scopes checked per tool.
   if (deps.sql) registerMcpClientRoutes(app, { db: deps.sql });
-  registerMcpRoute(app, deps.mcp);
+  // HF-044a: the MCP server runs on the bid service's deps; without them, the placeholder.
+  registerMcpRoute(
+    app,
+    deps.mcp ??
+      (deps.bids
+        ? {
+            handler: createMcpHandler({
+              money: deps.bids.money,
+              appBaseUrl: config.APP_BASE_URL,
+            }),
+          }
+        : {}),
+  );
   if (deps.sql) {
     registerSettlementRoutes(app, {
       db: deps.sql,
