@@ -17,7 +17,8 @@ import type { Channel3Product } from './types.js';
  * `products` rows for Channel3 products (HF-009), keyed by `channel3_id` + `channel3_variant`.
  *
  * Identity (ids, title, brand, GTIN/MPN, image) is cached forever: an upsert only fills columns
- * that are still null. The public price is written only by `refreshPublicOffer`, from the free
+ * that are still null. `condition` is not identity (it reflects the current offers), so every
+ * snapshot that has offers overwrites it. The public price is written only by `refreshPublicOffer`, from the free
  * detail endpoint and the brand's allowlist, at most every 10 minutes; search results never touch
  * it (their prices are unfiltered and cost credits).
  */
@@ -85,7 +86,10 @@ export function identityOf(
   };
 }
 
-/** Insert, or fill the null identity columns of the existing row. Returns the row. */
+/**
+ * Insert, or fill the null identity columns of the existing row; `condition` always takes the
+ * fresh value when the snapshot has one. Returns the row.
+ */
 export async function upsertProduct(q: Queryable, p: ProductIdentityInput): Promise<ProductRow> {
   const { rows } = await q.query<ProductRow>(
     `INSERT INTO products (channel3_id, channel3_variant, title, brand_name, gtin, mpn, image_url,
@@ -98,7 +102,7 @@ export async function upsertProduct(q: Queryable, p: ProductIdentityInput): Prom
        gtin = coalesce(products.gtin, EXCLUDED.gtin),
        mpn = coalesce(products.mpn, EXCLUDED.mpn),
        image_url = coalesce(products.image_url, EXCLUDED.image_url),
-       condition = coalesce(products.condition, EXCLUDED.condition),
+       condition = coalesce(EXCLUDED.condition, products.condition),
        structured_attributes = coalesce(products.structured_attributes, EXCLUDED.structured_attributes)
      RETURNING ${COLUMNS}`,
     [
@@ -136,8 +140,9 @@ export async function getProduct(q: Queryable, id: string): Promise<ProductRow |
 
 /**
  * The cached row for a Channel3 product + variant, or fetch it through the free detail endpoint
- * and insert it (no search credit). `variant` undefined = the detail's `variants.selected`.
- * Throws `Channel3Error` when the row is missing and Channel3 is down.
+ * and insert it (no search credit). A cached row that is not `NEW` is re-read too, since new
+ * offers may have appeared since it was cached. `variant` undefined = the detail's
+ * `variants.selected`. Throws `Channel3Error` when the detail call is needed and Channel3 is down.
  */
 export async function ensureProduct(
   q: Queryable,
@@ -147,7 +152,7 @@ export async function ensureProduct(
 ): Promise<ProductRow> {
   if (variant !== undefined) {
     const cached = await findProduct(q, channel3Id, variant);
-    if (cached) return cached;
+    if (cached?.condition === 'NEW') return cached;
   }
   const product = await client.product(channel3Id);
   return upsertProduct(q, identityOf(product, variant));

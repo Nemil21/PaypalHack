@@ -52,6 +52,25 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-009 products (Postgres)', () => {
     expect((await upsertProduct(tdb.db.pool, identityOf(p, null))).id).toBe(noVariant.id);
   });
 
+  it('condition follows the latest snapshot: a used-only row becomes NEW when new offers appear', async () => {
+    const p = await c3.product('Ft39C5h'); // recorded with new and used offers
+    const usedOnly = { ...p, offers: p.offers!.filter((o) => o.condition === 'used') };
+    expect(usedOnly.offers.length).toBeGreaterThan(0);
+    const first = await upsertProduct(tdb.db.pool, identityOf(usedOnly));
+    expect(first.condition).toBe('USED');
+    const again = await upsertProduct(tdb.db.pool, identityOf(p));
+    expect(again).toMatchObject({ id: first.id, condition: 'NEW' });
+    // A snapshot without offers says nothing about condition and keeps the stored value.
+    expect((await upsertProduct(tdb.db.pool, identityOf({ ...p, offers: [] }))).condition).toBe(
+      'NEW',
+    );
+
+    // ensureProduct re-reads a cached row that is not NEW instead of returning it as is.
+    await upsertProduct(tdb.db.pool, identityOf(usedOnly));
+    const ensured = await ensureProduct(tdb.db.pool, c3, 'Ft39C5h', first.channel3Variant);
+    expect(ensured).toMatchObject({ id: first.id, condition: 'NEW' });
+  });
+
   it('search caches identity but never a price', async () => {
     const results = await searchProducts(c3, 'portable bluetooth speaker waterproof', {
       db: tdb.db.pool,
