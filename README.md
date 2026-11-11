@@ -6,10 +6,10 @@
 Holdfast is our entry for the [PayPal AI Hackathon 2026](https://paypalaihackathon.devpost.com/). It is a private, held-bid market for brand overstock. Shoppers' AI agents place real PayPal authorization holds. A deterministic pay-your-bid auction picks the winners. PayPal captures each winner's own bid, releases everyone else, and pays the brand.
 
 > [!IMPORTANT]
-> **This README is a draft written while the app is still being built.** Every feature line below shows its real status. Sections marked **TODO** depend on tickets that have not merged yet and get a final pass after the feature freeze (03:00 PST, Nov 12). Search this file for `TODO` to find them all. The full build plan is in [`docs/spec/`](docs/spec/README.md) and [`docs/tickets/INDEX.md`](docs/tickets/INDEX.md).
+> **Status at the feature freeze (03:00 PST, Nov 12, 2026).** Every feature line below shows whether it is merged on `main`. The few **TODO**s left need the live deploy (URL, model id, which settlement runner and webhook path ran the demo) and are filled in at submission. Search this file for `TODO` to find them. The full build plan is in [`docs/spec/`](docs/spec/README.md) and [`docs/tickets/INDEX.md`](docs/tickets/INDEX.md).
 
 - **Live demo:** TODO: deployed Render URL (HF-048a Blueprint is merged; URL to be added after the first deploy)
-- **Video:** TODO: public YouTube link (HF-050b)
+- **Video:** TODO: public YouTube link, added at submission (HF-050b; shot list and runbook in [`docs/devpost/VIDEO.md`](docs/devpost/VIDEO.md))
 - **Licence:** [MIT](LICENSE)
 
 ---
@@ -26,7 +26,7 @@ Holdfast is our entry for the [PayPal AI Hackathon 2026](https://paypalaihackath
 
 ## How it works
 
-Demo brand: the fictional **Aurel Audio**, listing **Aurel A7 Wireless — Midnight** (retail $279, 300 units, floor $199). The dollar figures below are the spec's target demo numbers. The seed script (HF-045) will print the real ones.
+Demo brand: the fictional **Aurel Audio**, listing **Aurel A7 Wireless — Midnight** (retail $279, 300 units, floor $199). The seed script (`npm run seed:demo`, HF-045) prints the demo numbers: for 240 units the cutoff is $219 and the 240 winners average $225.55, so $54,133 gross and $49,261.03 net to the brand, against $9,120 from the liquidator.
 
 1. **Bid.** A shopper tells the buyer agent "I'd buy at $229." The agent confirms the exact product through Channel3 and shows the cheapest public price. The shopper approves once with PayPal (wallet or card fields). Result: an `AUTHORIZE` hold of $229, held but not charged. One live bid per shopper per listing.
 2. **Protect.** With "Release if cheaper elsewhere" on (the default), a Channel3 price drop below the bid voids the hold automatically and links the cheaper store.
@@ -56,10 +56,10 @@ PayPal webhooks ────┘     │ Clear
 | Path | What it is | Status |
 |---|---|---|
 | `packages/shared` | Zod contracts, money helpers, fee math, listing phases, `ListingEvent` union, the pure pay-your-bid `clear()` and eligibility predicate | Merged (HF-001, HF-005) |
-| `packages/core` | Config validation, Postgres pool, `loadClearInput`; later `landHold`, audit, PayPal client and stub, settlement tasks | Partly merged (HF-001, HF-005); the rest is TODO |
-| `apps/api` | Fastify server: `/healthz`, `/api/healthz`; later REST, MCP, webhooks and the agent loop | Skeleton merged (HF-001, HF-048a) |
-| `apps/workflows` | Render Workflows service; a `hello` task now, settlement tasks in HF-030b | Hello-world merged (HF-048a) |
-| `apps/web` | React + Vite brand console and shopper pages | Placeholder only; TODO: HF-007 |
+| `packages/core` | Config validation, Postgres pool, `landHold`, transitions and locks, audit, the PayPal client and `FakePayPal` stub, Channel3 client, clearing, settlement, payouts, crons | Merged |
+| `apps/api` | Fastify server: REST `/api`, MCP `/mcp`, SSE, PayPal and Channel3 webhooks, the agent loop, demo and ops CLIs | Merged |
+| `apps/workflows` | Render Workflows service: `hello`, and the settlement tasks `settleListing` / `settleBid` | Merged (HF-048a, HF-030b) |
+| `apps/web` | React + Vite brand console (AG Grid, AG Charts, AG Studio) and shopper pages, served from the same origin | Merged |
 | `db/` | SQL migrations and a checksummed migration runner | Merged (HF-002) |
 | `spikes/` | Day-one PayPal sandbox spikes S1–S4 | Merged |
 
@@ -71,16 +71,16 @@ We call PayPal's REST APIs directly because the PayPal Agent Toolkit doesn't cov
 
 | API | How Holdfast uses it | Status |
 |---|---|---|
-| Orders v2 `intent=AUTHORIZE` | Create the order behind every bid (wallet or card fields) | Proven in day-one spikes S1–S3; app code TODO (HF-004, HF-014a/b) |
-| Orders v2 authorize | Turn the approved order into a hold (`authorizations[0].id`) | Spikes; app TODO (HF-014a/b) |
-| Payments v2 capture | Capture a winner's own bid with `final_capture: true` | Spikes; app TODO (HF-029) |
-| Payments v2 void | Release losing, cancelled and price-dropped holds | Spikes; app TODO (HF-029, HF-016, HF-042a) |
-| Vault + merchant-initiated (MIT) stored credential | Agents place and raise held bids without the shopper present, within the mandate | Spike S2; app TODO (HF-014b, HF-017a, HF-018) |
-| Payouts v1 | Pay the brand the net amount, then poll the batch status | Spike S4; app TODO (HF-032, HF-034) |
-| Webhooks: verify signature | Verify and reconcile authorization, capture and payout events | TODO (HF-033) |
-| Shipment tracking | Attach carrier and tracking number to each won order | TODO (HF-059b, P1) |
-| Log in with PayPal | Brand sign-in | TODO (HF-010) |
-| Negative testing (`PayPal-Mock-Response`) | Inject one `INSTRUMENT_DECLINED` capture to show promotion (`DEMO_MODE` only) | Spike S3; app TODO (HF-046) |
+| Orders v2 `intent=AUTHORIZE` | Create the order behind every bid (wallet or card fields) | Built (HF-004, HF-014a/b); spikes S1–S3, S7 |
+| Orders v2 authorize | Turn the approved order into a hold (`authorizations[0].id`) | Built (HF-014a/b) |
+| Payments v2 capture | Capture a winner's own bid with `final_capture: true` | Built (HF-029) |
+| Payments v2 void | Release losing, cancelled and price-dropped holds | Built (HF-029, HF-016, HF-042a) |
+| Vault + merchant-initiated (MIT) stored credential | Agents place and raise held bids without the shopper present, within the mandate | Built (HF-014b, HF-017a, HF-018); spikes S2, S7 |
+| Payouts v1 | Pay the brand the net amount, then poll the batch status | Built (HF-032, HF-034); spikes S4, S7 |
+| Webhooks: verify signature | Verify and reconcile authorization, capture and payout events | Built (HF-033) |
+| Shipment tracking | Attach carrier and tracking number to each won order | Built (HF-059b) |
+| Log in with PayPal | Brand sign-in | Built (HF-010) |
+| Negative testing (`PayPal-Mock-Response`) | Inject one `INSTRUMENT_DECLINED` capture to show promotion (`DEMO_MODE` only) | Built (HF-046); spike S3 |
 
 Day-one spike results (2026-11-10, `node spikes/paypal-spikes.mjs all`, US sandbox business account):
 
@@ -90,7 +90,7 @@ Day-one spike results (2026-11-10, `node spikes/paypal-spikes.mjs all`, US sandb
 - **S4:** a payout to the sandbox brand account was created.
 - **S5 (Channel3 price webhook on Render, HF-042b):** not run yet. The live webhook, signature check and dedupe are built and tested locally; the Render check is manual ([runbook](docs/deploy/render.md#s5-channel3-price-webhook-reaches-render-hf-042b)). Until it passes, the price-drop beat uses the labelled replay.
 
-TODO: add the S7 spike pack results (card fields, wallet, replays, a ≈ $50k payout funded by captures) when HF-063 merges.
+- **S7 (HF-063, Nov 11):** card fields and wallet holds both authorize and vault; replay behaviour of every call type recorded; vaulted MIT holds from both; 300 holds in 46 s with 0 rate limits. **The ≈ $50k payout funded only by captures failed:** captured card money was not payable within about an hour (`INSUFFICIENT_FUNDS`), while a $1,000 payout succeeded. So the sandbox merchant balance is pre-funded for the demo payout. Full results: [`spikes/s7-results.md`](spikes/s7-results.md).
 
 ## AI models used and how
 
@@ -98,10 +98,10 @@ TODO: final model id. The app reads it from `ANTHROPIC_MODEL` (Anthropic Claude 
 
 | Where | What the model does | What it can't do | Status |
 |---|---|---|---|
-| **Buyer agent** (HF-039) | Claude with tool use: searches Channel3, suggests a ceiling, places, raises and cancels held bids | Exceed the shopper's mandate (max price, total hold cap, allowed products, expiry). The server enforces it, not the prompt. | TODO |
-| **Brand agent: recommendation** (HF-051a/b, P1) | Explains the clearing trade-off ("Clear 240, cutoff $219 vs the liquidation quote") and answers questions about the book | Clear, change prices or move money (read-only tools) | TODO |
-| **Brand agent: live-round nudges** (HF-036b) | Phrases the truthful "the cutoff is $X, raise to stay in?" message. Template text is the fallback (HF-036a). | Change the cutoff number, which code computes | TODO |
-| **Claude Desktop over MCP** (HF-043, HF-044a/b) | Outside agents bid through our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`, `raise_bid`) under the shopper's mandate and token | Anything outside those five tools | TODO |
+| **Buyer agent** (HF-039) | Claude with tool use: searches Channel3, suggests a ceiling, places, raises and cancels held bids | Exceed the shopper's mandate (max price, total hold cap, allowed products, expiry). The server enforces it, not the prompt. | Merged |
+| **Brand agent: recommendation** (HF-051a/b, P1) | Explains the clearing trade-off ("Clear 240, cutoff $219 vs the liquidation quote") and answers questions about the book | Clear, change prices or move money (read-only tools) | Merged |
+| **Brand agent: live-round nudges** (HF-036b) | Phrases the truthful "the cutoff is $X, raise to stay in?" message. Template text is the fallback (HF-036a). | Change the cutoff number, which code computes | Merged |
+| **Claude Desktop over MCP** (HF-043, HF-044a/b) | Outside agents bid through our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`, `raise_bid`) under the shopper's mandate and token | Anything outside those five tools | Merged |
 
 The price watcher, the clearing engine and settlement are plain deterministic code, not AI.
 
@@ -111,30 +111,28 @@ We list a sponsor only when the product uses it and we can show where.
 
 | Sponsor | Used for | Evidence | Status |
 |---|---|---|---|
-| **PayPal** | The whole money path: holds, capture, void, vault, Payouts, webhooks | `spikes/paypal-spikes.mjs`; `PAYPAL_*` config in `packages/core/src/config.ts`; the app client is HF-004 | Spikes merged; app TODO |
-| **Render** | Web service, paid Postgres, Workflows service | [`render.yaml`](render.yaml), [`docs/deploy/render.md`](docs/deploy/render.md), `apps/workflows` | Blueprint merged (HF-048a). TODO: confirm the live deploy. |
-| **Render Workflows** for settlement | Settlement fan-out, one task per bid | HF-030b | TODO. Settlement runs in-process (`SETTLEMENT_RUNNER=inprocess`) until HF-030b's smoke on Render is green. We'll say here which path settled the demo. |
-| **AG Grid** (Enterprise grid, AG Charts, AG Studio KPI row) | Brand console: bids grid, demand curve, KPI row | HF-007, HF-023, HF-024, HF-025 | TODO: no AG Grid dependency is merged yet |
-| **Channel3** | Product search, exact-match gate, live offers, price-change webhooks | HF-009, HF-042a/b | TODO: not merged yet |
-| APIMatic PayPal Context Plugin | Build aid for the PayPal client | Claimed only if the HF-004 PR keeps plugin evidence | TODO: not claimed yet |
-| Bryntum Gantt | Settlement fan-out and order timeline | Claimed only if HF-060 ships | TODO: not claimed yet |
+| **PayPal** | The whole money path: holds, capture, void, vault, Payouts, webhooks | `packages/core/src/paypal/`, `spikes/` | Merged |
+| **Render** | Web service, paid Postgres, Workflows service | [`render.yaml`](render.yaml), [`docs/deploy/render.md`](docs/deploy/render.md), `apps/workflows` | Merged (HF-048a/b). TODO: confirm the live deploy. |
+| **Render Workflows** for settlement | Settlement fan-out, one task per bid | HF-030b, `apps/workflows` | Adapter merged (HF-030b). Settlement runs in-process (`SETTLEMENT_RUNNER=inprocess`) unless HF-030b's smoke on Render is green. TODO: say here which path settled the demo. |
+| **AG Grid** (Enterprise grid, AG Charts, AG Studio KPI row) | Brand console: bids grid, demand curve, KPI row | `ag-grid-enterprise`, `ag-charts-enterprise`, `ag-studio` in `apps/web` (HF-007, HF-023–HF-025) | Merged |
+| **Channel3** | Product search, exact-match gate, live offers, price-change webhooks | `packages/core` Channel3 client (HF-009), price watcher (HF-042a/b) | Merged; S5 on Render pending |
+| APIMatic PayPal Context Plugin | Build aid for the PayPal client | No plugin evidence on `main` | Not claimed |
+| Bryntum Gantt | Settlement fan-out and order timeline | HF-060 not merged | Not claimed |
 
 We don't use the other sponsor tools (Elastic, KERNEL, Postman, Astropods, Zapier).
 
 ## Testing access
 
-> **TODO (HF-006, HF-045, HF-048a/b, HF-014b):** none of this works until those tickets merge and the app is deployed. Final pass after the freeze.
-
-- **Deployed URL:** TODO.
+- **Deployed URL:** TODO: added at submission.
 - **One-click demo logins (`DEMO_MODE=true` on Render):** **Sign in as demo shopper** or **Sign in as demo brand**. No account needed.
 - **Pay with PayPal (sandbox):** a sandbox buyer account. The email and password go in the Devpost testing-instructions field only, never in this repo.
 - **Pay by card (sandbox):** the labelled **Use sandbox test card** button, or a test card from the PayPal Developer Dashboard's card generator.
-- **Claude Desktop over MCP:** sign in as the demo shopper, then **Developer → Connect an agent**. Create a token and paste the config into Claude Desktop (server URL `https://<host>/mcp`).
+- **Claude Desktop over MCP:** sign in as the demo shopper, then **Connect an agent** (`/developer`). Create a token and paste the config into Claude Desktop (server URL `https://<host>/mcp`).
 - **Stays live through judging:** a daily `demo:refresh` Render cron resets and reseeds a judge book through Dec 21 (HF-048b).
 
 ## Run it locally
 
-What works on a clean clone today is the server skeleton, the migrations and the tests. Seeding and the UI are TODO.
+A clean clone runs the whole app with no keys: the PayPal stub, recorded Channel3 responses, the seeded Aurel Audio book and the web app.
 
 **Needs:** Node 20+ (`.nvmrc`), Docker or any Postgres 16.
 
@@ -174,13 +172,13 @@ npm test                  # unit tests (vitest)
 
 Notes:
 
-- `PAYPAL_MODE=stub` uses the `FakePayPal` stub (HF-004, TODO). Until it merges, nothing calls PayPal anyway. For real sandbox holds set `PAYPAL_MODE=sandbox` with your own sandbox app's client id and secret. Card holds and Payouts need a **US** sandbox business account.
+- `PAYPAL_MODE=stub` uses the `FakePayPal` stub (HF-004). For real sandbox holds set `PAYPAL_MODE=sandbox` with your own sandbox app's client id and secret. Card holds and Payouts need a **US** sandbox business account.
 - **AG Grid:** without `AG_GRID_LICENSE_KEY` the Enterprise grid still runs, with a watermark.
 - **Claude:** the buyer agent, brand agent and nudge phrasing need `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL`. Everything else runs without them.
 - **Channel3:** `CHANNEL3_MODE=live` needs `CHANNEL3_API_KEY` (and `CHANNEL3_WEBHOOK_SECRET`, the `whsec_…` signing secret of the Channel3 webhook endpoint, for `POST /api/webhooks/channel3`).
 - Database integration tests: `TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres npm run test:db`.
-- TODO (HF-045): `npm run seed:demo` (Aurel Audio, a deterministic book, labelled SIM bidders).
-- TODO (HF-007): the web app is served from the same origin at `/`.
+- `PAYPAL_MODE=stub npm run seed:demo` seeds Aurel Audio: a deterministic book of labelled SIM bidders with stub holds, and prints the video numbers. The stub holds live in the seed's process, so use it for the console, the book and the numbers; real capture and void need the sandbox.
+- The web app is served from the same origin at `/`. Open `/demo` for the demo sign-ins.
 
 **Deploy:** Render Blueprint ([`render.yaml`](render.yaml)). Follow the runbook in [`docs/deploy/render.md`](docs/deploy/render.md): paid instances only, migrations on pre-deploy, never seed on deploy.
 
@@ -188,101 +186,101 @@ Notes:
 
 | Item | Real or simulated | How it's labelled | Status |
 |---|---|---|---|
-| Foreground shopper holds (offer page, buyer agent, Claude Desktop over MCP) | **Real** PayPal sandbox holds, captures and voids | – | TODO (HF-014a/b, HF-039, HF-044a) |
-| Brand payout | **Real** sandbox Payout, funded from real COMPLETED captures only | – | TODO (HF-032) |
-| Volume bidders | **Simulated** shoppers placed by our seed script. Their holds are real sandbox card holds. | Grey **SIM** chip in every grid and list; KPI tiles show "incl. $X simulated" | TODO (HF-045) |
-| No-hold fallback bids | Seeded only if the sandbox rate-limits holds. They have no PayPal authorization, are excluded from Clear (D8), and the seed aborts if more than 10% fall back. | "SIM (no hold)" | TODO: record the count from the final seed here (expected 0) |
+| Foreground shopper holds (offer page, buyer agent, Claude Desktop over MCP) | **Real** PayPal sandbox holds, captures and voids | – | Merged (HF-014a/b, HF-039, HF-044a) |
+| Brand payout | **Real** sandbox Payout. The amount comes only from real COMPLETED captures; the sandbox merchant balance is pre-funded because captured money wasn't payable within an hour (S7) | – | Merged (HF-032) |
+| Volume bidders | **Simulated** shoppers placed by our seed script. Their holds are real sandbox card holds. | Grey **SIM** chip in every grid and list; KPI tiles show "incl. $X simulated" | Merged (HF-045) |
+| No-hold fallback bids | Seeded only if the sandbox rate-limits holds. They have no PayPal authorization, are excluded from Clear (D8), and the seed aborts if more than 10% fall back. | "SIM (no hold)" | 0 in the stub seed; TODO: record the recording seed's count |
 | Channel3 price-drop event | Live webhook if it fires during recording; otherwise a replayed recorded fixture | "replayed event" (`replayed=true`) | Live webhook, outage banner and nightly poll built (HF-042b); S5 on Render pending |
-| Injected capture decline | PayPal negative testing (`test_decline`) to show promotion | `DEMO_MODE` only | TODO (HF-046) |
-| Live rounds in the video | Real raises, time-lapsed | Labelled in the video | TODO (HF-050b) |
+| Injected capture decline | PayPal negative testing (`test_decline`) to show promotion | `DEMO_MODE` only | Merged (HF-046) |
+| Live rounds in the video | Real raises, time-lapsed | "Time-lapsed" label on screen and in the voiceover | HF-050b ([`VIDEO.md`](docs/devpost/VIDEO.md)) |
 
 ## Honest limits
 
-- **Merchant of record.** In the sandbox, Holdfast is the merchant of record and pays the brand through PayPal Payouts. The payout covers only real, COMPLETED captures and is funded from the captured winners' money. The **production path** is PayPal multiparty: the brand as merchant, our fee via `platform_fees`, and delayed disbursement. That needs approved-partner status and isn't built.
+- **Merchant of record.** In the sandbox, Holdfast is the merchant of record and pays the brand through PayPal Payouts. The payout amount comes only from real, COMPLETED captures. In the sandbox, captured card money wasn't payable within an hour (spike S7), so the merchant balance is pre-funded to cover it. The **production path** is PayPal multiparty: the brand as merchant, our fee via `platform_fees`, and delayed disbursement. That needs approved-partner status and isn't built.
 - **Released holds** may show as pending at the shopper's bank for a few days.
 - **Card holds** in the browser use PayPal card fields, or the labelled sandbox test-card button (a server-side test-card hold). Raw sandbox card numbers are used only by the seed script.
 - **Wallet holds** (a PayPal account) need the buyer's approval in a browser.
 - **Reauthorization is untested.** The whole timeline stays inside PayPal's 3-day card-hold guarantee: a bidding window of at most 48 h, live rounds of at most 6 h, then Clear within 6 h. Clear releases any hold older than 66 h and refuses to run if a winner's hold would be that old.
 - **Simulated liquidity.** Most bidders in the demo are simulated and labelled SIM.
 - **One web instance.** Rate limits (REST 60/min per user, MCP 30/min per token, buyer agent 20 turns/min, 3 magic links/min per email), used magic-link tokens, SSE fan-out and background jobs live in the one web process. That is correct only with a single instance, which is how the hackathon deploy runs. Several instances would need a shared store (Postgres or Redis) behind the same limiter interface.
-- **Shopper sign-in** is an email magic link; until email delivery ships (HF-054b) the link is printed to the server console locally and not sent in production. `DEMO_MODE` adds "Sign in as demo brand / demo shopper" for judges.
-- **Render Workflows:** TODO (HF-030b). State whether Workflows or the in-process coordinator settled the demo.
-- **PayPal webhooks:** TODO (HF-033). State whether webhooks are live and verified, or whether the payout and order polls are the only path.
+- **Shopper sign-in** is an email magic link, sent through Resend when `RESEND_API_KEY` is set and printed to the server console otherwise (HF-054b). `DEMO_MODE` adds "Sign in as demo brand / demo shopper" for judges.
+- **Render Workflows:** the adapter is merged (HF-030b). TODO at submission: state whether Workflows or the in-process coordinator settled the demo.
+- **PayPal webhooks:** verification and reconciliation are merged (HF-033); the payout poll and the sweeper's hold checks run either way. TODO at submission: state whether `PAYPAL_WEBHOOK_ID` is registered on the deploy, so webhooks are live.
 - **Not built (production path, described only):** disputes and refunds (refund the capture, claw back from the next payout), brand API keys, multiparty `platform_fees`.
 
 ## Features and status
 
-Status as of this draft (Nov 11, 2026). **Merged** = on `main`. **In review** = PR open. **Not started / in progress** = no merged code yet. Final statuses (shipped / partial / not demo-ready) come after the freeze.
+Status at the freeze (Nov 12, 2026). **Merged** = on `main`. **In review** = PR open. **Not started** = no merged code.
 
 | Area | Feature | Tickets | Pri | Status |
 |---|---|---|---|---|
 | Foundation | Monorepo, config validation, shared contracts | HF-001 | P0 | **Merged** |
 | Foundation | Postgres schema and checksummed migrations | HF-002 | P0 | **Merged** |
-| Money | `landHold`, transitions, locks, void keys, lease | HF-003a | P0 | In review |
-| Money | Audit pairs, tenancy, idempotency, webhook dedupe | HF-003b | P0 | Not started |
-| PayPal | REST client + `FakePayPal` stub | HF-004 | P0 | Not started |
-| PayPal | Spike pack S7 (card fields, wallet, replays, large payout) | HF-063 | P0 | In review |
+| Money | `landHold`, transitions, locks, void keys, lease | HF-003a | P0 | **Merged** |
+| Money | Audit pairs, tenancy, idempotency, webhook dedupe | HF-003b | P0 | **Merged** |
+| PayPal | REST client + `FakePayPal` stub | HF-004 | P0 | **Merged** |
+| PayPal | Spike pack S7 (card fields, wallet, replays, large payout) | HF-063 | P0 | **Merged** |
 | Clearing | Pure pay-your-bid `clear()`, eligibility, `loadClearInput` | HF-005 | P0 | **Merged** |
-| Clearing | Clear transaction (locks, outbox, reserve, hold-age release) | HF-027 | P0 | Not started |
-| Clearing | Clear confirmation modal | HF-028 | P0 | Not started |
-| Auth | Sessions, anonymous shopper, `DEMO_MODE` logins, CSRF, rate limits | HF-006 | P0 | In review |
-| Auth | Brand sign-in with Log in with PayPal | HF-010 | P0 | Not started |
-| Brand | Admin brand verification and publish guard | HF-011a | P0 | Not started |
-| Brand | Brand verification onboarding | HF-011b | P0 | Not started |
-| Brand | Listings API: create, publish, cancel, quantity | HF-012a, HF-012b | P0 | Not started |
-| Brand | Create listing wizard | HF-013 | P0 | Not started |
-| Brand console | Web scaffold, design tokens, AG Grid / AG Studio, demo hub | HF-007 | P0 | Not started |
-| Brand console | Book and simulate API | HF-022 | P0 | Not started |
-| Brand console | Console shell and AG Studio KPI row | HF-023 | P0 | Not started |
-| Brand console | Demand curve (AG Charts) and quantity slider | HF-024 | P0 | Not started |
-| Brand console | Bids grid (AG Grid Enterprise) | HF-025 | P0 | Not started |
-| Brand console | Brand overview dashboard | HF-026 | P0 | Not started |
-| Realtime | SSE event bus | HF-008 | P0 | Not started |
-| Shopper | Bid service core: `placeBid`, vault holds, one live bid, mandate cap | HF-014a | P0 | Not started |
-| Shopper | Card-fields and PayPal wallet holds | HF-014b | P0 | Not started |
-| Shopper | Cancel bid, my bids, bid detail | HF-016 | P0 | Not started |
-| Shopper | Offer page | HF-019 | P0 | Not started |
-| Shopper | Hold confirmation, error states, my bids, bid timeline | HF-020 | P0 | Not started |
-| Shopper | Raise bid (atomic hold swap) | HF-018 | P0 | Not started |
-| Mandates | Mandates core and API / form | HF-017a, HF-017b | P0 | Not started |
-| Settlement | `settleBid` capture / void with retries | HF-029 | P0 | Not started |
-| Settlement | In-process settlement coordinator | HF-030a | P0 | Not started |
-| Settlement | Render Workflows settlement adapter | HF-030b | P0 | Not started (hello-world task merged in HF-048a) |
-| Settlement | Inline promotion at the promoted bidder's own bid | HF-031 | P0 | Not started |
-| Settlement | Brand payout and fee math | HF-032 | P0 | Not started (fee helper merged in HF-001) |
-| Settlement | PayPal webhooks: verify, dedupe, reconcile | HF-033 | P0 | Not started |
-| Settlement | Crons: sweeper, `reconcile:holds`, settlement kick, payout poll | HF-034 | P0 | Not started |
-| Settlement | Settlement live view | HF-035 | P0 | Not started |
-| Live rounds | Rounds engine: basic and full (timer, soft close, Claude phrasing) | HF-036a, HF-036b | P0 | Not started |
-| Live rounds | Rounds console: basic and full | HF-037a, HF-037b | P0 | Not started |
-| Live rounds | Buyer rounds: raise from bid page; auto-raise runner | HF-038a, HF-038b | P0 | Not started |
-| Agents | Buyer agent loop, chat API and tools | HF-039 | P0 | Not started |
-| Agents | Buyer agent chat UI | HF-041 | P0 | Not started |
-| Agents | Brand agent recommendation card | HF-051a | P1 | Not started |
-| Agents | Brand agent "Ask about this book" panel | HF-051b | P1 | Not started |
-| Channel3 | Client, fixtures, product search, exact-match gate | HF-009 | P0 | Not started |
-| Channel3 | Price watcher: labelled replay and auto-void | HF-042a | P0 | Not started |
-| Channel3 | Price watcher: live webhook, outage banner, nightly poll | HF-042b | P0 | In review |
-| MCP | MCP tokens and connect page | HF-043 | P0 | Not started |
-| MCP | MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) | HF-044a | P0 | Not started |
-| MCP | MCP `raise_bid` | HF-044b | P0 | Not started |
-| Demo | Demo seed (Aurel Audio, SIM bidders) | HF-045 | P0 | Not started |
-| Demo | Demo scripts: `sim:stream`, `demo:decline`, `demo:reset` | HF-046 | P0 | Not started |
-| Ops | Cross-tenant tests, secret scan, security checklist | HF-047 | P0 | Not started |
+| Clearing | Clear transaction (locks, outbox, reserve, hold-age release) | HF-027 | P0 | **Merged** |
+| Clearing | Clear confirmation modal | HF-028 | P0 | **Merged** |
+| Auth | Sessions, anonymous shopper, `DEMO_MODE` logins, CSRF, rate limits | HF-006 | P0 | **Merged** |
+| Auth | Brand sign-in with Log in with PayPal | HF-010 | P0 | **Merged** |
+| Brand | Admin brand verification and publish guard | HF-011a | P0 | **Merged** |
+| Brand | Brand verification onboarding | HF-011b | P0 | **Merged** |
+| Brand | Listings API: create, publish, cancel, quantity | HF-012a, HF-012b | P0 | **Merged** |
+| Brand | Create listing wizard | HF-013 | P0 | **Merged** |
+| Brand console | Web scaffold, design tokens, AG Grid / AG Studio, demo hub | HF-007 | P0 | **Merged** |
+| Brand console | Book and simulate API | HF-022 | P0 | **Merged** |
+| Brand console | Console shell and AG Studio KPI row | HF-023 | P0 | **Merged** |
+| Brand console | Demand curve (AG Charts) and quantity slider | HF-024 | P0 | **Merged** |
+| Brand console | Bids grid (AG Grid Enterprise) | HF-025 | P0 | **Merged** |
+| Brand console | Brand overview dashboard | HF-026 | P0 | **Merged** |
+| Realtime | SSE event bus | HF-008 | P0 | **Merged** |
+| Shopper | Bid service core: `placeBid`, vault holds, one live bid, mandate cap | HF-014a | P0 | **Merged** |
+| Shopper | Card-fields and PayPal wallet holds | HF-014b | P0 | **Merged** |
+| Shopper | Cancel bid, my bids, bid detail | HF-016 | P0 | **Merged** |
+| Shopper | Offer page | HF-019 | P0 | **Merged** |
+| Shopper | Hold confirmation, error states, my bids, bid timeline | HF-020 | P0 | **Merged** |
+| Shopper | Raise bid (atomic hold swap) | HF-018 | P0 | **Merged** |
+| Mandates | Mandates core and API / form | HF-017a, HF-017b | P0 | **Merged** |
+| Settlement | `settleBid` capture / void with retries | HF-029 | P0 | **Merged** |
+| Settlement | In-process settlement coordinator | HF-030a | P0 | **Merged** |
+| Settlement | Render Workflows settlement adapter | HF-030b | P0 | **Merged** |
+| Settlement | Inline promotion at the promoted bidder's own bid | HF-031 | P0 | **Merged** |
+| Settlement | Brand payout and fee math | HF-032 | P0 | **Merged** |
+| Settlement | PayPal webhooks: verify, dedupe, reconcile | HF-033 | P0 | **Merged** |
+| Settlement | Crons: sweeper, `reconcile:holds`, settlement kick, payout poll | HF-034 | P0 | **Merged** |
+| Settlement | Settlement live view | HF-035 | P0 | **Merged** |
+| Live rounds | Rounds engine: basic and full (timer, soft close, Claude phrasing) | HF-036a, HF-036b | P0 | **Merged** |
+| Live rounds | Rounds console: basic and full | HF-037a, HF-037b | P0 | **Merged** |
+| Live rounds | Buyer rounds: raise from bid page; auto-raise runner | HF-038a, HF-038b | P0 | **Merged** |
+| Agents | Buyer agent loop, chat API and tools | HF-039 | P0 | **Merged** |
+| Agents | Buyer agent chat UI | HF-041 | P0 | **Merged** |
+| Agents | Brand agent recommendation card | HF-051a | P1 | **Merged** |
+| Agents | Brand agent "Ask about this book" panel | HF-051b | P1 | **Merged** |
+| Channel3 | Client, fixtures, product search, exact-match gate | HF-009 | P0 | **Merged** |
+| Channel3 | Price watcher: labelled replay and auto-void | HF-042a | P0 | **Merged** |
+| Channel3 | Price watcher: live webhook, outage banner, nightly poll | HF-042b | P0 | **Merged** |
+| MCP | MCP tokens and connect page | HF-043 | P0 | **Merged** |
+| MCP | MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) | HF-044a | P0 | **Merged** |
+| MCP | MCP `raise_bid` | HF-044b | P0 | **Merged** |
+| Demo | Demo seed (Aurel Audio, SIM bidders) | HF-045 | P0 | **Merged** |
+| Demo | Demo scripts: `sim:stream`, `demo:decline`, `demo:reset` | HF-046 | P0 | **Merged** |
+| Ops | Cross-tenant tests, secret scan, security checklist | HF-047 | P0 | **Merged** |
 | Ops | Render deploy: web, Postgres, env, `/healthz`, Workflows hello-world | HF-048a | P0 | **Merged** |
-| Ops | Render crons, daily `demo:refresh`, judge book | HF-048b | P0 | Not started |
-| Submission | README and licence | HF-049 | P0 | This draft |
+| Ops | Render crons, daily `demo:refresh`, judge book | HF-048b | P0 | **Merged** |
+| Submission | README and licence | HF-049 | P0 | **Merged** |
 | Submission | Devpost draft | HF-050a | P0 | **Merged** |
-| Submission | Demo video and submission | HF-050b | P0 | Not started |
-| Intents | Multi-product intents and the move rule | HF-052 | P1 | Not started |
-| Mandates | Auto-roll (merchant-initiated re-bids) | HF-053 | P1 | Not started |
-| Notifications | In-app bell; email, web push | HF-054a, HF-054b | P1 | Not started |
-| Growth | Embed widget and share links | HF-055 | P1 | Not started |
-| Brand | Brand settings: DNS verification, team invites, retailer allowlist | HF-056 | P1 | Not started |
-| Growth | Marketing landing page | HF-057 | P1 | Not started |
-| Ops | Ops / audit screen, health, nightly capture reconcile | HF-058 | P1 | Not started |
-| Shopper | Won page | HF-059a | P1 | Not started |
-| Brand | Payouts and reports; shipment tracking | HF-059b | P1 | Not started |
+| Submission | Demo video and submission | HF-050b | P0 | Runbook in [`VIDEO.md`](docs/devpost/VIDEO.md); recording and submission are manual |
+| Intents | Multi-product intents and the move rule | HF-052 | P1 | **Merged** |
+| Mandates | Auto-roll (merchant-initiated re-bids) | HF-053 | P1 | **Merged** |
+| Notifications | In-app bell; email, web push | HF-054a, HF-054b | P1 | **Merged** |
+| Growth | Embed widget and share links | HF-055 | P1 | **Merged** |
+| Brand | Brand settings: DNS verification, team invites, retailer allowlist | HF-056 | P1 | **Merged** |
+| Growth | Marketing landing page | HF-057 | P1 | **Merged** |
+| Ops | Ops / audit screen, health, nightly capture reconcile | HF-058 | P1 | **Merged** |
+| Shopper | Won page | HF-059a | P1 | **Merged** |
+| Brand | Payouts and reports; shipment tracking | HF-059b | P1 | **Merged** |
 | Brand console | Bryntum Gantt: settlement fan-out, then order timeline | HF-060 | P1 | Not started |
 | Brand | Brand mobile alert and clear approval | HF-061 | P1 | Not started |
 

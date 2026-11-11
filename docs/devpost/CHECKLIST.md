@@ -62,6 +62,17 @@ At draft time (Nov 11, 05:00 PST) only the HF-001 scaffold and HF-002 schema are
 
 Final-submit check: re-read this table, update each tick against the merged PRs and the deployed app, and keep the Built-with tags and the description in step.
 
+**HF-050b status (Nov 12, from `main`):**
+
+| Sponsor | Final tick | Evidence on `main` | Still to confirm on the deployed build (human) |
+|---|---|---|---|
+| PayPal | **Tick** | Holds, capture, void, Payouts, vault, webhooks, tracking, Log in with PayPal all merged | Video beat 7 shows the sandbox captures and the payout |
+| Channel3 | **Tick** | HF-009, HF-042a/b merged | `CHANNEL3_API_KEY` set on Render so the app runs `CHANNEL3_MODE=live`; a Channel3 response on screen (VIDEO.md evidence shots). If the deploy is on fixtures only, **untick** |
+| AG Grid | **Tick** | `ag-grid-enterprise`, `ag-charts-enterprise`, `ag-studio` in `apps/web` | `AG_GRID_LICENSE_KEY` set on Render (no watermark in the video) |
+| Render | **Tick** | Blueprint, Workflows adapter (HF-030b), `demo:refresh` cron | Say "Render Workflows" in the form and the video only if `SETTLEMENT_RUNNER=workflows` settled the recorded Clear; otherwise Render hosting only |
+| APIMatic | **Don't tick** | No plugin note or trailer on `main` | – |
+| Bryntum | **Don't tick** | HF-060 not merged | Tick only if HF-060 merges **and** is deployed before the freeze |
+
 ## 4. Draft-saved sign-off (HF-050a acceptance)
 
 - [ ] Draft saved on Devpost by 14:00 PST Nov 11 (03:30 IST Nov 12). Draft URL: `[[fill]]`
@@ -69,14 +80,19 @@ Final-submit check: re-read this table, update each tick against the merged PRs 
 - [ ] Sponsor ticks on the form match the "Tick now" rows in §3
 - [ ] `node scripts/check-devpost-draft.mjs` passes on the text that was pasted
 
-## 5. Final-submit gate (HF-050b; listed here so nothing is lost)
+## 5. Final-submit gate (HF-050b)
 
-- [ ] `node scripts/check-devpost-draft.mjs --final` passes: no `[[verify]]` / `[[fill]]` markers left
+The video runbook, shot list and narration are in [VIDEO.md](VIDEO.md); `node scripts/check-video-script.mjs` lints them.
+
+- [x] Every `[[verify]]` marker cleared in DRAFT.md (HF-050b, Nov 12; each ticket merged, overstated lines reworded)
+- [ ] CP5 dry run on the deployed URL done (VIDEO.md §1), and `npm run demo:audit-check -- --listing <id>` passes on its listing
+- [ ] Remaining `[[fill]]` values typed into the Devpost form: deployed URL, repo URL, `ANTHROPIC_MODEL`, sandbox buyer login, settlement runner and webhook status, video URL, screenshots
+- [ ] Copy the submitted text back from Devpost into a temp file **outside the repo** and run `node scripts/check-devpost-draft.mjs <file> --final`: no markers left, no secrets, no trademarks
 - [ ] Each `[[verify: HF-xxx]]` line was kept only if that ticket shipped and works on the deployed URL; otherwise it was reworded to match the README's honest limits
 - [ ] The elevator pitch and "Inspiration" (which have no room for markers) still describe only what shipped
 - [ ] Built with: every tag is backed by a dependency or call in the deployed build. Today `apps/web` depends only on Vite, so check `react`, `tailwindcss`, `ag-grid`, `ag-charts`, `ag-studio`, `server-sent-events`, `render-workflows`, `paypal-vault` and `paypal-webhooks` especially, and drop any that didn't ship
 - [ ] Description, Built with and sponsor ticks agree with the README (HF-049)
-- [ ] Video link public, under 3:00, Aurel Audio only, no real retailer names or logos, no unlicensed music
+- [ ] Video link public, under 3:00, Aurel Audio only, no real retailer names or logos, no unlicensed music (VIDEO.md §5 pre-upload gate)
 - [ ] Repo public, MIT LICENSE detected in the About section, HF-047 secret scan clean, `docs/_sources/` and strategy docs removed
 - [ ] Testing credentials work in a private browser window; the demo stays alive and the trials stay valid through Dec 21
 - [ ] Submit by 10:00 PST Nov 12. After that, no pushes, no video edits and no Devpost edits until winners are announced
