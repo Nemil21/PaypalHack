@@ -11,6 +11,8 @@ export interface ClientConfig {
   paypalSandbox: boolean;
   /** The labelled "Use sandbox test card" button (DEMO_MODE on sandbox / stub). */
   testCardEnabled: boolean;
+  /** Web push VAPID public key (HF-054b); null when push is off on the server. */
+  vapidPublicKey: string | null;
 }
 
 const FALLBACK: ClientConfig = {
@@ -19,6 +21,7 @@ const FALLBACK: ClientConfig = {
   paypalClientId: null,
   paypalSandbox: true,
   testCardEnabled: false,
+  vapidPublicKey: null,
 };
 
 let current: ClientConfig = FALLBACK;

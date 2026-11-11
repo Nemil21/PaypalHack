@@ -83,6 +83,17 @@ services:
         sync: false
       - key: APP_BASE_URL
         sync: false
+      # HF-054b notifications: Resend email (unset → console log) and web-push VAPID keys.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
       - key: ADMIN_EMAILS
         sync: false
       - key: CHANNEL3_API_KEY

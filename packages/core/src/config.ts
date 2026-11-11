@@ -96,6 +96,15 @@ const envSchema = z.object({
     'must be a postgres:// or postgresql:// URL',
   ),
   PAYPAL_BRAND_EMAIL: optionalString,
+  // HF-054b email: Resend. Without RESEND_API_KEY emails are logged to the console instead.
+  RESEND_API_KEY: optionalString,
+  // Sender, e.g. `Holdfast <alerts@yourdomain>` (a Resend-verified domain).
+  EMAIL_FROM: optionalString,
+  // HF-054b web push: VAPID key pair (`npm run vapid:keys`). Without both, push is off.
+  VAPID_PUBLIC_KEY: optionalString,
+  VAPID_PRIVATE_KEY: optionalString,
+  // VAPID contact: `mailto:` or https URL. Default mailto:alerts@holdfast.invalid.
+  VAPID_SUBJECT: optionalString,
 
   // Flags.
   ADMIN_EMAILS: z
@@ -157,7 +166,11 @@ export type FeatureKey =
   | 'RENDER_API_KEY'
   | 'RENDER_WORKFLOWS_SERVICE_ID'
   | 'APP_BASE_URL'
-  | 'PAYPAL_BRAND_EMAIL';
+  | 'PAYPAL_BRAND_EMAIL'
+  | 'RESEND_API_KEY'
+  | 'EMAIL_FROM'
+  | 'VAPID_PUBLIC_KEY'
+  | 'VAPID_PRIVATE_KEY';
 
 export class ConfigError extends Error {
   constructor(

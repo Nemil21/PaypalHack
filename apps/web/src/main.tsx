@@ -9,6 +9,9 @@ import './styles.css';
 // so `/` paints without waiting for the round trip; the request still runs in the background.
 const config = loadClientConfig();
 if (window.location.pathname !== '/') await config;
+// Web push (HF-054b): the worker only shows pushes and opens their links; it caches nothing.
+// Loaded on its own so the landing page's first bundle doesn't carry the push code.
+void import('./lib/push').then((m) => m.registerServiceWorker());
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

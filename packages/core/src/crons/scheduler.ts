@@ -106,7 +106,16 @@ export interface StartCronsOptions {
   onRun?: (jobId: string, run: JobRun<unknown>) => void;
   /** Run every job once right away (default true). */
   runAtStart?: boolean;
+  /**
+   * Most runs at once in this process (default `CRON_MAX_CONCURRENT`). Each run holds one pool
+   * connection for its lock and needs at least one more for its work, so with as many jobs as
+   * pool connections every run would wait on the pool forever (all jobs fire at boot). Keep this
+   * well under the pool size; queued runs start as slots free up.
+   */
+  maxConcurrent?: number;
 }
+
+export const CRON_MAX_CONCURRENT = 4;
 
 export interface Crons {
   /** Stop scheduling and wait for runs in flight. */
@@ -121,11 +130,29 @@ export function startCrons(opts: StartCronsOptions): Crons {
   const timers: NodeJS.Timeout[] = [];
   let stopped = false;
   const byId = new Map(opts.jobs.map((j) => [j.id, j]));
+  const limit = Math.max(1, opts.maxConcurrent ?? CRON_MAX_CONCURRENT);
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  const slot = async (): Promise<() => void> => {
+    if (active >= limit) await new Promise<void>((resolve) => waiting.push(resolve));
+    active++;
+    return () => {
+      active--;
+      waiting.shift()?.();
+    };
+  };
 
   const fire = (job: CronJob): Promise<JobRun<unknown>> => {
     const running = inFlight.get(job.id);
     if (running) return running;
-    const p = runJob(opts.db, job)
+    const p = slot()
+      .then(async (release) => {
+        try {
+          return await runJob(opts.db, job);
+        } finally {
+          release();
+        }
+      })
       .then((run) => {
         opts.onRun?.(job.id, run);
         return run;

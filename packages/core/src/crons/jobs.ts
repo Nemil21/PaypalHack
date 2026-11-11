@@ -1,3 +1,4 @@
+import { FANOUT_INTERVAL_MS } from '../notifications/fanout.js';
 import { NOTIFY_INTERVAL_MS } from '../notifications/subscriber.js';
 import { CHANNEL3_PROBE_INTERVAL_MS } from '../price-watch/health.js';
 import { PRICE_POLL_CHECK_INTERVAL_MS } from '../price-watch/poll.js';
@@ -28,6 +29,8 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  *   current one closed lost, move when a better book opens);
  * - `notify`: every 5 s, HF-054a's audit subscriber plus the 12 h / 6 h window scan. It reports
  *   only notifications created, never rows scanned: a `CRON_RUN` row is itself an audit event.
+ * - `notify-fanout`: every 5 s, HF-054b's email / web-push fan-out of new in-app notifications
+ *   (its own job, so a slow mail or push service never holds up the bell).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -41,6 +44,7 @@ export const CRON_JOB_IDS = {
   pricePoll: 'price-poll',
   intentMoveRule: 'intent-move-rule',
   notify: 'notify',
+  notifyFanout: 'notify-fanout',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -62,6 +66,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   runIntents?: () => Promise<unknown>;
   /** HF-054a `() => runNotifyJob(…)`: `{ notified }`. No notifications without it. */
   notify?: () => Promise<{ notified: number }>;
+  /** HF-054b `() => createFanout(…).run()`. No email / push without it. */
+  notifyFanout?: () => Promise<{ delivered: number; failed: number }>;
   sweep?: SweepOptions;
   /** HF-053 auto-roll. Default on; `false` leaves the job out. */
   autoRoll?: boolean;
@@ -124,6 +130,14 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
   const notifyJob = deps.notify;
   if (notifyJob) {
     jobs.push({ id: CRON_JOB_IDS.notify, intervalMs: NOTIFY_INTERVAL_MS, run: () => notifyJob() });
+  }
+  const fanout = deps.notifyFanout;
+  if (fanout) {
+    jobs.push({
+      id: CRON_JOB_IDS.notifyFanout,
+      intervalMs: FANOUT_INTERVAL_MS,
+      run: () => fanout(),
+    });
   }
   jobs.push({
     id: CRON_JOB_IDS.listingExpiry,
