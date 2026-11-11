@@ -13,6 +13,7 @@ import { BrandOverview } from './routes/brand/BrandOverview';
 import { BrandOnboarding } from './routes/brand/BrandOnboarding';
 import { BrandSignIn } from './routes/brand/BrandSignIn';
 import { CreateListingWizard } from './routes/brand/CreateListingWizard';
+import { EmbedPage } from './routes/brand/EmbedPage';
 import { ListingConsole } from './routes/brand/ListingConsole';
 import { SettlementFixture } from './routes/brand/SettlementFixture';
 import { SettlementPage } from './routes/brand/SettlementPage';
@@ -54,6 +55,8 @@ const router = createBrowserRouter([
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },
           // W08 settlement live view (HF-035).
           { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
+          // W10 embed widget & share links (HF-055).
+          { path: 'brand/embed', element: <EmbedPage /> },
         ],
       },
       {

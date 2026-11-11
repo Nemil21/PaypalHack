@@ -7,6 +7,8 @@ import { cn } from '../../lib/cn';
 import { clientConfig } from '../../lib/client-config';
 import {
   anchorText,
+  attributionOf,
+  claimClick,
   countdownText,
   holdFailure,
   holdLabel,
@@ -15,7 +17,6 @@ import {
   offerMode,
   overPublicWarning,
   parseAmountParam,
-  parseSourceParam,
   priceHint,
   sliderRange,
   type OfferPaymentMethod,
@@ -61,7 +62,7 @@ export function OfferPage() {
   const navigate = useNavigate();
   const cfg = clientConfig();
   const amountParam = parseAmountParam(params.get('amount'));
-  const utmSource = parseSourceParam(params.get('src'));
+  const { source: utmSource, medium: utmMedium } = attributionOf(params);
 
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [amount, setAmount] = useState<number | null>(null);
@@ -100,6 +101,21 @@ export function OfferPage() {
   useEffect(() => {
     void fetchOffer();
   }, [fetchOffer]);
+
+  // HF-055: a tracked arrival (share link or widget) is one click for its source, once per tab.
+  useEffect(() => {
+    if (!utmSource || !claimClick(safeSessionStorage(), slug, utmSource)) return;
+    void api
+      .request(
+        {
+          method: 'POST',
+          path: `/api/offers/${encodeURIComponent(slug)}/clicks`,
+          body: { source: utmSource, medium: utmMedium },
+        },
+        crypto.randomUUID(),
+      )
+      .catch(() => {}); // analytics only: never in the shopper's way
+  }, [slug, utmSource, utmMedium]);
 
   const offer = load.state === 'ready' ? load.offer : null;
   const deadline = offer?.biddable
@@ -504,4 +520,12 @@ function OfferSkeleton() {
       </div>
     </div>
   );
+}
+
+function safeSessionStorage(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   anchorText,
+  attributionOf,
+  claimClick,
   countdownText,
   holdFailure,
   holdLabel,
@@ -152,5 +154,40 @@ describe('states', () => {
       kind: 'message',
       text: 'nope',
     });
+  });
+});
+
+describe('share-link attribution (HF-055)', () => {
+  it('utm_source wins over src; both are normalized; utm_medium is kept', () => {
+    expect(attributionOf(new URLSearchParams('utm_source=Email&utm_medium=widget'))).toEqual({
+      source: 'email',
+      medium: 'widget',
+    });
+    expect(attributionOf(new URLSearchParams('utm_source=email&src=agent')).source).toBe('email');
+    expect(attributionOf(new URLSearchParams('src=agent')).source).toBe('agent');
+    expect(attributionOf(new URLSearchParams('utm_source=%3Cx%3E'))).toEqual({
+      source: null,
+      medium: null,
+    });
+  });
+
+  it('one click per tab per slug and source; storage failures still log once', () => {
+    const m = new Map<string, string>();
+    const storage = {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => void m.set(k, v),
+    };
+    expect(claimClick(storage, 'aurel-a7', 'email')).toBe(true);
+    expect(claimClick(storage, 'aurel-a7', 'email')).toBe(false);
+    expect(claimClick(storage, 'aurel-a7', 'widget')).toBe(true);
+    expect(claimClick(storage, 'other', 'email')).toBe(true);
+    expect(claimClick(null, 'aurel-a7', 'email')).toBe(true);
+    const broken = {
+      getItem: () => {
+        throw new Error('denied');
+      },
+      setItem: () => {},
+    };
+    expect(claimClick(broken, 'aurel-a7', 'email')).toBe(true);
   });
 });

@@ -169,7 +169,8 @@ function useOverview() {
   return { overview, error, retry: () => refetch.now() };
 }
 
-function BrandNav() {
+/** W04 left nav, shared by the brand screens that have landed (W10 Embed, HF-055). */
+export function BrandNav() {
   return (
     <nav
       aria-label="Brand"
@@ -185,7 +186,8 @@ function BrandNav() {
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2 rounded-sm px-3 py-2 text-[14px] hover:bg-surface',
-                  isActive && n.label === 'Overview' ? 'bg-surface text-ink' : 'text-body',
+                  // "Listings" is a hash link to /brand: only Overview owns that path.
+                  isActive && n.label !== 'Listings' ? 'bg-surface text-ink' : 'text-body',
                 )
               }
             >

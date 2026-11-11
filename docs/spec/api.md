@@ -130,6 +130,12 @@ HF-012b: the 202 body is `{ listingId, status: "CANCELLED", from: "OPEN" | "ROUN
 ```
 Floor is never exposed. `likelyBand()` (shared, floor-blind): $10 buckets, bands with fewer than 3 bids merged, shown only if eligible ≥ quantity; changing the floor never changes the response (M22).
 
+### Share links and embed widget (HF-055, features/14)
+- `GET /widget/:slug` (public, `Access-Control-Allow-Origin: *`, no cookie, `Cache-Control: public, max-age=30`) → `{ "slug", "biddable", "status", "brandName", "productTitle" }`. `widget.js` reads it once on load; `biddable` is D7 `isBiddable` on DB time ("Offers closed" when false). Unknown or DRAFT → 404.
+- `POST /offers/:slug/clicks` `{ "source": "email", "medium": "widget" }` (shopper cookie via `ensureShopper`, same-origin, Idempotency-Key) → `201 { "recorded": true, "source" }`. One `OFFER_CLICK` audit event (`entity=listing`, `data {source, medium}`); the offer page sends it once per tab when it was opened with `?utm_source=`. Bad source → 400, unknown slug → 404.
+- `GET /listings/:id/share` (brand, any role) → `{ "listingId", "slug", "status", "biddable", "sources": [{ "source", "clicks", "bids", "heldCents" }], "totals" }`. `bids` = root bids from that `utm_source` that reached a hold (a raise is not a new bid); `heldCents` = currently HELD; bids with no source are `direct`. Another brand's listing → 404.
+- The widget opens `/o/:slug?utm_source=<source>&utm_medium=widget` in a **new tab** (not a modal iframe: PayPal approval can't be framed and the SameSite=Lax cookie isn't sent cross-site). The offer page copies `utm_source` (else `src`) into `POST /bids` `utmSource` → `bids.utm_source`. `?embed=1` hides the header, for previews only.
+
 ### `POST /bids` (Idempotency-Key)
 ```json
 { "listingId": "…", "amountCents": 22900, "paymentMethod": "PAYPAL" | "CARD" | "VAULT" | "TEST_CARD", "releaseIfCheaper": true, "intentId": null }
