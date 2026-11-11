@@ -341,6 +341,56 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-012a listings create + publish (Postgres
     }
   });
 
+  it('race (HF-013): double-click on Publish with the wizard session keys → one listing, one OPEN', async () => {
+    // The W05 wizard's manual Aurel A7 body (D15: fictional, so never in Channel3).
+    const aurel = {
+      title: 'Aurel A7 Midnight',
+      gtin: '0012345678905',
+      quantity: 240,
+      floorCents: 19900,
+      liquidationQuoteCents: 8000,
+      windowHours: 48,
+    };
+    /** The client's rule: 409 IN_PROGRESS means "same action still running", retry the key. */
+    async function untilSettled(send: () => ReturnType<typeof create>) {
+      for (;;) {
+        const res = await send();
+        if (!(res.statusCode === 409 && res.json().error.code === 'IN_PROGRESS')) return res;
+        await new Promise((r) => setTimeout(r, 20));
+      }
+    }
+    for (let round = 0; round < 5; round++) {
+      const s = await brandSession({ name: 'Aurel Audio (demo)', domains: [] });
+      const createKey = key();
+      const created = await Promise.all(
+        [0, 1].map(() => untilSettled(() => create(s, aurel, createKey))),
+      );
+      for (const r of created) expect(r.statusCode, r.body).toBe(201);
+      const id = created[0]!.json().listingId;
+      expect(created[1]!.json().listingId).toBe(id);
+
+      const publishKey = key();
+      const published = await Promise.all(
+        [0, 1].map(() =>
+          untilSettled(() =>
+            app.inject({
+              method: 'POST',
+              url: `/api/listings/${id}/publish`,
+              headers: { cookie: s.cookie, 'idempotency-key': publishKey },
+            }),
+          ),
+        ),
+      );
+      for (const r of published) expect(r.statusCode, r.body).toBe(200);
+      expect(published[1]!.json().slug).toBe(published[0]!.json().slug);
+
+      const rows = await q<{ status: string }>(`SELECT status FROM listings WHERE brand_id = $1`, [
+        s.brandId,
+      ]);
+      expect(rows).toEqual([{ status: 'OPEN' }]);
+    }
+  });
+
   it('Channel3 down at publish → OPEN with price watch off; the retry subscribes later', async () => {
     const s = await brandSession();
     const id = await draft(s, { channel3Id: '29C6zIk', variant: undefined, floorCents: 10000 });
