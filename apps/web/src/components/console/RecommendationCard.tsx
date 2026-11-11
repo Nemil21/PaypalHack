@@ -6,14 +6,17 @@ import { Button } from '../ui';
 /**
  * W06 brand agent panel, code-only part (HF-051a, features/09 §Logic 4): the recommendation card
  * and "Apply to slider". Applying sets the slider store's quantity (exact `clear()` at once); it
- * never clears. Numbers render from the JSON fields only. The Ask box is HF-051b.
+ * never clears. Numbers render from the JSON fields only. HF-051b adds Claude's `prose` under
+ * the numbers (commentary; absent when Claude is down) and the Ask panel below the card.
  */
 export function RecommendationCard({
   recommendation,
   disabled = false,
+  prose = null,
 }: {
   recommendation: Recommendation;
   disabled?: boolean;
+  prose?: string | null;
 }) {
   const store = useSliderStore();
   const slider = useSlider();
@@ -54,6 +57,12 @@ export function RecommendationCard({
             {onSlider(view.primary.quantity) ? 'On the slider' : 'Apply to slider'}
           </Button>
         </div>
+      )}
+
+      {prose && view.kind === 'recommend' && (
+        <p className="text-[14px] text-body" data-testid="recommendation-prose">
+          {prose}
+        </p>
       )}
 
       {view.kind !== 'empty' && view.alternatives.length > 0 && (

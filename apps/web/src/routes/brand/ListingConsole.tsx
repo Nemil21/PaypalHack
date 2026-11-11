@@ -26,6 +26,7 @@ import {
 } from '../../lib/console/rounds';
 import { createSliderStore, SliderContext, type SliderStore } from '../../lib/console/slider-store';
 import { useConsoleBook } from '../../lib/console/use-console-book';
+import { useRecommendationProse } from '../../lib/console/use-recommendation-prose';
 import { useRoundsActivity } from '../../lib/console/use-rounds-activity';
 import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
@@ -34,6 +35,7 @@ import { ConsoleHeader, ShareButton } from './ConsoleHeader';
 const ConsoleKpiStudio = lazy(() => import('../../components/ag/ConsoleKpiStudio'));
 const DemandCurveChart = lazy(() => import('../../components/ag/DemandCurveChart'));
 const BidsGrid = lazy(() => import('../../components/ag/BidsGrid'));
+const BrandAgentStudio = lazy(() => import('../../components/ag/BrandAgentStudio'));
 
 const KPI_KINDS: KpiKind[] = ['held', 'bids', 'projected', 'recovery', 'released'];
 
@@ -220,7 +222,7 @@ export function ListingConsole() {
               />
             )}
             {book?.recommendation && phase && CLEARABLE.has(phase.phase) && (
-              <RecommendationCard recommendation={book.recommendation} disabled={locked} />
+              <AgentPanel book={book} locked={locked} />
             )}
             {book && !empty && <BidsPanel book={book} slider={slider} tracker={tracker} />}
           </div>
@@ -387,6 +389,28 @@ function DemandPanel({
         recommendation={book.recommendation}
       />
     </section>
+  );
+}
+
+/**
+ * Brand agent (HF-051a card + HF-051b): the code recommendation with Claude's prose under it,
+ * then "Ask about this book" on AG Studio. Claude down → the card alone, without prose.
+ */
+function AgentPanel({
+  book,
+  locked,
+}: {
+  book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
+  locked: boolean;
+}) {
+  const prose = useRecommendationProse(book.listing.id, book.recommendation);
+  return (
+    <>
+      <RecommendationCard recommendation={book.recommendation!} disabled={locked} prose={prose} />
+      <Suspense fallback={<Skeleton className="h-[120px] w-full" />}>
+        <BrandAgentStudio key={book.listing.id} book={book} />
+      </Suspense>
+    </>
   );
 }
 

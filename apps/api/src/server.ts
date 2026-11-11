@@ -51,6 +51,7 @@ import {
 } from './routes/paypal-webhook.js';
 import { registerProductRoutes } from './routes/products.js';
 import { registerAgentRoutes, type AgentRoutesDeps } from './routes/agent.js';
+import { registerBrandAgentRoutes, type BrandAgentRouteDeps } from './routes/brand-agent.js';
 import { registerMcpClientRoutes } from './routes/mcp-clients.js';
 import { registerMcpRoute, type McpRouteDeps } from './mcp/route.js';
 import { createMcpHandler } from './mcp/server.js';
@@ -109,6 +110,11 @@ export interface ServerDeps {
    * the fallback). Mounted with `bids`, whose bid service executes confirmed actions.
    */
   agent?: Omit<AgentRoutesDeps, 'money' | 'channel3'>;
+  /**
+   * Brand agent Ask (HF-051b): the Claude model (null without `ANTHROPIC_API_KEY`: the console
+   * shows the code recommendation without prose). Mounted with `sql`.
+   */
+  brandAgent?: Omit<BrandAgentRouteDeps, 'db'>;
   /**
    * Price watcher (HF-042a): mounts `POST /api/admin/replay-price-event`, and (HF-042b) the live
    * `POST /api/webhooks/channel3` verified with `CHANNEL3_WEBHOOK_SECRET`. Not mounted without it.
@@ -177,6 +183,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerMandateRoutes(app, deps.bids);
   }
   if (deps.sql) registerBookRoutes(app, deps.sql);
+  if (deps.sql) registerBrandAgentRoutes(app, { model: null, ...deps.brandAgent, db: deps.sql });
   if (deps.sql) registerBrandOverviewRoutes(app, deps.sql);
   if (deps.sql) registerNotificationRoutes(app, deps.sql);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });

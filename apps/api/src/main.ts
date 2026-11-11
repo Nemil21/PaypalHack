@@ -135,6 +135,11 @@ const rounds = {
   onPhrasingError: (err: unknown) =>
     app.log.warn({ err: (err as Error).message }, 'nudge phrasing failed; template text used'),
 };
+// One Claude model port for the buyer agent (HF-039) and the brand agent (HF-051b);
+// `ANTHROPIC_MODEL` picks the model.
+const agentModel = config.ANTHROPIC_API_KEY
+  ? createClaudeAgentModel({ apiKey: config.ANTHROPIC_API_KEY, model: config.ANTHROPIC_MODEL })
+  : null;
 const app = buildServer(config, {
   db: pool,
   sql,
@@ -166,10 +171,11 @@ const app = buildServer(config, {
   // HF-039: the buyer agent. Without a key every chat turn answers with the "bid directly"
   // fallback; the confirm endpoint still works for actions proposed earlier.
   agent: {
-    model: config.ANTHROPIC_API_KEY
-      ? createClaudeAgentModel({ apiKey: config.ANTHROPIC_API_KEY, model: config.ANTHROPIC_MODEL })
-      : null,
+    model: agentModel,
   },
+  // HF-051b: brand agent Ask (read-only tools). Without a key the console shows the code
+  // recommendation without prose.
+  brandAgent: { model: agentModel },
   bids: { money: bidMoney },
 });
 events.setLogger(app.log);
