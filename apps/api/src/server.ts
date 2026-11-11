@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Config } from '@holdfast/core';
 import { registerHealthz, type Pingable } from './healthz.js';
+import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -8,6 +9,8 @@ export interface ServerDeps {
   db?: Pingable;
   /** Built SPA to serve (default `apps/web/dist`); `null` serves none. */
   webDistDir?: string | null;
+  /** `POST /api/listings/:id/clear` (HF-027); mounted once auth (HF-006) and PayPal (HF-004) are wired. */
+  clear?: ClearRouteDeps;
 }
 
 /**
@@ -43,6 +46,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   }));
 
   registerHealthz(app, deps.db);
+  if (deps.clear) registerClearRoute(app, deps.clear);
 
   // Last: its not-found handler serves the SPA for every path no route above claimed.
   registerWebApp(app, config, deps.webDistDir === undefined ? DEFAULT_WEB_DIST : deps.webDistDir);

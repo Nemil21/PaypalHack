@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { BidStatus } from './status.js';
 
 /**
@@ -59,3 +60,46 @@ export interface ClearResult {
   /** 1-based rank of every ranked eligible bid, by bid id. */
   rank: Record<string, number>;
 }
+
+/** Body of `POST /api/listings/:id/clear` (api.md). `quantity ≤ listing.quantity` is checked server-side (422). */
+export const clearListingRequestSchema = z
+  .object({
+    quantity: z.number().int().min(1),
+    /** The gross the brand confirmed in the modal; a mismatch is 409 `BOOK_CHANGED` (M12). */
+    expectedGrossCents: z.number().int().min(0),
+  })
+  .strict();
+export type ClearListingRequest = z.infer<typeof clearListingRequestSchema>;
+
+/** 202 body of `POST /api/listings/:id/clear`. */
+export interface ClearListingResponse {
+  status: 'CLEARING';
+  cutoffCents: number | null;
+  grossCents: number;
+  winners: number;
+  losers: number;
+  /** The `settlement_runs` outbox row (B6). */
+  runId: string;
+  /** Same id as `runId`, under the api.md name. */
+  settlementRunId: string;
+  /** Holds ≥ 66 h old released at Clear (`HOLD_AGED`, D6). */
+  holdsReleased: number;
+}
+
+/** Recomputed numbers carried by 409 `STATE_CONFLICT {reason: 'BOOK_CHANGED'}` so the modal can offer "Confirm $X". */
+export interface ClearNumbers {
+  cutoffCents: number | null;
+  grossCents: number;
+  winners: number;
+  bookVersion: string;
+}
+
+/** `reason` values of a 409 `STATE_CONFLICT` from Clear. */
+export const CLEAR_CONFLICT_REASONS = [
+  'NOT_CLEARABLE',
+  'BOOK_CHANGED',
+  'HOLDS_TOO_OLD',
+  'AMOUNT_MISMATCH',
+  'CONCURRENT_UPDATE',
+] as const;
+export type ClearConflictReason = (typeof CLEAR_CONFLICT_REASONS)[number];
