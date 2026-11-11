@@ -21,6 +21,7 @@ function screen<K extends string, M extends Record<K, ComponentType>>(
   );
 }
 const AgentChatPage = screen(() => import('./routes/agent/AgentChatPage'), 'AgentChatPage');
+const OpsPage = screen(() => import('./routes/admin/OpsPage'), 'OpsPage');
 const BidDetailPage = screen(() => import('./routes/bids/BidDetailPage'), 'BidDetailPage');
 const ErrorStatesFixture = screen(
   () => import('./routes/bids/ErrorStatesFixture'),
@@ -138,11 +139,9 @@ const router = createBrowserRouter([
       // W19 Developer / MCP connect (HF-043): tokens, Claude Desktop config, readiness.
       { path: 'developer', element: <DeveloperPage /> },
 
-      // Admin
-      {
-        path: 'admin/*',
-        element: <ScreenPlaceholder screen="Ops / audit (W20)" ticket="HF-058" />,
-      },
+      // Admin: W20 ops / audit log (HF-058), `ADMIN_EMAILS` only.
+      { path: 'admin', element: <OpsPage /> },
+      { path: 'admin/*', element: <OpsPage /> },
 
       { path: '*', element: <NotFound /> },
     ],
