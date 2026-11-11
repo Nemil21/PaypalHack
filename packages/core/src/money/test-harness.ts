@@ -31,6 +31,8 @@ export async function createTestDatabase(): Promise<TestDatabase> {
   url.pathname = `/${name}`;
   await migrate({ connectionString: url.toString() });
   const pool = new pg.Pool({ connectionString: url.toString(), max: 30 });
+  // DROP DATABASE … WITH (FORCE) at teardown terminates connections that are still closing.
+  pool.on('error', () => {});
   return {
     db: createDb(pool),
     url: url.toString(),
@@ -140,19 +142,30 @@ export class Fixtures {
   pendingBid(
     listingId: string,
     shopperId: string,
-    cols: { amountCents?: number; mandateId?: string | null; replacesBidId?: string | null } = {},
+    cols: {
+      amountCents?: number;
+      mandateId?: string | null;
+      replacesBidId?: string | null;
+      intentId?: string | null;
+    } = {},
   ): Promise<{ id: string; amount_cents: number }> {
     return this.one(
-      `INSERT INTO bids (listing_id, shopper_id, amount_cents, mandate_id, replaces_bid_id, idempotency_key)
-       VALUES ($1, $2, $3, $4, $5, gen_random_uuid()::text) RETURNING id, amount_cents`,
+      `INSERT INTO bids (listing_id, shopper_id, amount_cents, mandate_id, replaces_bid_id, intent_id,
+                         idempotency_key)
+       VALUES ($1, $2, $3, $4, $5, $6, gen_random_uuid()::text) RETURNING id, amount_cents`,
       [
         listingId,
         shopperId,
         cols.amountCents ?? 20_000,
         cols.mandateId ?? null,
         cols.replacesBidId ?? null,
+        cols.intentId ?? null,
       ],
     );
+  }
+
+  intent(shopperId: string): Promise<{ id: string }> {
+    return this.one(`INSERT INTO intents (shopper_id) VALUES ($1) RETURNING id`, [shopperId]);
   }
 
   /** A HELD bid with an authorization (fixture shortcut; production goes through landHold). */

@@ -7,6 +7,7 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Db } from '../db.js';
 import {
+  ForeignAuthorization,
   LISTING_EVENTS_CHANNEL,
   SQL_NOW,
   claim,
@@ -269,6 +270,91 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-003a money primitives', () => {
         reason: 'ALREADY_BID',
         voided: true,
       });
+    });
+
+    it('an unexpected error in the transaction still voids the new authorization, then rethrows', async () => {
+      const pp = new StubPayPal();
+      const listing = await fx.listing();
+      const shopper = await fx.shopper();
+      const mandate = await fx.mandate(shopper.id);
+      const bid = await fx.pendingBid(listing.id, shopper.id, { mandateId: mandate.id });
+      const input = hold(bid);
+      const deps = depsFor(db, pp, {
+        mandateCheck: async () => {
+          throw new Error('hook exploded');
+        },
+      });
+      await expect(landHold(deps, input)).rejects.toThrow('hook exploded');
+      expect(pp.calls).toEqual([
+        { authorizationId: input.authorizationId, requestId: `void-${bid.id}` },
+      ]);
+      expect(await fx.bid(bid.id)).toMatchObject({
+        status: 'VOIDED',
+        paypal_authorization_id: input.authorizationId,
+        error_code: 'INTERNAL',
+        void_reason: 'CANCELLED',
+      });
+    });
+
+    it('an unexpected error while PayPal is down leaves the bid VOIDING with the auth id for the sweeper', async () => {
+      const pp = new StubPayPal();
+      pp.failures = Array.from({ length: 4 }, () => ({
+        ok: false as const,
+        errorClass: 'TRANSIENT' as const,
+        code: '503',
+      }));
+      const listing = await fx.listing();
+      const shopper = await fx.shopper();
+      const mandate = await fx.mandate(shopper.id);
+      const bid = await fx.pendingBid(listing.id, shopper.id, { mandateId: mandate.id });
+      const input = hold(bid);
+      const deps = depsFor(db, pp, {
+        mandateCheck: async (tx) => {
+          await tx.query('SELECT 1/0');
+          return null;
+        },
+      });
+      await expect(landHold(deps, input)).rejects.toMatchObject({ code: '22012' });
+      expect(await fx.bid(bid.id)).toMatchObject({
+        status: 'VOIDING',
+        paypal_authorization_id: input.authorizationId,
+        void_request_id: `void-${bid.id}`,
+        error_code: 'PG_22012',
+      });
+    });
+
+    it('a second HELD bid for one intent is refused (bids_one_held_per_intent)', async () => {
+      const pp = new StubPayPal();
+      const shopper = await fx.shopper();
+      const intent = await fx.intent(shopper.id);
+      const a = await fx.pendingBid((await fx.listing()).id, shopper.id, { intentId: intent.id });
+      expect(await landHold(depsFor(db, pp), hold(a))).toMatchObject({ ok: true });
+      const b = await fx.pendingBid((await fx.listing()).id, shopper.id, { intentId: intent.id });
+      const input = hold(b);
+      expect(await landHold(depsFor(db, pp), input)).toMatchObject({
+        ok: false,
+        reason: 'ALREADY_BID',
+        voided: true,
+      });
+      expect(pp.calls).toEqual([
+        { authorizationId: input.authorizationId, requestId: `void-${b.id}` },
+      ]);
+    });
+
+    it('an authorization already stored on another bid is not voided under this bid’s key', async () => {
+      const pp = new StubPayPal();
+      const listing = await fx.listing();
+      const owner = await fx.heldBid(listing.id, (await fx.shopper()).id);
+      const other = await fx.pendingBid(listing.id, (await fx.shopper()).id);
+      await expect(
+        landHold(depsFor(db, pp), {
+          ...hold(other),
+          authorizationId: owner.paypal_authorization_id,
+        }),
+      ).rejects.toBeInstanceOf(ForeignAuthorization);
+      expect(pp.calls).toHaveLength(0);
+      expect((await fx.bid(owner.id)).status).toBe('HELD');
+      expect((await fx.bid(other.id)).status).toBe('PENDING_APPROVAL');
     });
 
     it('authorized amount ≠ bid amount is refused (INV-5)', async () => {

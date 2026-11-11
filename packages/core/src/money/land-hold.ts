@@ -29,7 +29,12 @@ export type LandHoldFailure =
   /** INV-5: the authorized amount differs from the bid amount. */
   | 'AMOUNT_MISMATCH'
   /** The bid is no longer PENDING_APPROVAL (e.g. the sweeper abandoned it). */
-  | 'NOT_PENDING';
+  | 'NOT_PENDING'
+  /**
+   * The transaction failed for an unexpected reason (a database error, a throwing hook). The new
+   * authorization is still voided before `landHold` rethrows, so it never dangles (B2).
+   */
+  | 'INTERNAL_ERROR';
 
 const VOID_REASON_FOR: Record<LandHoldFailure, VoidReason> = {
   WINDOW_CLOSED: 'WINDOW_CLOSED',
@@ -41,7 +46,12 @@ const VOID_REASON_FOR: Record<LandHoldFailure, VoidReason> = {
   ALREADY_BID: 'CANCELLED',
   AMOUNT_MISMATCH: 'CANCELLED',
   NOT_PENDING: 'CANCELLED',
+  INTERNAL_ERROR: 'CANCELLED',
 };
+
+/** Deadlock / serialization failure: the transaction is safe to run again. */
+const RETRYABLE_PG_CODES = new Set(['40P01', '40001']);
+const MAX_TX_ATTEMPTS = 3;
 
 export interface LandHoldInput {
   bidId: string;
@@ -128,13 +138,51 @@ export async function landHold(deps: MoneyDeps, input: LandHoldInput): Promise<L
     return { ok: true, bid: pending, replaced: null, alreadyHeld: true };
   }
 
-  try {
-    const landed = await deps.db.tx((tx) => land(deps, tx, pending, input, replacesBidId, actor));
-    return { ok: true, ...landed, alreadyHeld: false };
-  } catch (err) {
-    const reason = refusalOf(err);
-    if (!reason) throw err;
-    return refuse(deps, pending, input, reason, actor);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const landed = await deps.db.tx((tx) => land(deps, tx, pending, input, replacesBidId, actor));
+      return { ok: true, ...landed, alreadyHeld: false };
+    } catch (err) {
+      const reason = refusalOf(err);
+      if (reason) return refuse(deps, pending, input, reason, actor);
+      const code = (err as { code?: string }).code;
+      if (code && RETRYABLE_PG_CODES.has(code) && attempt < MAX_TX_ATTEMPTS) continue;
+      if (err instanceof ForeignAuthorization) throw err;
+      // Unexpected: still record and void the new authorization, then surface the error.
+      try {
+        await refuse(
+          deps,
+          pending,
+          input,
+          'INTERNAL_ERROR',
+          actor,
+          code ? `PG_${code}` : 'INTERNAL',
+        );
+      } catch (voidErr) {
+        throw new AggregateError(
+          [err, voidErr],
+          `landHold failed and could not void ${voidKey(pending.id)}`,
+        );
+      }
+      throw err;
+    }
+  }
+}
+
+/**
+ * The authorization id is already stored on another bid (`bids_paypal_authorization_id_key`).
+ * That row owns it and its own void key; voiding it as this bid could release a live hold, so
+ * this is surfaced as a caller bug instead of being voided.
+ */
+export class ForeignAuthorization extends Error {
+  constructor(
+    readonly bidId: string,
+    readonly authorizationId: string,
+  ) {
+    super(
+      `landHold: authorization ${authorizationId} already belongs to another bid (bid ${bidId})`,
+    );
+    this.name = 'ForeignAuthorization';
   }
 }
 
@@ -195,8 +243,15 @@ async function land(
     });
   } catch (err) {
     const pgErr = err as { code?: string; constraint?: string };
-    if (pgErr.code === '23505' && pgErr.constraint === 'one_held_bid')
+    if (
+      pgErr.code === '23505' &&
+      (pgErr.constraint === 'one_held_bid' || pgErr.constraint === 'bids_one_held_per_intent')
+    ) {
       throw new Refused('ALREADY_BID');
+    }
+    if (pgErr.code === '23505' && pgErr.constraint === 'bids_paypal_authorization_id_key') {
+      throw new ForeignAuthorization(current.id, input.authorizationId);
+    }
     if (pgErr.code === '23505' && pgErr.constraint === 'bids_replaces_bid_id_key') {
       throw new Refused('ALREADY_REPLACED');
     }
@@ -281,6 +336,7 @@ async function refuse(
   input: LandHoldInput,
   reason: LandHoldFailure,
   actor: Actor,
+  errorCode: string = reason,
 ): Promise<LandHoldResult> {
   const voidReason = VOID_REASON_FOR[reason];
   const marked = await deps.db.tx(async (tx) => {
@@ -295,7 +351,7 @@ async function refuse(
         paypal_order_id: input.paypalOrderId ?? undefined,
         void_reason: voidReason,
         void_request_id: voidKey(pending.id),
-        error_code: reason,
+        error_code: errorCode,
       },
     );
     if (bid) {
