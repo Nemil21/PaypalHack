@@ -5,14 +5,16 @@ import {
   createDb,
   createPayPalClient,
   createPool,
+  holdfastCronJobs,
   inProcessSettlementRunner,
   loadConfig,
   loadDotenv,
   makePayoutBrand,
   mockDeclinesAllowed,
+  pollPayouts,
   retryPayout,
+  startCrons,
   startPriceWatchRetrier,
-  startSettlementOutboxKicker,
   testCardAllowed,
 } from '@holdfast/core';
 import { ListingEventBus } from './events/bus.js';
@@ -86,21 +88,34 @@ const app = buildServer(config, {
 events.setLogger(app.log);
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
 pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool error'));
-// The outbox kicker re-kicks runs whose kick was lost or whose coordinator died (B6).
-const kicker = settlement
-  ? startSettlementOutboxKicker({
-      db: sql,
-      kick: settlement.kick,
-      onError: (err) => app.log.warn({ err: (err as Error).message }, 'settlement kick failed'),
-    })
-  : null;
+// HF-034: one in-process scheduler; each job runs under its own Postgres advisory lock, so
+// several instances never double-call PayPal. The settlement kick re-kicks runs whose kick was
+// lost or whose coordinator died (B6); HF-032's payout poll, expiry and the hold sweeper.
+const crons = startCrons({
+  db: sql,
+  jobs: holdfastCronJobs({
+    db: sql,
+    paypal,
+    audit: auditHook,
+    appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+    allowTestCard: testCardAllowed(config),
+    kickSettlement: settlement?.kick,
+    pollPayouts: () => pollPayouts(payouts),
+    onError: (err, ctx) =>
+      app.log.warn(
+        { err: (err as Error).message, job: ctx.job, detail: ctx.detail },
+        'cron step failed',
+      ),
+  }),
+  onError: (err, job) => app.log.warn({ err: (err as Error).message, job }, 'cron job failed'),
+});
 // Listings published while Channel3 was down get their price-watch subscription later (HF-012a).
 const priceWatchRetrier = startPriceWatchRetrier(
   { db: sql, channel3 },
   { onError: (err) => app.log.warn({ err: (err as Error).message }, 'price-watch retry failed') },
 );
 app.addHook('onClose', async () => {
-  kicker?.stop();
+  await crons.stop();
   priceWatchRetrier.stop();
   await events.close();
   await pool.end();
