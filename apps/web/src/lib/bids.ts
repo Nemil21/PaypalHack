@@ -3,6 +3,9 @@ import {
   formatUsd,
   releasedHoldMessage,
   releasingHoldMessage,
+  ROUNDS_ENDED_COPY,
+  raiseFailedMessage,
+  roundsRaisedMessage,
   wonMessage,
   type BidStatus,
 } from '@holdfast/shared';
@@ -48,9 +51,24 @@ export interface MyBid {
     windowClosesAt: string | null;
     roundsEndAt: string | null;
     roundEndsAt: string | null;
+    /** D7 at the server clock; ROUNDS and false = frozen book. */
+    raisable: boolean;
   };
   belowCutoff: boolean | null;
   cutoffCents: number | null;
+  /** This round's nudge while the bid is below the cutoff (HF-038a); null otherwise. */
+  nudge: MyBidNudge | null;
+}
+
+export interface MyBidNudge {
+  id: string;
+  round: number;
+  cutoffCents: number;
+  suggestedCents: number;
+  /** "You're out at $219. The cutoff is $240. Raise to $241?" */
+  text: string;
+  sentAt: string;
+  roundEndsAt: string | null;
 }
 
 export interface TimelineEvent {
@@ -317,14 +335,89 @@ export function shouldPoll(bids: readonly MyBid[]): boolean {
   return bids.some((b) => b.listing.status === 'ROUNDS' && tabFor(b.status) === 'live');
 }
 
+/**
+ * HF-038a: a HELD bid on an OPEN listing is polled too (same 5 s), because the brand can start
+ * rounds at any moment and round 1's nudge must show within 5 s; shoppers have no SSE (D18).
+ */
+export function shouldWatchRounds(bids: readonly MyBid[]): boolean {
+  return bids.some((b) => b.status === 'HELD' && b.listing.status === 'OPEN' && b.listing.raisable);
+}
+
 export function canCancel(status: BidStatus): boolean {
   return status === 'HELD' || status === 'PENDING_APPROVAL';
 }
 
 export function canRaise(bid: MyBid): boolean {
-  return (
-    bid.status === 'HELD' && (bid.listing.status === 'OPEN' || bid.listing.status === 'ROUNDS')
+  return bid.status === 'HELD' && bid.listing.raisable;
+}
+
+// ---------------------------------------------------------------------------------------------
+// HF-038a live rounds on the bid page (W14 card, W15 summary)
+// ---------------------------------------------------------------------------------------------
+
+export { ROUNDS_ENDED_COPY };
+
+/**
+ * What the rounds block on a bid shows:
+ *  - `nudge`: below the cutoff this round → the nudge text and a one-tap "Raise to $241";
+ *  - `frozen`: rounds are over (after `rounds_end_at`) → "Rounds ended. Waiting for the brand to
+ *    clear." and no raise action;
+ *  - null: not in rounds, not a live bid, or above the cutoff.
+ */
+export type RoundsAction =
+  | { kind: 'nudge'; text: string; suggestedCents: number; cutoffCents: number; round: number }
+  | { kind: 'frozen'; text: string };
+
+export function roundsAction(bid: MyBid): RoundsAction | null {
+  if (bid.listing.status !== 'ROUNDS') return null;
+  if (bid.status !== 'HELD' && bid.status !== 'PENDING_APPROVAL') return null;
+  if (!bid.listing.raisable) return { kind: 'frozen', text: ROUNDS_ENDED_COPY };
+  if (bid.status !== 'HELD' || bid.belowCutoff !== true || !bid.nudge) return null;
+  const n = bid.nudge;
+  return {
+    kind: 'nudge',
+    text: n.text,
+    suggestedCents: n.suggestedCents,
+    cutoffCents: n.cutoffCents,
+    round: n.round,
+  };
+}
+
+/** `POST /api/bids/:id/raise` 201 body (core `RaisedBidBody`). */
+export interface RaiseResponse {
+  bidId: string;
+  status: string;
+  amountCents: number;
+  replacesBidId: string;
+  previousAmountCents: number;
+  previousStatus?: string;
+  message: string | null;
+  warnSeveralHolds: string | null;
+  approveUrl?: string | null;
+}
+
+/** "New $241 hold placed · $219 hold released" ("releasing" until the old bid is VOIDED, D14). */
+export function raisedCopy(res: RaiseResponse): string {
+  return roundsRaisedMessage(
+    res.previousAmountCents,
+    res.amountCents,
+    res.previousStatus === 'VOIDED',
   );
+}
+
+/**
+ * A failed raise, as the bid page says it. `WINDOW_CLOSED` during rounds = frozen book; a decline
+ * keeps the old bid: "Couldn't raise. Your $229 bid still stands." Otherwise the server's message.
+ */
+export function raiseErrorCopy(
+  code: string,
+  message: string | null | undefined,
+  bid: Pick<MyBid, 'amountCents' | 'listing'>,
+): string {
+  if (code === 'WINDOW_CLOSED' && bid.listing.status === 'ROUNDS') return ROUNDS_ENDED_COPY;
+  if (code === 'HOLD_FAILED' || code === 'HOLD_REJECTED')
+    return raiseFailedMessage(bid.amountCents);
+  return message || raiseFailedMessage(bid.amountCents);
 }
 
 export function cancelQuestion(bid: Pick<MyBid, 'status' | 'amountCents'>): string {

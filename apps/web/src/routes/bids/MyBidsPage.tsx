@@ -13,6 +13,7 @@ import {
 import { ApiError, api } from '../../lib/api';
 import {
   belowHint,
+  roundsAction,
   bidsInTab,
   cancelQuestion,
   canCancel,
@@ -20,6 +21,7 @@ import {
   releaseReason,
   ROUNDS_POLL_MS,
   shouldPoll,
+  shouldWatchRounds,
   sourceChip,
   statusPill,
   TABS,
@@ -30,6 +32,7 @@ import {
 import { cn } from '../../lib/cn';
 import { useApiAction } from '../../lib/use-api-action';
 import { ErrorState } from './ErrorState';
+import { RoundsRaise } from './RoundsRaise';
 import { SWIPE_OPEN_PX, useNow, usePolling, usePullToRefresh, useSwipeLeft } from './hooks';
 
 type Load =
@@ -73,7 +76,7 @@ export function MyBidsPage() {
   }, [fetchBids]);
 
   const bids = load.state === 'ready' ? load.bids : [];
-  usePolling(shouldPoll(bids), ROUNDS_POLL_MS, () => void fetchBids());
+  usePolling(shouldPoll(bids) || shouldWatchRounds(bids), ROUNDS_POLL_MS, () => void fetchBids());
   const pull = usePullToRefresh(fetchBids);
 
   const setTab = (id: BidTab) => {
@@ -180,7 +183,9 @@ function BidCard({ bid, now, onChanged }: { bid: MyBid; now: number; onChanged()
   const swipe = useSwipeLeft(cancellable && !confirming, () => setConfirming(true));
   const pill = statusPill(bid.status);
   const left = timeLeftText(bid, now);
-  const hint = belowHint(bid);
+  // The rounds block (nudge + one-tap raise) carries the below-cutoff message itself.
+  const rounds = roundsAction(bid);
+  const hint = rounds ? null : belowHint(bid);
   const chip = sourceChip(bid.source);
   const reason = releaseReason(bid);
 
@@ -245,6 +250,7 @@ function BidCard({ bid, now, onChanged }: { bid: MyBid; now: number; onChanged()
             {hint && <span className="text-[13px] text-orange">{hint}</span>}
           </div>
         )}
+        <RoundsRaise bid={bid} onRaised={onChanged} onRefresh={onChanged} />
         {cancellable &&
           (confirming ? (
             <div

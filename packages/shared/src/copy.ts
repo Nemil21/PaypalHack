@@ -170,6 +170,21 @@ export function raiseFailedMessage(oldCents: number): string {
   return `Couldn't raise. Your ${formatUsd(oldCents)} bid still stands.`;
 }
 
+/**
+ * Rounds raise success on the bid page (HF-038a, 19 §Data): "New $241 hold placed · $219 hold
+ * released" once the old hold is VOIDED, "… hold releasing" before (D14).
+ */
+export function roundsRaisedMessage(
+  oldCents: number,
+  newCents: number,
+  oldReleased: boolean,
+): string {
+  return `New ${formatUsd(newCents)} hold placed · ${formatUsd(oldCents)} hold ${oldReleased ? 'released' : 'releasing'}`;
+}
+
+/** Frozen book (D7): after `rounds_end_at` nothing can be raised until the brand clears. */
+export const ROUNDS_ENDED_COPY = 'Rounds ended. Waiting for the brand to clear.';
+
 /** Shown on every raise from the 2nd one on a bid chain (HF-018 `warnSeveralHolds`). */
 export const SEVERAL_HOLDS_WARNING =
   'Each raise places a new hold; old holds can show as pending at your bank for a few days.';

@@ -3,6 +3,11 @@ import { BANK_PENDING_NOTE, BID_STATUSES, type BidStatus } from '@holdfast/share
 import {
   belowHint,
   bidsInTab,
+  canRaise,
+  raisedCopy,
+  raiseErrorCopy,
+  ROUNDS_ENDED_COPY,
+  roundsAction,
   chainHeads,
   detailErrorCode,
   ERROR_VARIANTS,
@@ -12,6 +17,7 @@ import {
   moneyCopy,
   releaseReason,
   shouldPoll,
+  shouldWatchRounds,
   sourceChip,
   statusPill,
   TABS,
@@ -53,9 +59,11 @@ function bid(over: Partial<MyBid> = {}): MyBid {
       windowClosesAt: at(4 * 60 + 12),
       roundsEndAt: null,
       roundEndsAt: null,
+      raisable: true,
     },
     belowCutoff: null,
     cutoffCents: null,
+    nudge: null,
     ...over,
   };
 }
@@ -504,5 +512,98 @@ describe('W21 error states', () => {
       'WINDOW_CLOSED',
     );
     expect(detailErrorCode(bid())).toBeNull();
+  });
+});
+
+describe('HF-038a live rounds on the bid page', () => {
+  const rounds = (raisable = true) => ({
+    ...bid().listing,
+    status: 'ROUNDS',
+    roundsEndAt: at(60),
+    raisable,
+  });
+  const nudge = {
+    id: 'n1',
+    round: 2,
+    cutoffCents: 24_000,
+    suggestedCents: 24_240,
+    text: "You're out at $219. The cutoff is $240. Raise to $242.40?",
+    sentAt: at(1),
+    roundEndsAt: null,
+  };
+  const nudged = (over: Partial<MyBid> = {}) =>
+    bid({
+      amountCents: 21_900,
+      listing: rounds(),
+      belowCutoff: true,
+      cutoffCents: 24_000,
+      nudge,
+      ...over,
+    });
+
+  it('a nudged HELD bid offers a one-tap raise to the nudge’s suggested amount', () => {
+    expect(roundsAction(nudged())).toEqual({
+      kind: 'nudge',
+      text: nudge.text,
+      suggestedCents: 24_240,
+      cutoffCents: 24_000,
+      round: 2,
+    });
+  });
+
+  it('no nudge: outside ROUNDS, above the cutoff, or not a held bid', () => {
+    expect(roundsAction(nudged({ listing: bid().listing }))).toBeNull();
+    expect(roundsAction(nudged({ belowCutoff: false, nudge: null }))).toBeNull();
+    expect(roundsAction(nudged({ status: 'VOIDED' }))).toBeNull();
+    expect(roundsAction(nudged({ status: 'PENDING_APPROVAL' }))).toBeNull();
+  });
+
+  it('a held bid on an OPEN listing is watched for rounds starting; others are not', () => {
+    expect(shouldWatchRounds([bid()])).toBe(true);
+    expect(shouldWatchRounds([bid({ status: 'PENDING_APPROVAL' })])).toBe(false);
+    expect(shouldWatchRounds([bid({ listing: { ...bid().listing, raisable: false } })])).toBe(
+      false,
+    );
+    expect(shouldWatchRounds([bid({ listing: { ...bid().listing, status: 'SETTLED' } })])).toBe(
+      false,
+    );
+  });
+
+  it('frozen book: rounds ended → the frozen copy and no raise', () => {
+    const frozen = nudged({ listing: rounds(false) });
+    expect(roundsAction(frozen)).toEqual({ kind: 'frozen', text: ROUNDS_ENDED_COPY });
+    expect(ROUNDS_ENDED_COPY).toBe('Rounds ended. Waiting for the brand to clear.');
+    expect(canRaise(frozen)).toBe(false);
+    expect(canRaise(nudged())).toBe(true);
+    expect(roundsAction(nudged({ listing: rounds(false), status: 'VOIDED' }))).toBeNull();
+  });
+
+  it('raise copy: "released" only once the old hold is VOIDED (D14)', () => {
+    const res = {
+      bidId: 'b2',
+      status: 'HELD',
+      amountCents: 24_100,
+      replacesBidId: 'b1',
+      previousAmountCents: 21_900,
+      message: null,
+      warnSeveralHolds: null,
+    };
+    expect(raisedCopy({ ...res, previousStatus: 'VOIDED' })).toBe(
+      'New $241 hold placed · $219 hold released',
+    );
+    expect(raisedCopy({ ...res, previousStatus: 'VOIDING' })).toBe(
+      'New $241 hold placed · $219 hold releasing',
+    );
+  });
+
+  it('raise errors: decline keeps the old bid; WINDOW_CLOSED in rounds is the frozen copy', () => {
+    const b = nudged({ amountCents: 22_900 });
+    expect(raiseErrorCopy('HOLD_FAILED', 'whatever', b)).toBe(
+      "Couldn't raise. Your $229 bid still stands.",
+    );
+    expect(raiseErrorCopy('WINDOW_CLOSED', 'Raising is closed.', b)).toBe(ROUNDS_ENDED_COPY);
+    expect(raiseErrorCopy('STATE_CONFLICT', "This bid can't be raised.", b)).toBe(
+      "This bid can't be raised.",
+    );
   });
 });

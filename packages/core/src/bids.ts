@@ -131,8 +131,17 @@ export type PlaceBidError =
    * buyer has not approved / submitted the card yet. Not stored, so a retry can succeed.
    */
   | { code: 'IN_PROGRESS'; bidId: string; reason?: 'NOT_APPROVED' }
-  /** Not biddable (D7). `released`: a hold was created and then voided by `landHold`. */
-  | { code: 'WINDOW_CLOSED'; bidId: string | null; amountCents: number; released: boolean }
+  /**
+   * Not biddable (D7). `released`: a hold was created and then voided by `landHold`.
+   * `roundsEnded`: a raise refused because the listing's rounds are over (frozen book, HF-038a).
+   */
+  | {
+      code: 'WINDOW_CLOSED';
+      bidId: string | null;
+      amountCents: number;
+      released: boolean;
+      roundsEnded?: boolean;
+    }
   | { code: 'ALREADY_BID'; bidId: string; amountCents: number }
   /** Over the mandate's total hold cap (D12), or (`PRODUCT_NOT_ALLOWED`) outside its products. */
   | {
