@@ -15,6 +15,7 @@ import {
   mockDeclinesAllowed,
   pollPayouts,
   reprocessPayPalWebhooks,
+  reprocessPriceEvents,
   retryPayout,
   roundsTiming,
   startCrons,
@@ -84,6 +85,17 @@ const paypalWebhooks = {
   onError: (err: unknown, ctx: { eventId: string; step: string }) =>
     app.log.warn({ err: (err as Error).message, ...ctx }, 'paypal webhook step failed'),
 };
+// HF-042a: the price watcher. The admin replay and the minute / boot reprocess of unprocessed
+// Channel3 rows share these deps (HF-042b adds the live webhook on the same path).
+const priceWatch = {
+  db: sql,
+  paypal,
+  audit: auditHook,
+  channel3,
+  // Called only once the server is built, so `app` is initialised by then.
+  onError: (err: unknown, ctx: { eventId: string; step: string; bidId?: string }) =>
+    app.log.warn({ err: (err as Error).message, ...ctx }, 'price watch step failed'),
+};
 // HF-036b: live rounds timer. ROUNDS_TIME_SCALE scales round timing only (never hold age or
 // clear_deadline_at). Claude phrases one nudge template per round; without a key (or on error /
 // 5 s timeout) nudges use the template text.
@@ -113,6 +125,7 @@ const app = buildServer(config, {
     ...paypalWebhooks,
     verify: (headers, rawBody) => paypal.verifyWebhook(headers, rawBody),
   },
+  priceWatch,
   // HF-012b: listing cancel voids every hold through the same PayPal client.
   listings: { money: { db: sql, paypal, audit: auditHook } },
   // HF-027/028: Clear behind the brand session (OWNER/MANAGER); COMMIT kicks the settlement
@@ -162,6 +175,7 @@ const crons = startCrons({
     kickSettlement: settlement.kick,
     pollPayouts: () => pollPayouts(payouts),
     reprocessPayPalWebhooks: () => reprocessPayPalWebhooks(paypalWebhooks),
+    reprocessPriceEvents: () => reprocessPriceEvents(priceWatch),
     onError: (err, ctx) =>
       app.log.warn(
         { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

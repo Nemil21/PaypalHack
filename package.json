@@ -32,6 +32,7 @@
     "workflows:settle": "node apps/api/dist/cli/workflows-settle.js",
     "admin:verify": "tsx --conditions=source apps/api/src/cli/admin-verify.ts",
     "reconcile:holds": "tsx --conditions=source apps/api/src/cli/reconcile-holds.ts",
+    "demo:price-drop": "tsx --conditions=source apps/api/src/cli/demo-price-drop.ts",
     "fixture:offer": "node scripts/offer-fixture.mjs",
     "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts",
     "eval:agent": "tsx --conditions=source scripts/agent-eval.ts"
