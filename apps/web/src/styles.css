@@ -122,3 +122,8 @@
 .ag-row.hf-row-promotion {
   background-color: var(--color-orange-tint);
 }
+
+/* W20 (HF-058): alert rows in the audit table (VOID_STUCK, RECONCILE_MISMATCH, *_FAILED). */
+.ag-row.hf-row-alert {
+  background-color: var(--color-danger-tint);
+}
