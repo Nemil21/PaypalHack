@@ -15,7 +15,7 @@ import {
   type BrandUserRow,
   type ShopperRow,
 } from './store.js';
-import { signToken, verifyToken } from './tokens.js';
+import { openToken, sealToken } from './tokens.js';
 import {
   createPayPalIdentity,
   PayPalLoginError,
@@ -154,7 +154,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       const body = parse(z.object({ email, next: nextPath }), req.body, 'body');
       // Per-email limit on top of the REST one, so nobody can mail-bomb an address (HF-054b).
       if (!applyRateDecision(reply, deps.limiter.hit('magicLink', body.email))) return reply;
-      const token = signToken(config.SESSION_SECRET, 'magic-link', {
+      const token = sealToken(config.SESSION_SECRET, 'magic-link', {
         sub: body.email,
         exp: Date.now() + MAGIC_LINK_TTL_MS,
         ext: { shopperId: req.auth.shopper!.id, ...(body.next ? { next: body.next } : {}) },
@@ -168,7 +168,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
 
   app.get('/api/auth/shopper/magic-link/verify', async (req, reply) => {
     const { token } = parse(z.object({ token: z.string().min(1).max(4096) }), req.query, 'query');
-    const claims = verifyToken(config.SESSION_SECRET, 'magic-link', token);
+    const claims = openToken(config.SESSION_SECRET, 'magic-link', token);
     const now = Date.now();
     for (const [jti, exp] of usedLinks) if (exp <= now) usedLinks.delete(jti);
     if (!claims || usedLinks.has(claims.jti)) {

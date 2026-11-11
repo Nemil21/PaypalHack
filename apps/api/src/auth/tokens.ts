@@ -1,11 +1,18 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from 'node:crypto';
 
 /**
  * Signed, stateless tokens (HMAC-SHA256 over `SESSION_SECRET`) for session cookies and magic
  * links. `payload.signature`, both base64url. Each token carries a `purpose`, and the key is
  * derived per purpose, so a magic-link token can never pass as a session and vice versa.
- * Tokens never carry an email in the cookie; the magic-link token carries one but only travels
- * in the (redacted) link.
+ * Signed tokens are readable (base64url JSON), so they never carry personal data. The magic link
+ * carries an email, so it is sealed instead (`sealToken`, AES-256-GCM): no personal data in URLs
+ * (features/16, HF-047).
  */
 
 export type TokenPurpose = 'brand-session' | 'shopper-session' | 'magic-link' | 'paypal-state';
@@ -64,6 +71,56 @@ export function verifyToken(
     return null;
   }
   const c = claims as Partial<TokenClaims>;
+  if (typeof c.sub !== 'string' || typeof c.exp !== 'number' || typeof c.jti !== 'string') {
+    return null;
+  }
+  if (c.exp <= now) return null;
+  return c as TokenClaims;
+}
+
+// --- Sealed tokens (encrypted + authenticated) ------------------------------------------------
+
+function sealKeyFor(secret: string, purpose: TokenPurpose): Buffer {
+  return createHmac('sha256', secret).update(`holdfast:sealed:${purpose}`).digest();
+}
+
+/** Like `signToken`, but the claims are encrypted: nothing in the token is readable. */
+export function sealToken(
+  secret: string,
+  purpose: TokenPurpose,
+  claims: Omit<TokenClaims, 'jti'> & { jti?: string },
+): string {
+  const full: TokenClaims = { ...claims, jti: claims.jti ?? randomBytes(12).toString('base64url') };
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', sealKeyFor(secret, purpose), iv);
+  const body = Buffer.concat([cipher.update(JSON.stringify(full), 'utf8'), cipher.final()]);
+  return b64url(Buffer.concat([iv, cipher.getAuthTag(), body]));
+}
+
+/** The claims of a `sealToken`, or null when malformed, forged, for another purpose or expired. */
+export function openToken(
+  secret: string,
+  purpose: TokenPurpose,
+  token: string | undefined,
+  now: number = Date.now(),
+): TokenClaims | null {
+  if (!token || token.length > 4096) return null;
+  let c: Partial<TokenClaims>;
+  try {
+    const raw = Buffer.from(token, 'base64url');
+    if (raw.length < 29) return null;
+    const decipher = createDecipheriv(
+      'aes-256-gcm',
+      sealKeyFor(secret, purpose),
+      raw.subarray(0, 12),
+    );
+    decipher.setAuthTag(raw.subarray(12, 28));
+    c = JSON.parse(
+      Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8'),
+    ) as Partial<TokenClaims>;
+  } catch {
+    return null;
+  }
   if (typeof c.sub !== 'string' || typeof c.exp !== 'number' || typeof c.jti !== 'string') {
     return null;
   }

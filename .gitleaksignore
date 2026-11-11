@@ -1,0 +1,19 @@
+# gitleaks false positives (HF-047), one fingerprint each: commit:file:rule:line.
+# Checked by hand on 2026-11-12: none matches a value in .env, and the real PayPal sandbox
+# client id/secret, AG Grid key and brand email appear in no revision (git grep over every rev).
+# Add a line here only after the same check; a real hit means removing the secret from history.
+#
+# Test constants (fake webhook secret, fake EC- token in a redaction test).
+d6aab857e7162e5e6bfd3b18bbcd5a6c242780b3:packages/core/src/channel3/webhook-signature.test.ts:generic-api-key:12
+bd4e7d4ba354ccde7135b255921d1c6edf32626e:apps/api/src/http/plumbing.test.ts:generic-api-key:109
+# Vendor doc copies (PayPal docs): CLIENT_ID:CLIENT_SECRET / ACCESS-TOKEN placeholders and
+# PayPal's published sample access token.
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/07-paypal-ai-and-agent-tools.md:curl-auth-user:33
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/06-paypal-developer-platform.md:curl-auth-user:71
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/06-paypal-developer-platform.md:curl-auth-user:112
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/06-paypal-developer-platform.md:curl-auth-header:84
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-ai-toolkit-README.md:curl-auth-user:113
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-js-sdk-v6-setup.md:curl-auth-user:91
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-js-sdk-v6-setup.md:generic-api-key:103
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-sandbox-getting-started.md:curl-auth-user:142
+5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-sandbox-getting-started.md:curl-auth-header:186
