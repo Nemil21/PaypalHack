@@ -13,7 +13,10 @@ import pg from 'pg';
  *     settlement progress.
  *  3. Race: two phones open the sheet; the first clears, the second's slide gets 409
  *     NOT_CLEARABLE (CLEARING), a lost success, and lands on the same progress.
- * Run like offer-page.spec.ts (see playwright.config.ts).
+ * Run like offer-page.spec.ts (see playwright.config.ts). Every test signs in as the one demo
+ * OWNER, so they share its 60 calls/min REST budget (HF-006): run the file once per server start
+ * (`--repeat-each` trips 429 RATE_LIMITED). `afterAll` waits the window out so the specs after
+ * this one (rounds-console, rounds-feed: the same OWNER) start with a full budget.
  */
 
 const DB = process.env.E2E_DATABASE_URL;
@@ -22,6 +25,11 @@ const FIXTURE = fileURLToPath(new URL('../../../scripts/offer-fixture.mjs', impo
 const PHONE = { viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true };
 
 test.skip(!DB, 'E2E_DATABASE_URL is not set');
+
+test.afterAll(async () => {
+  test.setTimeout(90_000);
+  await new Promise((r) => setTimeout(r, 61_000));
+});
 
 async function sql<T = Record<string, unknown>>(text: string, params: unknown[] = []) {
   const c = new pg.Client({ connectionString: DB });
@@ -37,7 +45,7 @@ function devBids(slug: string, ...args: string[]): string {
   return execFileSync(
     'npx',
     ['tsx', '--conditions=source', 'apps/api/src/cli/dev-bids.ts', '--listing', slug, ...args],
-    { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB }, stdio: 'pipe' },
+    { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB }, stdio: 'pipe', timeout: 60_000 },
   ).toString();
 }
 
@@ -66,6 +74,7 @@ async function listingWithBids(
   execFileSync('node', [FIXTURE, '--slug', slug, '--bids', '0', '--quantity', String(quantity)], {
     env: { ...process.env, DATABASE_URL: DB },
     stdio: 'pipe',
+    timeout: 60_000,
   });
   const [listing] = await sql<{ id: string }>(
     `UPDATE listings SET brand_id = $1 WHERE slug = $2 RETURNING id`,
