@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
+import { AgentChatPage } from './routes/agent/AgentChatPage';
 import { ToastProvider } from './components/ui';
 import { BidDetailPage } from './routes/bids/BidDetailPage';
 import { ErrorStatesFixture } from './routes/bids/ErrorStatesFixture';
@@ -67,10 +68,8 @@ const router = createBrowserRouter([
       // W14 / M03 my bids; W15 / M04 timeline, also W13 / M02 (?held=1) and W21 (?error=CODE).
       { path: 'bids', element: <MyBidsPage /> },
       { path: 'bids/:bidId', element: <BidDetailPage /> },
-      {
-        path: 'agent',
-        element: <ScreenPlaceholder screen="Buyer agent (W16 / M05)" ticket="HF-041" />,
-      },
+      // W16 / M05 buyer agent chat (HF-041); `?fixture=1` replays a recorded turn.
+      { path: 'agent', element: <AgentChatPage /> },
       { path: 'mandates', element: <MandatesPage /> },
       { path: 'mandates/new', element: <MandateEditorPage /> },
       { path: 'mandates/:mandateId', element: <MandateEditorPage /> },
