@@ -108,6 +108,13 @@ describe('simulatedNote', () => {
     expect(simulatedNote({ simulatedHeldCents: 47_800 })).toBe('incl. $478 simulated');
     expect(simulatedNote({ simulatedHeldCents: 0 })).toBeNull();
   });
+
+  it('names seed fallbacks with no hold separately (HF-045: never in the held total, D8)', () => {
+    expect(simulatedNote({ simulatedHeldCents: 47_800, simulatedNoHoldBids: 3 })).toBe(
+      'incl. $478 simulated · 3 SIM · no hold not counted',
+    );
+    expect(simulatedNote({ simulatedHeldCents: 0, simulatedNoHoldBids: 0 })).toBeNull();
+  });
 });
 
 describe('formatUsdCompact', () => {

@@ -38,10 +38,17 @@ export function Badge({
   );
 }
 
-/** Grey "SIM" chip on simulated bidders (feature 17): never mistaken for a real shopper. */
-export function SimChip() {
-  return (
-    <Badge tone="sim" title="Simulated bidder (demo seed)">
+/**
+ * Grey "SIM" chip on simulated bidders (feature 17): never mistaken for a real shopper. `noHold`:
+ * a seed fallback with no PayPal hold ("SIM · no hold", HF-045), which never reaches Clear (D8).
+ */
+export function SimChip({ noHold = false }: { noHold?: boolean } = {}) {
+  return noHold ? (
+    <Badge tone="sim" title="Simulated bidder with no PayPal hold (seed fallback); never cleared">
+      SIM · no hold
+    </Badge>
+  ) : (
+    <Badge tone="sim" title="Simulated bidder with a real sandbox hold (demo seed)">
       SIM
     </Badge>
   );

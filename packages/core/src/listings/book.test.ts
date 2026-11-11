@@ -264,6 +264,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-022 book and simulate', () => {
         simulatedHeldCents: sim,
         bestPublicPriceCents: 27_900,
         releasedByPriceWatch: 2,
+        simulatedNoHoldBids: 0,
       });
       expect(sim).toBeGreaterThan(0);
       expect(book.curve[0]).toMatchObject({ bidsAtOrAbove: 300, heldAtOrAboveCents: held });

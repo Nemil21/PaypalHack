@@ -60,6 +60,11 @@ export const bookStatsSchema = z.object({
   bestPublicPriceCents: z.number().int().nullable(),
   /** Bids voided because the public price dropped below them (`void_reason = 'PRICE_DROP'`). */
   releasedByPriceWatch: z.number().int(),
+  /**
+   * Seed fallback bids with no PayPal hold ("SIM · no hold", HF-045). Never in the Clear input
+   * (D8), so not in `bids`, `liveBids` or `heldCents`; counted here so the console can say so.
+   */
+  simulatedNoHoldBids: z.number().int().optional(),
 });
 export type BookStats = z.infer<typeof bookStatsSchema>;
 

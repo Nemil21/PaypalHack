@@ -146,6 +146,7 @@ function Badges() {
         <Badge tone="dark">Won</Badge>
         <Badge tone="danger">Hold failed</Badge>
         <SimChip />
+        <SimChip noHold />
       </div>
     </Section>
   );
