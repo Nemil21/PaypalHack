@@ -27,6 +27,19 @@ const bool = (fallback: boolean) =>
       return z.NEVER;
     });
 
+/** Like `bool`, but `undefined` when unset, so the default can depend on another key. */
+const optionalBool = z
+  .string()
+  .optional()
+  .transform((v, ctx) => {
+    if (v === undefined || v.trim() === '') return undefined;
+    const s = v.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'on'].includes(s)) return true;
+    if (['0', 'false', 'no', 'off'].includes(s)) return false;
+    ctx.addIssue({ code: 'custom', message: 'must be true or false' });
+    return z.NEVER;
+  });
+
 const enumWithDefault = <T extends readonly [string, ...string[]]>(
   values: T,
   fallback: T[number],
@@ -92,6 +105,8 @@ const envSchema = z.object({
   PAYPAL_MODE: enumWithDefault(['sandbox', 'stub'] as const, 'sandbox'),
   PAYPAL_ENV: enumWithDefault(['sandbox', 'live'] as const, 'sandbox'),
   ALLOW_MOCK_DECLINE: bool(false),
+  // The labelled "Use sandbox test card" button (HF-014b Part 1). Unset: follows DEMO_MODE.
+  DEMO_TEST_CARD: optionalBool,
   CHANNEL3_MODE: enumWithDefault(['live', 'fixtures'] as const, 'live'),
   ROUNDS_TIME_SCALE: z
     .string()
@@ -118,7 +133,9 @@ const envSchema = z.object({
 
 type ParsedEnv = z.infer<typeof envSchema>;
 
-export interface Config extends ParsedEnv {
+export interface Config extends Omit<ParsedEnv, 'DEMO_TEST_CARD'> {
+  /** Resolved: `DEMO_TEST_CARD` if set, else `DEMO_MODE`; always false on a live base. */
+  readonly DEMO_TEST_CARD: boolean;
   /** True when `PAYPAL_API_BASE` points at a PayPal sandbox host. */
   readonly paypalIsSandbox: boolean;
 }
@@ -194,6 +211,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     ...parsed,
     // Mock declines are a sandbox-only demo aid: never allowed against a live base.
     ALLOW_MOCK_DECLINE: paypalIsSandbox ? parsed.ALLOW_MOCK_DECLINE : false,
+    // The server-side test-card hold is a sandbox demo aid too.
+    DEMO_TEST_CARD: paypalIsSandbox ? (parsed.DEMO_TEST_CARD ?? parsed.DEMO_MODE) : false,
     paypalIsSandbox,
   });
 }
@@ -215,6 +234,14 @@ export function requireKeys<K extends FeatureKey>(
 /** Whether `PayPal-Mock-Response` may be sent (feature 16): only with DEMO_MODE + ALLOW_MOCK_DECLINE. */
 export function mockDeclinesAllowed(config: Config): boolean {
   return config.paypalIsSandbox && config.DEMO_MODE && config.ALLOW_MOCK_DECLINE;
+}
+
+/**
+ * Whether `paymentMethod: TEST_CARD` (the labelled "Use sandbox test card" button, HF-014b Part 1)
+ * may place a server-side raw-card hold: `DEMO_TEST_CARD` on, and PayPal is the sandbox or the stub.
+ */
+export function testCardAllowed(config: Config): boolean {
+  return config.DEMO_TEST_CARD && (config.paypalIsSandbox || config.PAYPAL_MODE === 'stub');
 }
 
 /** Case-insensitive admin check against `ADMIN_EMAILS`. */

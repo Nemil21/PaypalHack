@@ -37,7 +37,7 @@ const ENV = {
   DEMO_MODE: 'true',
 };
 
-describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a, HF-014b)', () => {
   let tdb: TestDatabase;
   let fx: Fixtures;
   let fake: FakePayPal;
@@ -61,6 +61,7 @@ describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a)', () => {
           audit: auditHook,
           voidBackoffMs: [0, 0, 0],
           allowTestCard: true,
+          appBaseUrl: 'https://holdfast.test',
         },
       },
     });
@@ -197,5 +198,107 @@ describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a)', () => {
     expect(card.statusCode).toBe(400);
     const tooSmall = await post(s.id, { ...body, amountCents: 50 });
     expect(tooSmall.statusCode).toBe(400);
+  });
+
+  // ------------------------------------------------------------------ HF-014b two-step holds
+
+  const authorize = (shopperId: string | null, bidId: string, key: string = randomUUID()) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/bids/${bidId}/authorize`,
+      headers: {
+        ...(shopperId ? { cookie: session(shopperId) } : {}),
+        'idempotency-key': key,
+      },
+    });
+  const back = (query: string) => app.inject({ method: 'GET', url: `/api/bids/return?${query}` });
+
+  it('CARD → 201 PENDING_APPROVAL {orderId}; card-fields submit → authorize → 200 HELD; replay is stored', async () => {
+    const l = await fx.listing();
+    const s = await fx.shopper();
+    const res = await post(s.id, { listingId: l.id, amountCents: 22_900, paymentMethod: 'CARD' });
+    expect(res.statusCode).toBe(201);
+    const { bidId, orderId, status } = res.json();
+    expect(status).toBe('PENDING_APPROVAL');
+    expect(orderId).toEqual(expect.any(String));
+    // Card data never reaches our API: the order create carries no card number.
+    expect(creates(bidId)).toHaveLength(1);
+
+    // Before the submit: nothing to authorize yet (409 IN_PROGRESS, not stored).
+    const early = await authorize(s.id, bidId);
+    expect(early.statusCode).toBe(409);
+    expect(early.json().error).toMatchObject({ code: 'IN_PROGRESS', reason: 'NOT_APPROVED' });
+
+    fake.approve(orderId);
+    const key = randomUUID();
+    const ok = await authorize(s.id, bidId, key);
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({
+      bidId,
+      status: 'HELD',
+      authorizationId: expect.any(String),
+    });
+    const again = await authorize(s.id, bidId, key);
+    expect(again.statusCode).toBe(200);
+    expect(again.headers['idempotent-replayed']).toBe('true');
+    const vault = await tdb.db.pool.query(`SELECT paypal_vault_id FROM shoppers WHERE id = $1`, [
+      s.id,
+    ]);
+    expect(vault.rows[0].paypal_vault_id).toEqual(expect.any(String));
+  });
+
+  it('authorize another shopper’s bid → 404; no session → 401', async () => {
+    const l = await fx.listing();
+    const s = await fx.shopper();
+    const res = await post(s.id, { listingId: l.id, amountCents: 22_900, paymentMethod: 'CARD' });
+    const other = await fx.shopper();
+    expect((await authorize(other.id, res.json().bidId)).statusCode).toBe(404);
+    expect((await authorize(null, res.json().bidId)).statusCode).toBe(401);
+  });
+
+  it('PAYPAL → approveUrl; return → 302 /bids/:id?held=1; a refresh does not authorize twice', async () => {
+    const l = await fx.listing();
+    const s = await fx.shopper();
+    const res = await post(s.id, { listingId: l.id, amountCents: 22_900, paymentMethod: 'PAYPAL' });
+    expect(res.statusCode).toBe(201);
+    const { bidId, orderId, approveUrl } = res.json();
+    expect(approveUrl).toContain(orderId);
+    fake.approve(orderId);
+
+    const first = await back(`token=${orderId}&PayerID=TESTPAYER`);
+    expect(first.statusCode).toBe(302);
+    expect(first.headers.location).toBe(`/bids/${bidId}?held=1`);
+    const authorizes = () => fake.calls.filter((c) => c.requestId === `authz-${bidId}`).length;
+    expect(authorizes()).toBe(1);
+    const refresh = await back(`token=${orderId}&PayerID=TESTPAYER`);
+    expect(refresh.headers.location).toBe(`/bids/${bidId}?held=1`);
+    expect(authorizes()).toBe(1);
+    expect((await fx.bid(bidId)).status).toBe('HELD');
+  });
+
+  it('cancel URL → 302 ?cancelled=1, the bid keeps waiting; window closed → 302 ?error=WINDOW_CLOSED', async () => {
+    const l = await fx.listing();
+    const s = await fx.shopper();
+    const res = await post(s.id, { listingId: l.id, amountCents: 22_900, paymentMethod: 'PAYPAL' });
+    const { bidId, orderId } = res.json();
+    const cancelled = await back(`cancelled=1&token=${orderId}`);
+    expect(cancelled.headers.location).toBe(`/bids/${bidId}?cancelled=1`);
+    expect((await fx.bid(bidId)).status).toBe('PENDING_APPROVAL');
+
+    fake.approve(orderId);
+    await tdb.db.pool.query(
+      `UPDATE listings SET window_closes_at = now() - interval '1 second' WHERE id = $1`,
+      [l.id],
+    );
+    const closed = await back(`token=${orderId}`);
+    expect(closed.headers.location).toBe(`/bids/${bidId}?error=WINDOW_CLOSED`);
+    expect(fake.calls.some((c) => c.requestId === `authz-${bidId}`)).toBe(false);
+    expect((await fx.bid(bidId)).status).toBe('ABANDONED');
+  });
+
+  it('unknown or malformed token → 302 /bids?error=NOT_FOUND', async () => {
+    expect((await back('token=NOPE123')).headers.location).toBe('/bids?error=NOT_FOUND');
+    expect((await back("token=x'%20or%201=1")).headers.location).toBe('/bids?error=NOT_FOUND');
+    expect((await back('')).headers.location).toBe('/bids?error=NOT_FOUND');
   });
 });

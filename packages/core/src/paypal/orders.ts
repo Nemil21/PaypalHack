@@ -56,6 +56,7 @@ export function readAuthorization(raw: unknown): AuthorizationView {
     createTime: str(a.create_time),
     expirationTime: str(a.expiration_time),
     orderId: str(obj(obj(a.supplementary_data).related_ids).order_id),
+    customId: str(a.custom_id),
   };
 }
 
@@ -129,6 +130,7 @@ export function judgeHold(raw: unknown): HoldResult {
         expiresAt: auth.expirationTime,
         amountCents: auth.amountCents,
         vault: order.vault,
+        customId: auth.customId ?? str(obj(arr(obj(raw).purchase_units)[0]).custom_id),
       };
     }
     if (auth.status === 'PENDING') {
