@@ -324,7 +324,9 @@ export async function authorizeOrder(
       `/v2/checkout/orders/${encodeURIComponent(orderId)}`,
     );
     if (is2xx(order) && readOrder(order.json).authorizations.length) return judgeHold(order.json);
-    if (res.issue === ISSUE.ORDER_ALREADY_AUTHORIZED) {
+    // The GET failed: an authorization may exist that we can't see. Never call that a decline,
+    // or a live hold would be left with no authorization id to void.
+    if (!is2xx(order) || res.issue === ISSUE.ORDER_ALREADY_AUTHORIZED) {
       return { kind: 'unknown', orderId, code: res.issue, errorClass: 'RECONCILE' };
     }
   }
