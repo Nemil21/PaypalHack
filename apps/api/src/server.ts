@@ -29,6 +29,7 @@ import {
   type PayoutsReportsRouteDeps,
 } from './routes/payouts-reports.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
+import { registerAdminOpsRoutes, type AdminOpsRouteDeps } from './routes/admin-ops.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
 import {
   registerBrandSettingsRoutes,
@@ -128,6 +129,11 @@ export interface ServerDeps {
   priceWatch?: PriceWatchDeps;
   /** Test overrides for the Channel3 webhook route (secret, schedule, clock). */
   channel3Webhook?: Partial<Omit<Channel3WebhookRouteDeps, keyof PriceWatchDeps>>;
+  /**
+   * W20 ops (HF-058): the PayPal token probe for the health panel and the hold sweeper's deps for
+   * "Void dangling". Audit search and health are mounted whenever `sql` is set.
+   */
+  ops?: Pick<AdminOpsRouteDeps, 'paypalToken' | 'sweep'>;
   /** W11 settings (HF-056): the DNS TXT resolver (default `dns.promises`), re-check gap, clock. */
   brandSettings?: Pick<BrandSettingsRouteDeps, 'resolveTxt' | 'recheckMs' | 'now'>;
   /**
@@ -205,6 +211,9 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });
   }
   if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
+  if (deps.sql) {
+    registerAdminOpsRoutes(app, { db: deps.sql, paypalMode: config.PAYPAL_MODE, ...deps.ops });
+  }
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });

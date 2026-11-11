@@ -20,10 +20,12 @@ import {
   mockDeclinesAllowed,
   pollPayouts,
   pollPublicPrices,
+  paypalTokenProbe,
   probeChannel3,
   reprocessPayPalWebhooks,
   reprocessPriceEvents,
   retryPayout,
+  runNightlyCaptureReconcile,
   roundsTiming,
   runOpenIntents,
   startCrons,
@@ -150,6 +152,14 @@ const emailSender = emailSenderFromConfig(config, {
   info: (obj, msg) => app.log.info(obj, msg),
 });
 const pushSender = pushSenderFromConfig(config);
+// HF-058: W20 "Void dangling" runs the HF-034 hold sweeper with the same deps as its cron.
+const sweepDeps = {
+  db: sql,
+  paypal,
+  audit: auditHook,
+  appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+  allowTestCard: testCardAllowed(config),
+};
 const app = buildServer(config, {
   db: pool,
   sql,
@@ -203,6 +213,8 @@ const app = buildServer(config, {
   bids: { money: bidMoney },
   // HF-059b: W09 tracking upload calls `pp.track` through the same client.
   shipments: { paypal },
+  // HF-058: W20 health (PayPal token) and "Void dangling" (one hold-sweeper pass under its lock).
+  ops: { paypalToken: paypalTokenProbe(paypal), sweep: sweepDeps },
 });
 events.setLogger(app.log);
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
@@ -259,6 +271,18 @@ const cronJobs = holdfastCronJobs({
   }),
   // HF-054b: fan new in-app notifications out to email and web push.
   notifyFanout: () => fanout.run(),
+  // HF-058: nightly last-24 h settlements vs PayPal (GET authorization / order); flags only.
+  reconcileCaptures: () =>
+    runNightlyCaptureReconcile(
+      { db: sql, paypal },
+      {
+        onError: (err, settlementId) =>
+          app.log.warn(
+            { err: (err as Error).message, settlementId },
+            'capture reconcile step failed',
+          ),
+      },
+    ),
   onError: (err, ctx) =>
     app.log.warn(
       { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

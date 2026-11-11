@@ -1,4 +1,5 @@
 import { FANOUT_INTERVAL_MS } from '../notifications/fanout.js';
+import { CAPTURE_RECONCILE_CHECK_INTERVAL_MS } from '../ops/capture-reconcile.js';
 import { NOTIFY_INTERVAL_MS } from '../notifications/subscriber.js';
 import { CHANNEL3_PROBE_INTERVAL_MS } from '../price-watch/health.js';
 import { PRICE_POLL_CHECK_INTERVAL_MS } from '../price-watch/poll.js';
@@ -31,6 +32,8 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  *   only notifications created, never rows scanned: a `CRON_RUN` row is itself an audit event.
  * - `notify-fanout`: every 5 s, HF-054b's email / web-push fan-out of new in-app notifications
  *   (its own job, so a slow mail or push service never holds up the bell).
+ * - `capture-reconcile`: hourly, HF-058's `runNightlyCaptureReconcile`, which reconciles only when
+ *   the last run is ≥ 23 h old (last-24 h settlements vs PayPal; flags mismatches, never voids).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -45,6 +48,7 @@ export const CRON_JOB_IDS = {
   intentMoveRule: 'intent-move-rule',
   notify: 'notify',
   notifyFanout: 'notify-fanout',
+  captureReconcile: 'capture-reconcile',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -68,6 +72,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   notify?: () => Promise<{ notified: number }>;
   /** HF-054b `() => createFanout(…).run()`. No email / push without it. */
   notifyFanout?: () => Promise<{ delivered: number; failed: number }>;
+  /** HF-058 `() => runNightlyCaptureReconcile(…)`. No nightly capture reconcile without it. */
+  reconcileCaptures?: () => Promise<unknown>;
   sweep?: SweepOptions;
   /** HF-053 auto-roll. Default on; `false` leaves the job out. */
   autoRoll?: boolean;
@@ -137,6 +143,14 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
       id: CRON_JOB_IDS.notifyFanout,
       intervalMs: FANOUT_INTERVAL_MS,
       run: () => fanout(),
+    });
+  }
+  const reconcile = deps.reconcileCaptures;
+  if (reconcile) {
+    jobs.push({
+      id: CRON_JOB_IDS.captureReconcile,
+      intervalMs: CAPTURE_RECONCILE_CHECK_INTERVAL_MS,
+      run: () => reconcile(),
     });
   }
   jobs.push({
