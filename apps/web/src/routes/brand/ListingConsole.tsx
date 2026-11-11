@@ -7,8 +7,9 @@ import {
   type KpiKind,
   type KpiStore,
 } from '../../components/console/KpiTiles';
-import { ClearAction } from '../../components/console/ClearModal';
+import { CLEARABLE, ClearAction } from '../../components/console/ClearModal';
 import { QuantitySlider } from '../../components/console/QuantitySlider';
+import { RecommendationCard } from '../../components/console/RecommendationCard';
 import { RoundsPanel } from '../../components/console/RoundsPanel';
 import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { cn } from '../../lib/cn';
@@ -201,7 +202,8 @@ export function ListingConsole() {
           />
         )}
 
-        {/* Panels that plug into this shell: curve + slider (HF-024), bids grid (HF-025). */}
+        {/* Panels that plug into this shell: curve + slider (HF-024), brand agent card (HF-051a),
+            bids grid (HF-025). */}
         <SliderContext.Provider value={slider}>
           <div
             className={cn('grid gap-4', locked && 'pointer-events-none opacity-60')}
@@ -216,6 +218,9 @@ export function ListingConsole() {
                 phase={phase.phase}
                 viewer={viewer}
               />
+            )}
+            {book?.recommendation && phase && CLEARABLE.has(phase.phase) && (
+              <RecommendationCard recommendation={book.recommendation} disabled={locked} />
             )}
             {book && !empty && <BidsPanel book={book} slider={slider} tracker={tracker} />}
           </div>
@@ -375,7 +380,12 @@ function DemandPanel({
         </p>
       )}
       <QuantitySlider disabled={locked} />
-      <ClearAction listingId={book.listing.id} phase={phase} viewer={viewer} />
+      <ClearAction
+        listingId={book.listing.id}
+        phase={phase}
+        viewer={viewer}
+        recommendation={book.recommendation}
+      />
     </section>
   );
 }

@@ -128,6 +128,19 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-045 seed:demo on the stub', () => {
     expect(first.simulate240.winners).toBe(240);
   });
 
+  it('the brand agent card recommends 240 at $219 on the seeded book (HF-051a)', async () => {
+    const a7 = first.listings.find((l) => l.key === 'A7')!;
+    const book = await loadBook(a.db, first.brandId, a7.id);
+    expect(book.recommendation).toMatchObject({
+      kind: 'RECOMMEND',
+      quantity: 240,
+      cutoffCents: 21_900,
+      grossCents: first.simulate240.grossCents,
+      netCents: first.simulate240.netCents,
+      liquidationCents: first.simulate240.liquidationCents,
+    });
+  });
+
   it('two runs with the same seed give the same book and the same printed numbers', async () => {
     const b = await fresh();
     const second = await seedOn(b, new FakePayPal({ latencyMs: 2 }).client());

@@ -105,6 +105,44 @@ export const bookPendingBidSchema = z.object({
 });
 export type BookPendingBid = z.infer<typeof bookPendingBidSchema>;
 
+/** One quantity the brand agent card can show: `simulateClear()`'s numbers at `quantity`. */
+export const recommendationOptionSchema = z.object({
+  quantity: z.number().int(),
+  cutoffCents: z.number().int(),
+  grossCents: z.number().int(),
+  netCents: z.number().int(),
+  liquidationCents: z.number().int().nullable(),
+  /** The cutoff respects the brand's guard (`minCutoffCents`). */
+  withinGuard: z.boolean(),
+});
+export type RecommendationOption = z.infer<typeof recommendationOptionSchema>;
+
+/**
+ * The brand agent's code-computed recommendation (HF-051a, features/09 §Logic 1), from
+ * `core/recommend.ts`. Brand-only: it rides on `/book` and never on a shopper-facing response.
+ * - `RECOMMEND`: the quantity maximizing net recovery with cutoff ≥ `minCutoffCents`, plus up to
+ *   two alternatives (clear every qualifying bid; a higher cutoff).
+ * - `NO_DEMAND`: no held bid at or above the floor ("Not enough demand yet").
+ * - `BELOW_GUARD`: bids exist, but even the best one is below the max-discount guard.
+ */
+export const recommendationSchema = z.discriminatedUnion('kind', [
+  recommendationOptionSchema.extend({
+    kind: z.literal('RECOMMEND'),
+    /** max(floor, ⌈(1 − max_discount_bps/10000) × public low⌉). */
+    minCutoffCents: z.number().int(),
+    alternatives: z.array(recommendationOptionSchema).max(2),
+  }),
+  z.object({ kind: z.literal('NO_DEMAND'), minCutoffCents: z.number().int() }),
+  z.object({
+    kind: z.literal('BELOW_GUARD'),
+    minCutoffCents: z.number().int(),
+    /** Best eligible bid, under the guard. */
+    bestBidCents: z.number().int(),
+    alternatives: z.array(recommendationOptionSchema).max(2),
+  }),
+]);
+export type Recommendation = z.infer<typeof recommendationSchema>;
+
 export const bookResponseSchema = z.object({
   listing: bookListingSchema,
   stats: bookStatsSchema,
@@ -117,6 +155,11 @@ export const bookResponseSchema = z.object({
   bookVersion: z.string(),
   /** Server time the snapshot was read at (ISO). */
   asOf: z.string(),
+  /**
+   * Brand agent recommendation for this snapshot (HF-051a). Always sent by `/book`; optional so
+   * book fixtures written before it stay valid.
+   */
+  recommendation: recommendationSchema.optional(),
 });
 export type BookResponse = z.infer<typeof bookResponseSchema>;
 

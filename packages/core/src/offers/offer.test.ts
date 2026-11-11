@@ -84,6 +84,30 @@ describe.skipIf(!TEST_DATABASE_URL)('loadOffer (HF-019)', () => {
     }
   });
 
+  it("the brand agent's guard and recommendation never reach the offer (HF-051a)", async () => {
+    const l = await offerListing({ quantity: 2 });
+    for (const amount of [24_900, 23_900, 21_900]) {
+      const s = await fx.shopper();
+      await fx.heldBid(l.id, s.id, { amountCents: amount });
+    }
+    const before = JSON.stringify(await loadOffer(tdb.db.pool, l.slug, null));
+    expect(before).not.toMatch(/recommend|discount|minCutoff/i);
+    for (const bps of [0, 1_000, 2_200, 10_000, null]) {
+      await tdb.db.pool.query(
+        `UPDATE brands b SET max_discount_bps = $2 FROM listings l
+          WHERE l.brand_id = b.id AND l.id = $1`,
+        [l.id, bps],
+      );
+      for (const floor of [100, 23_000]) {
+        await tdb.db.pool.query(`UPDATE listings SET floor_cents = $2 WHERE id = $1`, [
+          l.id,
+          floor,
+        ]);
+        expect(JSON.stringify(await loadOffer(tdb.db.pool, l.slug, null))).toBe(before);
+      }
+    }
+  });
+
   it('shows only the suggestion while eligible bids < quantity; ignores bids with no hold', async () => {
     const l = await offerListing({ quantity: 5 });
     const s = await fx.shopper();
