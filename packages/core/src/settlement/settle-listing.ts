@@ -5,7 +5,7 @@ import { emit } from '../money/emit.js';
 import { claim, release, renew, type Lease } from '../money/lease.js';
 import { SQL_NOW, transition } from '../money/transition.js';
 import type { KickSettlement } from './outbox.js';
-import { settleBid, type SettleBidDeps } from './settle-bid.js';
+import { settleBid, voidFailedCapture, type SettleBidDeps } from './settle-bid.js';
 
 /**
  * `settleListing(listingId)` (HF-030a; features/11 §Workflow design, D9): the coordinator that
@@ -25,6 +25,7 @@ import { settleBid, type SettleBidDeps } from './settle-bid.js';
  * - Phase 3: done = every row terminal (SUCCEEDED, CANCELLED, FAILED+TERMINAL), every WON bid has
  *   a SUCCEEDED capture, and every CAPTURE_FAILED bid has a promotion outcome. Then a conditional
  *   `CLEARING → SETTLED`; only the winner of that transition calls `payoutBrand` (HF-032).
+ *   First, any failed winner whose void a crashed task never finished is voided here.
  *
  * Phases 1 and 2 are one loop that re-checks "is any CAPTURE open?" on every pass, so a CAPTURE
  * that reappears later (an HF-033 webhook) puts reserve VOIDs on hold again.
@@ -353,6 +354,7 @@ async function coordinate(
 
     const blockers = await settlementBlockers(pool, listingId);
     if (blockers.open === 0) {
+      await releaseFailedCaptures(deps, listingId, actor, () => stopped() !== null);
       const halt2 = stopped();
       if (halt2) return halt2;
       const { settled } = await settleIfDone(deps.db, listingId, actor);
@@ -400,6 +402,45 @@ async function runTask(
     deps.onError?.(err, { settlementId, bidId: '', step: `settleListing:${listingId}` });
     return null;
   }
+}
+
+/**
+ * Finish the void of every failed winner whose hold is not released yet. `settleBid` voids a
+ * declined authorization after committing the CAPTURE row FAILED, so a coordinator that dies in
+ * between leaves the bid CAPTURE_FAILED or VOIDING with no open settlement row to resume it.
+ * Runs once nothing is open, so no task of this coordinator is still voiding the same bid.
+ * A void that keeps failing stays VOIDING for the sweeper (HF-034) and does not hold up SETTLED.
+ */
+async function releaseFailedCaptures(
+  deps: SettleListingDeps,
+  listingId: string,
+  actor: Actor,
+  stop: () => boolean,
+): Promise<void> {
+  const res = await deps.db.pool.query(
+    `SELECT id FROM bids
+      WHERE listing_id = $1
+        AND (status = 'CAPTURE_FAILED' OR (status = 'VOIDING' AND void_reason = 'CAPTURE_FAILED'))
+      ORDER BY id`,
+    [listingId],
+  );
+  const ids = (res.rows as Array<{ id: string }>).map((r) => r.id);
+  await runLimited(
+    ids,
+    deps.concurrency ?? SETTLEMENT_CONCURRENCY,
+    async (bidId) => {
+      try {
+        await voidFailedCapture(deps, bidId, actor, { resume: true });
+      } catch (err) {
+        deps.onError?.(err, {
+          settlementId: '',
+          bidId,
+          step: `releaseFailedCaptures:${listingId}`,
+        });
+      }
+    },
+    stop,
+  );
 }
 
 /**
