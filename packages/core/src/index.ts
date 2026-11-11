@@ -17,3 +17,4 @@ export * from './bids.js';
 export * from './settlement/view.js';
 export * from './settlement/promote.js';
 export * from './settlement/settle-bid.js';
+export * from './rounds/index.js';
