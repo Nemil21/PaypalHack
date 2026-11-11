@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { cn } from '../../lib/cn';
 import { DEMO_OFFER_SLUG, paths } from '../../lib/routes';
@@ -99,7 +99,7 @@ export function AppShell() {
           className="relative z-10 border-y border-line bg-white px-4 py-2 sm:px-8 lg:hidden"
         >
           <ul className="flex flex-col">
-            {[{ to: paths.home, label: 'Demo hub' }, ...links].map((l) => (
+            {[{ to: paths.demo, label: 'Demo hub' }, ...links].map((l) => (
               <li key={l.to}>
                 <Link to={l.to} className="label block py-3 text-[13px] text-ink">
                   {l.label}
@@ -110,7 +110,10 @@ export function AppShell() {
         </nav>
       )}
       <main className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8 lg:px-18">
-        <Outlet />
+        {/* Screens are lazy chunks (app.tsx); a first load shows the frame until one arrives. */}
+        <Suspense fallback={null}>
+          <Outlet />
+        </Suspense>
       </main>
       {/* Shown at every width: the listener is active everywhere (hardware keyboards on tablets,
           narrow or zoomed windows), so the opt-out and the key names must be too (WCAG 2.1.4). */}

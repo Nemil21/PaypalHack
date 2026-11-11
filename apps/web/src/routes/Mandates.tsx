@@ -93,7 +93,7 @@ function LoadError({ error, onRetry }: { error: ApiError; onRetry: () => void })
     return (
       <EmptyState
         message="Place a bid first, or sign in, to set up an agent mandate."
-        action={<ButtonLink to={paths.home}>Back to demo hub</ButtonLink>}
+        action={<ButtonLink to={paths.demo}>Back to demo hub</ButtonLink>}
       />
     );
   }

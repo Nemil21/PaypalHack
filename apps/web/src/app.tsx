@@ -1,28 +1,56 @@
+import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
-import { AgentChatPage } from './routes/agent/AgentChatPage';
 import { ToastProvider } from './components/ui';
-import { BidDetailPage } from './routes/bids/BidDetailPage';
-import { ErrorStatesFixture } from './routes/bids/ErrorStatesFixture';
-import { MyBidsPage } from './routes/bids/MyBidsPage';
-import { WonPage } from './routes/bids/WonPage';
-import { DemoHub } from './routes/DemoHub';
-import { DeveloperPage } from './routes/Developer';
-import { DevComponents } from './routes/DevComponents';
-import { BrandGate } from './routes/brand/BrandGate';
-import { BrandJoin } from './routes/brand/BrandJoin';
-import { BrandSettings } from './routes/brand/BrandSettings';
-import { BrandOverview } from './routes/brand/BrandOverview';
-import { BrandOnboarding } from './routes/brand/BrandOnboarding';
-import { BrandSignIn } from './routes/brand/BrandSignIn';
-import { CreateListingWizard } from './routes/brand/CreateListingWizard';
-import { EmbedPage } from './routes/brand/EmbedPage';
-import { ListingConsole } from './routes/brand/ListingConsole';
-import { SettlementFixture } from './routes/brand/SettlementFixture';
-import { SettlementPage } from './routes/brand/SettlementPage';
-import { OfferPage } from './routes/offer/OfferPage';
-import { MandateEditorPage, MandatesPage } from './routes/Mandates';
-import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
+import { configReady } from './lib/client-config';
+import { Landing } from './routes/Landing';
+import { NotFound, RouteError, ScreenPlaceholder } from './routes/ScreenPlaceholder';
+
+// Screens load on demand (HF-057): `/` ships only the landing page, not every screen and AG.
+// AppShell wraps its outlet in Suspense; navigations are transitions, so the old screen stays up.
+// `/` paints before the client config arrives, so a screen's module is only imported (and
+// evaluated: AG registers its licence at import time) once the config has loaded.
+function screen<K extends string, M extends Record<K, ComponentType>>(
+  load: () => Promise<M>,
+  name: K,
+) {
+  return lazy(() =>
+    configReady()
+      .then(load)
+      .then((m) => ({ default: m[name] })),
+  );
+}
+const AgentChatPage = screen(() => import('./routes/agent/AgentChatPage'), 'AgentChatPage');
+const BidDetailPage = screen(() => import('./routes/bids/BidDetailPage'), 'BidDetailPage');
+const ErrorStatesFixture = screen(
+  () => import('./routes/bids/ErrorStatesFixture'),
+  'ErrorStatesFixture',
+);
+const MyBidsPage = screen(() => import('./routes/bids/MyBidsPage'), 'MyBidsPage');
+const WonPage = screen(() => import('./routes/bids/WonPage'), 'WonPage');
+const DemoHub = screen(() => import('./routes/DemoHub'), 'DemoHub');
+const DeveloperPage = screen(() => import('./routes/Developer'), 'DeveloperPage');
+const DevComponents = screen(() => import('./routes/DevComponents'), 'DevComponents');
+const BrandGate = screen(() => import('./routes/brand/BrandGate'), 'BrandGate');
+const BrandJoin = screen(() => import('./routes/brand/BrandJoin'), 'BrandJoin');
+const BrandSettings = screen(() => import('./routes/brand/BrandSettings'), 'BrandSettings');
+const BrandOverview = screen(() => import('./routes/brand/BrandOverview'), 'BrandOverview');
+const BrandOnboarding = screen(() => import('./routes/brand/BrandOnboarding'), 'BrandOnboarding');
+const BrandSignIn = screen(() => import('./routes/brand/BrandSignIn'), 'BrandSignIn');
+const CreateListingWizard = screen(
+  () => import('./routes/brand/CreateListingWizard'),
+  'CreateListingWizard',
+);
+const EmbedPage = screen(() => import('./routes/brand/EmbedPage'), 'EmbedPage');
+const ListingConsole = screen(() => import('./routes/brand/ListingConsole'), 'ListingConsole');
+const SettlementFixture = screen(
+  () => import('./routes/brand/SettlementFixture'),
+  'SettlementFixture',
+);
+const SettlementPage = screen(() => import('./routes/brand/SettlementPage'), 'SettlementPage');
+const OfferPage = screen(() => import('./routes/offer/OfferPage'), 'OfferPage');
+const MandateEditorPage = screen(() => import('./routes/Mandates'), 'MandateEditorPage');
+const MandatesPage = screen(() => import('./routes/Mandates'), 'MandatesPage');
 
 /**
  * Route map (HF-007). Screens are filled in by later tickets; each placeholder names its ticket.
@@ -30,10 +58,15 @@ import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
  * The API serves index.html for all of these (apps/api/src/web.ts), so reloads work.
  */
 const router = createBrowserRouter([
+  // W01 / M12 landing (HF-057): its own nav and footer, outside the app shell.
+  { index: true, element: <Landing /> },
   {
     element: <AppShell />,
+    // A lazy chunk that fails to load (stale tab after a redeploy) reloads once (HF-057).
+    errorElement: <RouteError />,
     children: [
-      { index: true, element: <DemoHub /> },
+      // HF-007 demo hub, moved from `/` when the landing page shipped.
+      { path: 'demo', element: <DemoHub /> },
       { path: 'dev/components', element: <DevComponents /> },
       // W21 error states from a query-string fixture (HF-020): /dev/states?code=PRICE_DROP
       { path: 'dev/states', element: <ErrorStatesFixture /> },
