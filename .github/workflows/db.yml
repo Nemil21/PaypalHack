@@ -1,0 +1,39 @@
+name: db
+
+on:
+  push:
+    branches: [main]
+    paths: ['db/**', '.github/workflows/db.yml']
+  pull_request:
+    paths: ['db/**', '.github/workflows/db.yml']
+
+jobs:
+  schema:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install
+        working-directory: db
+        run: npm install --no-package-lock
+      - name: Migrate an empty database twice (idempotent)
+        working-directory: db
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm run migrate && npm run migrate
+      - name: Constraint tests on a throwaway database
+        working-directory: db
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npm test

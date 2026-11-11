@@ -1,0 +1,20 @@
+{
+  "name": "@holdfast/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holdfast Postgres schema (db/migrations) and the idempotent migration runner",
+  "exports": {
+    "./migrate.mjs": "./migrate.mjs"
+  },
+  "scripts": {
+    "migrate": "node migrate.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.0"
+  }
+}
