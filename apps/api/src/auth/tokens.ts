@@ -8,10 +8,10 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
  * in the (redacted) link.
  */
 
-export type TokenPurpose = 'brand-session' | 'shopper-session' | 'magic-link';
+export type TokenPurpose = 'brand-session' | 'shopper-session' | 'magic-link' | 'paypal-state';
 
 export interface TokenClaims {
-  /** Subject: a brand_users.id / shoppers.id, or an email for magic links. */
+  /** Subject: a brand_users.id / shoppers.id, an email for magic links, the LIPP `state`. */
   sub: string;
   /** Expiry, epoch ms. */
   exp: number;

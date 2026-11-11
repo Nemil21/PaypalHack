@@ -45,7 +45,8 @@ export async function loadBrandUser(q: Queryable, id: string): Promise<BrandUser
   return rows[0] ?? null;
 }
 
-async function brandUserByEmail(q: Queryable, email: string): Promise<BrandUserRow | null> {
+/** By `lower(email)` (unique): Log in with PayPal's lookup (HF-010) and the demo logins. */
+export async function brandUserByEmail(q: Queryable, email: string): Promise<BrandUserRow | null> {
   const { rows } = await q.query<BrandUserRow>(
     `${BRAND_USER_SQL} WHERE lower(bu.email) = lower($1)`,
     [email],

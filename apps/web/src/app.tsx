@@ -8,6 +8,7 @@ import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
 import { BrandIndex } from './routes/brand/BrandIndex';
+import { BrandSignIn } from './routes/brand/BrandSignIn';
 import { CreateListingWizard } from './routes/brand/CreateListingWizard';
 import { ListingConsole } from './routes/brand/ListingConsole';
 import { SettlementFixture } from './routes/brand/SettlementFixture';
@@ -36,10 +37,8 @@ const router = createBrowserRouter([
       { path: 'dev/components/*', element: <DevComponents /> },
 
       // Brand
-      {
-        path: 'brand/sign-in',
-        element: <ScreenPlaceholder screen="Brand sign-in (W02)" ticket="HF-006 / HF-010" />,
-      },
+      // W02 (HF-010): Log in with PayPal, plus the DEMO_MODE sign-ins.
+      { path: 'brand/sign-in', element: <BrandSignIn /> },
       {
         path: 'brand/onboarding',
         element: <ScreenPlaceholder screen="Brand verification (W03)" ticket="HF-011b" />,

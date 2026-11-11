@@ -12,6 +12,7 @@ import {
   type BrandUserRow,
   type ShopperRow,
 } from './store.js';
+import { openPending, sealPending, type PendingBrandIdentity } from './paypal-login.js';
 import {
   parseCookies,
   serializeCookie,
@@ -37,6 +38,11 @@ export const BRAND_COOKIE = 'hf_brand';
 export const SHOPPER_COOKIE = 'hf_shopper';
 export const BRAND_SESSION_SEC = 12 * 60 * 60;
 export const SHOPPER_SESSION_SEC = 30 * 24 * 60 * 60;
+/** Log in with PayPal (HF-010): the OAuth `state` cookie and the pre-brand identity cookie. */
+export const LIPP_STATE_COOKIE = 'hf_lipp_state';
+export const BRAND_PENDING_COOKIE = 'hf_brand_pending';
+export const LIPP_STATE_SEC = 10 * 60;
+export const BRAND_PENDING_SEC = BRAND_SESSION_SEC;
 
 export interface McpPrincipal {
   clientId: string;
@@ -152,8 +158,66 @@ export class Sessions {
     );
   }
 
-  clear(req: FastifyRequest, reply: FastifyReply, which: 'brand' | 'shopper'): void {
-    const name = which === 'brand' ? BRAND_COOKIE : SHOPPER_COOKIE;
+  /**
+   * The PayPal identity of a signed-in manager with no `brand_users` row yet (HF-010). HF-011b
+   * reads it to create the PENDING brand + OWNER row, then calls `setBrand` and
+   * `clear(…, 'brand-pending')`.
+   */
+  pendingBrand(req: FastifyRequest): PendingBrandIdentity | null {
+    const c = parseCookies(req.headers.cookie)[BRAND_PENDING_COOKIE];
+    return openPending(this.config.SESSION_SECRET, c);
+  }
+
+  setPendingBrand(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    identity: Omit<PendingBrandIdentity, 'exp'>,
+  ): void {
+    const sealed = sealPending(this.config.SESSION_SECRET, {
+      ...identity,
+      exp: Date.now() + BRAND_PENDING_SEC * 1000,
+    });
+    appendCookie(
+      reply,
+      serializeCookie(BRAND_PENDING_COOKIE, sealed, {
+        maxAgeSec: BRAND_PENDING_SEC,
+        secure: cookieSecure(this.config, req),
+      }),
+    );
+  }
+
+  /** LIPP `state` (and the same-origin `next` path) for one sign-in attempt, 10 minutes. */
+  setLippState(req: FastifyRequest, reply: FastifyReply, state: string, next?: string): void {
+    const token = signToken(this.config.SESSION_SECRET, 'paypal-state', {
+      sub: state,
+      exp: Date.now() + LIPP_STATE_SEC * 1000,
+      ...(next ? { ext: { next } } : {}),
+    });
+    appendCookie(
+      reply,
+      serializeCookie(LIPP_STATE_COOKIE, token, {
+        maxAgeSec: LIPP_STATE_SEC,
+        secure: cookieSecure(this.config, req),
+      }),
+    );
+  }
+
+  lippState(req: FastifyRequest): TokenClaims | null {
+    const c = parseCookies(req.headers.cookie)[LIPP_STATE_COOKIE];
+    return verifyToken(this.config.SESSION_SECRET, 'paypal-state', c);
+  }
+
+  clear(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    which: 'brand' | 'shopper' | 'brand-pending' | 'lipp-state',
+  ): void {
+    const name = {
+      brand: BRAND_COOKIE,
+      shopper: SHOPPER_COOKIE,
+      'brand-pending': BRAND_PENDING_COOKIE,
+      'lipp-state': LIPP_STATE_COOKIE,
+    }[which];
     appendCookie(
       reply,
       serializeCookie(name, '', { maxAgeSec: 0, secure: cookieSecure(this.config, req) }),
