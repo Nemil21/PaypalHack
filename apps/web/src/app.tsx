@@ -8,6 +8,7 @@ import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
 import { BrandOverview } from './routes/brand/BrandOverview';
+import { BrandOnboarding } from './routes/brand/BrandOnboarding';
 import { BrandSignIn } from './routes/brand/BrandSignIn';
 import { CreateListingWizard } from './routes/brand/CreateListingWizard';
 import { ListingConsole } from './routes/brand/ListingConsole';
@@ -39,10 +40,8 @@ const router = createBrowserRouter([
       // Brand
       // W02 (HF-010): Log in with PayPal, plus the DEMO_MODE sign-ins.
       { path: 'brand/sign-in', element: <BrandSignIn /> },
-      {
-        path: 'brand/onboarding',
-        element: <ScreenPlaceholder screen="Brand verification (W03)" ticket="HF-011b" />,
-      },
+      // W03 (HF-011b): company, domain, payout; works from a pending PayPal identity.
+      { path: 'brand/onboarding', element: <BrandOnboarding /> },
       {
         // HF-023: brand session + listings. `/brand` is the W04 overview (HF-026).
         element: <BrandGate />,

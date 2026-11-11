@@ -23,6 +23,7 @@ import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
 import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
+import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerListingRoutes } from './routes/listings.js';
@@ -144,6 +145,8 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   }
   if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
+  // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
+  if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   if (deps.sql) {
     registerSettlementRoutes(app, {
