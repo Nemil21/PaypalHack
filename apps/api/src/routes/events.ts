@@ -42,6 +42,7 @@ export const MAX_STREAMS_PER_PRINCIPAL = 20;
 /** Listing-level notices a shopper may see on their bid's stream (no other bidder's ids). */
 const SHOPPER_LISTING_WIDE: ReadonlySet<ListingEventType> = new Set<ListingEventType>([
   'listing.status',
+  'listing.updated',
   'round.started',
   'round.extended',
   'round.ended',

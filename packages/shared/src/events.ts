@@ -119,6 +119,14 @@ export const listingStatusEvent = z.object({
   to: z.enum(LISTING_STATUSES),
 });
 
+/** HF-012b: listing terms changed after publish (only a quantity raise, while OPEN). */
+export const listingUpdatedEvent = z.object({
+  type: z.literal('listing.updated'),
+  ...base,
+  previousQuantity: z.number().int(),
+  quantity: z.number().int(),
+});
+
 export const roundStartedEvent = z.object({
   type: z.literal('round.started'),
   ...base,
@@ -191,6 +199,7 @@ export const listingEventSchema = z.discriminatedUnion('type', [
   bidRaisedEvent,
   settlementUpdatedEvent,
   listingStatusEvent,
+  listingUpdatedEvent,
   roundStartedEvent,
   roundNudgedEvent,
   roundExtendedEvent,

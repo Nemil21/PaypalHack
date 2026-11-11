@@ -122,6 +122,38 @@ export interface BrandListingView {
   };
 }
 
+/**
+ * `PATCH /api/listings/:id` body (HF-012b; 02 §Edge cases): quantity only, upward only, while
+ * OPEN. Floor and window are locked after publish (fairness), so any other field is refused.
+ */
+export const updateListingRequestSchema = z
+  .object({
+    quantity: z.number().int('must be a whole number').min(1).max(MAX_LISTING_QUANTITY),
+  })
+  .strict();
+export type UpdateListingRequest = z.infer<typeof updateListingRequestSchema>;
+
+/** `200` from `PATCH /api/listings/:id`. */
+export interface UpdateListingResponse {
+  listingId: string;
+  status: 'OPEN';
+  previousQuantity: number;
+  quantity: number;
+}
+
+/**
+ * `202` from `POST /api/listings/:id/cancel` (HF-012b; api.md §`/cancel`). The listing is
+ * CANCELLED on return; `voiding` HELD bids are released asynchronously (progress over SSE:
+ * `listing.status`, then one `bid.voided` per bid) and `abandoned` pending bids never held money.
+ */
+export interface CancelListingResponse {
+  listingId: string;
+  status: 'CANCELLED';
+  from: 'OPEN' | 'ROUNDS';
+  voiding: number;
+  abandoned: number;
+}
+
 export const offerPathOf = (slug: string) => `/o/${encodeURIComponent(slug)}`;
 export const listingConsolePathOf = (listingId: string) =>
   `/brand/listings/${encodeURIComponent(listingId)}`;

@@ -32,3 +32,4 @@ export * from './channel3/index.js';
 export * from './mandate-settings.js';
 export * from './listings/create-publish.js';
 export * from './bid-price-watch.js';
+export * from './listings/cancel-quantity.js';

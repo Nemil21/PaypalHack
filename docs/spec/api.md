@@ -77,6 +77,7 @@ HF-012a: the body also has `listingId`, `slug`, `offerPath` (`/o/:slug`), `windo
 ### `GET /listings[?status=OPEN,ROUNDS]` → `{ "listings": [ … ] }` (HF-012a): the session brand's listings, newest first, with product, deadlines, `offerPath` and `priceWatch`.
 
 ### `PATCH /listings/:id` `{ "quantity": 320 }` (later wave) → raise quantity only, while OPEN. Floor and window are locked (02).
+HF-012b: OWNER/MANAGER, Idempotency-Key → `200 { listingId, status: "OPEN", previousQuantity, quantity }`; audit `LISTING_QUANTITY_RAISED`; SSE `listing.updated`. Errors: `400 VALIDATION_ERROR { field: "quantity", reason: QUANTITY_NOT_INCREASED, currentQuantity }` (equal or lower), `400 VALIDATION_ERROR` for any other field (floor, window), `409 STATE_CONFLICT { reason: NOT_OPEN, status }`, `404` for another brand's listing.
 
 ### `GET /listings/:id/book` (brand only)
 ```json
@@ -94,7 +95,7 @@ HF-012a: the body also has `listingId`, `slug`, `offerPath` (`/o/:slug`), `windo
 
 ### `POST /listings/:id/rounds/start` `{ "targetQuantity": 240 }` → `{ "status": "ROUNDS", "roundsEndAt": "…", "windowClosesAt": "…", "clearDeadlineAt": "…" }` · `POST /listings/:id/rounds/stop` (sets `rounds_end_at = now()`) · `POST /listings/:id/rounds/next` (basic mode: advance one round) · `PATCH /listings/:id/rounds` `{ "targetQuantity" }` (see 19). OWNER/MANAGER only; rounds start once.
 
-### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `bid.raised`, `settlement.updated`, `listing.status`, `round.started`, `round.nudged`, `round.extended`, `round.ended`, `payout.updated`, `pricewatch.released`
+### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `bid.raised`, `settlement.updated`, `listing.status`, `round.started`, `round.nudged`, `round.extended`, `round.ended`, `payout.updated`, `pricewatch.released`, `listing.updated` (HF-012b: `{ previousQuantity, quantity }`)
 
 ### `POST /listings/:id/clear` (brand OWNER/MANAGER)
 ```json
@@ -107,6 +108,7 @@ HF-012a: the body also has `listingId`, `slug`, `offerPath` (`/o/:slug`), `windo
 - `HOLDS_TOO_OLD`: a **winner's** hold is ≥ 66 h old (older non-winner holds are released instead of blocking Clear).
 
 ### `POST /listings/:id/cancel` (OWNER/MANAGER; from OPEN or ROUNDS) → `202 { "status": "CANCELLED" }`; bids go VOIDING and are voided asynchronously (concurrency ≤ 10); progress over SSE.
+HF-012b: the 202 body is `{ listingId, status: "CANCELLED", from: "OPEN" | "ROUNDS", voiding, abandoned }` (HELD → VOIDING with `void_reason = CANCELLED`, PENDING_APPROVAL → ABANDONED; the audit rows carry `cause: LISTING_CANCELLED`). SSE: `listing.status`, then `bid.voided` per bid (once at VOIDING, once at VOIDED). A void PayPal keeps refusing stays VOIDING for the HF-034 sweeper. Errors: `409 STATE_CONFLICT { reason: NOT_CANCELLABLE, status }`, `404` for another brand's listing.
 ### `GET /listings/:id/settlement` → counts by status + rows (settlement-view payload from `packages/shared`), incl. promotion links via `unit_root_bid_id`, "Cleared $X · Captured $Y".
 ### `GET /brands/me/overview` → per-listing cards and totals for W04.
 ### `GET /brands/me/payouts`, `GET /brands/me/reports?from&to` (CSV via `Accept: text/csv`).

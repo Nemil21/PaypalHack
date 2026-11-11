@@ -12,6 +12,7 @@ describe('ListingEvent union', () => {
         'bid.raised',
         'settlement.updated',
         'listing.status',
+        'listing.updated',
         'round.started',
         'round.nudged',
         'round.extended',
