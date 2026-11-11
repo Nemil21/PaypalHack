@@ -148,9 +148,15 @@ export type IntentDecision =
   | { kind: 'place'; listingId: string; amountCents: number; why: string }
   | { kind: 'move'; bidId: string; toListingId: string; amountCents: number; why: string }
   /** Nothing to do now; `why` says what the intent is waiting for. */
-  | { kind: 'stay' | 'watch' | 'done'; why: string };
+  | { kind: 'stay' | 'watch'; why: string }
+  /**
+   * Finished. `close` is the status the still-OPEN intent moves to: FULFILLED once a bid was
+   * captured, CANCELLED when its last bid was released and not replaced or its mandate expired.
+   */
+  | { kind: 'done'; why: string; close?: 'FULFILLED' | 'CANCELLED' };
 
-const WON_STATUSES = new Set(['WON', 'CAPTURED', 'SHIPPED']);
+/** Captured: the want is met. A WON bid can still fail capture (D9), so it is not yet. */
+const FULFILLED_STATUSES = new Set(['CAPTURED', 'SHIPPED']);
 const IN_FLIGHT = new Set(['PENDING_APPROVAL', 'LOST']);
 /** A bid that never became a live hold, or was released: a failed attempt if newer than the HELD bid. */
 const NEVER_HELD = new Set(['HOLD_FAILED', 'ABANDONED', 'VOIDING', 'VOIDED']);
@@ -161,8 +167,17 @@ const bookName = (b: { title: string | null; brandName?: string | null }) =>
 export function decideIntent(state: IntentState): IntentDecision {
   if (state.intentStatus !== 'OPEN')
     return { kind: 'done', why: `The intent is ${state.intentStatus}.` };
-  if (state.bids.some((b) => WON_STATUSES.has(b.status))) {
-    return { kind: 'done', why: 'A bid for this intent won.' };
+  if (state.bids.some((b) => FULFILLED_STATUSES.has(b.status))) {
+    return { kind: 'done', why: 'A bid for this intent won and was charged.', close: 'FULFILLED' };
+  }
+  if (state.bids.some((b) => b.status === 'WON')) {
+    return { kind: 'stay', why: 'A bid for this intent won; waiting for the payment to complete.' };
+  }
+  if (state.mandateStatus === 'FULFILLED') {
+    return { kind: 'done', why: "The intent's mandate is fulfilled.", close: 'FULFILLED' };
+  }
+  if (state.mandateStatus === 'EXPIRED') {
+    return { kind: 'done', why: "The intent's mandate expired.", close: 'CANCELLED' };
   }
   if (state.mandateStatus !== 'ACTIVE') {
     return { kind: 'stay', why: 'The intent is waiting for the shopper to approve it.' };
@@ -213,7 +228,11 @@ export function decideIntent(state: IntentState): IntentDecision {
   const last = [...state.bids].sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())[0];
   if (last && !(REPLACE_AFTER_VOID_REASONS as readonly string[]).includes(last.voidReason ?? '')) {
     // Cancelled, price drop, paused, declined …: the shopper's or PayPal's call, not the rule's.
-    return { kind: 'done', why: 'The last bid for this intent was released and not replaced.' };
+    return {
+      kind: 'done',
+      why: 'The last bid for this intent was released and not replaced.',
+      close: 'CANCELLED',
+    };
   }
   const best = pickBook(state.books, max);
   if (!best) {
@@ -520,6 +539,7 @@ export type IntentRunResult =
       result: PlaceBidResult;
     }
   | { action: 'moved'; decision: Extract<IntentDecision, { kind: 'move' }>; result: MoveBidResult }
+  | { action: 'closed'; decision: Extract<IntentDecision, { kind: 'done' }>; status: string }
   | { action: 'none'; decision: IntentDecision };
 
 /**
@@ -587,35 +607,108 @@ export async function runIntent(
     });
     return { action: 'moved', decision, result };
   }
+  if (decision.kind === 'done' && decision.close) {
+    const closed = await closeIntent(deps, intentId, decision.close, decision.why, actor);
+    if (closed) return { action: 'closed', decision, status: decision.close };
+  }
   return { action: 'none', decision };
 }
 
 /**
- * The `intent-move-rule` job: every OPEN intent under an ACTIVE mandate, one at a time. Shoppers
- * with no saved payment method are skipped (the rule's holds are merchant-initiated VAULT holds).
+ * OPEN → FULFILLED (`fulfilled_at`) or CANCELLED, and the intent's mandate with it: FULFILLED, or
+ * EXPIRED / PAUSED, so the job stops selecting it and `my_intents` shows the real state. Only
+ * called when the rule found no HELD or in-flight bid, so no hold is touched. False if another
+ * runner closed it first.
+ */
+async function closeIntent(
+  deps: PlaceBidDeps,
+  intentId: string,
+  to: 'FULFILLED' | 'CANCELLED',
+  why: string,
+  actor: Actor,
+): Promise<boolean> {
+  return deps.db.tx(async (tx) => {
+    const res = await tx.query(
+      `UPDATE intents
+          SET status = $2, fulfilled_at = CASE WHEN $2 = 'FULFILLED' THEN now() END,
+              updated_at = now()
+        WHERE id = $1 AND status = 'OPEN'
+        RETURNING mandate_id`,
+      [intentId, to],
+    );
+    const row = res.rows[0] as { mandate_id: string | null } | undefined;
+    if (!row) return false;
+    let mandateStatus: string | null = null;
+    if (row.mandate_id) {
+      const m =
+        to === 'FULFILLED'
+          ? await transition<'mandates', MandateRow>(
+              tx,
+              'mandates',
+              row.mandate_id,
+              ['ACTIVE', 'PAUSED'],
+              'FULFILLED',
+              { fulfilled_at: SQL_NOW },
+            )
+          : await tx
+              .query(
+                `UPDATE mandates
+                  SET status = CASE WHEN expires_at IS NOT NULL AND expires_at <= now()
+                                    THEN 'EXPIRED' ELSE 'PAUSED' END,
+                      paused_at = now(), updated_at = now()
+                WHERE id = $1 AND status = 'ACTIVE' RETURNING *`,
+                [row.mandate_id],
+              )
+              .then((r) => (r.rows[0] as MandateRow | undefined) ?? null);
+      mandateStatus = m?.status ?? null;
+    }
+    await audit(tx, {
+      actorType: actor.type,
+      actorId: actor.id ?? null,
+      entity: 'intent',
+      entityId: intentId,
+      action: to === 'FULFILLED' ? 'INTENT_FULFILLED' : 'INTENT_CANCELLED',
+      data: { intentId, why, mandateId: row.mandate_id, mandateStatus },
+    });
+    return true;
+  });
+}
+
+/**
+ * The `intent-move-rule` job: OPEN intents, one at a time, least recently checked first (each run
+ * touches `updated_at`, so a backlog is worked round-robin). Under an ACTIVE mandate only for
+ * shoppers with a saved payment method (the rule's holds are merchant-initiated VAULT holds);
+ * under a FULFILLED or EXPIRED mandate so the rule can close them. PAUSED (awaiting confirm or
+ * paused by the shopper) are left alone.
  */
 export async function runOpenIntents(
   deps: PlaceBidDeps,
   opts: { limit?: number; onError?: (err: unknown, intentId: string) => void } = {},
-): Promise<{ checked: number; placed: number; moved: number }> {
+): Promise<{ checked: number; placed: number; moved: number; closed: number }> {
   const res = await deps.db.pool.query(
     `SELECT i.id FROM intents i JOIN mandates m ON m.id = i.mandate_id
        JOIN shoppers s ON s.id = i.shopper_id
-      WHERE i.status = 'OPEN' AND m.status = 'ACTIVE' AND s.paypal_vault_id IS NOT NULL
-        AND (m.expires_at IS NULL OR m.expires_at > now())
-      ORDER BY i.created_at LIMIT $1`,
+      WHERE i.status = 'OPEN'
+        AND (m.status IN ('FULFILLED', 'EXPIRED')
+             OR (m.status = 'ACTIVE' AND s.paypal_vault_id IS NOT NULL))
+      ORDER BY i.updated_at, i.id LIMIT $1`,
     [opts.limit ?? 200],
   );
-  const out = { checked: 0, placed: 0, moved: 0 };
+  const out = { checked: 0, placed: 0, moved: 0, closed: 0 };
   for (const { id } of res.rows as { id: string }[]) {
     out.checked++;
     try {
       const r = await runIntent(deps, id);
       if (r?.action === 'placed' && r.result.ok) out.placed++;
       if (r?.action === 'moved' && r.result.ok) out.moved++;
+      if (r?.action === 'closed') out.closed++;
     } catch (err) {
       opts.onError?.(err, id);
     }
+    await deps.db.pool.query(
+      `UPDATE intents SET updated_at = now() WHERE id = $1 AND status = 'OPEN'`,
+      [id],
+    );
   }
   return out;
 }

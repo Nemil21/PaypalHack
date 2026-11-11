@@ -151,9 +151,19 @@ describe('HF-052 move rule (unit)', () => {
         state({ bids: [bid('x', 'a', { status: 'PENDING_APPROVAL' })], books: [book('b')] }),
       ),
     ).toMatchObject({ kind: 'stay' });
+    // WON can still fail capture (D9): wait. Captured: fulfilled.
     expect(
       decideIntent(state({ bids: [bid('x', 'a', { status: 'WON' })], books: [book('b')] })),
-    ).toMatchObject({ kind: 'done' });
+    ).toMatchObject({ kind: 'stay' });
+    expect(
+      decideIntent(
+        state({
+          mandateStatus: 'FULFILLED',
+          bids: [bid('x', 'a', { status: 'CAPTURED' })],
+          books: [book('b')],
+        }),
+      ),
+    ).toMatchObject({ kind: 'done', close: 'FULFILLED' });
     expect(
       decideIntent(
         state({
@@ -161,7 +171,16 @@ describe('HF-052 move rule (unit)', () => {
           books: [book('b')],
         }),
       ),
-    ).toMatchObject({ kind: 'done' });
+    ).toMatchObject({ kind: 'done', close: 'CANCELLED' });
+    expect(decideIntent(state({ mandateStatus: 'EXPIRED', books: [book('a')] }))).toMatchObject({
+      kind: 'done',
+      close: 'CANCELLED',
+    });
+    // Already closed: nothing more to write.
+    expect(decideIntent(state({ intentStatus: 'FULFILLED' }))).toEqual({
+      kind: 'done',
+      why: 'The intent is FULFILLED.',
+    });
   });
 });
 
@@ -505,6 +524,68 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-052 intents (stub)', () => {
     // Idempotent: a second run leaves the winning bid alone.
     await job.run();
     expect(await intentHeld(on.intent.id)).toHaveLength(1);
+  });
+
+  it('a won intent is closed FULFILLED and never selected again; a cancelled one is CANCELLED and its mandate paused', async () => {
+    const s = await vaultedShopper();
+    const a = await listing('Aurel One');
+    const b = await listing('Nova X');
+    const won = await activeIntent(s, [a.product_id]);
+    await activateIntent(deps(), s, won.intent.id);
+    const [wonBid] = await intentHeld(won.intent.id);
+    // What Clear, the capture and HF-017a's onCaptured leave behind.
+    await db.pool.query(`UPDATE bids SET status = 'CAPTURED' WHERE id = $1`, [wonBid!.id]);
+    await db.pool.query(`UPDATE mandates SET status = 'FULFILLED' WHERE id = $1`, [won.mandate.id]);
+
+    const cancelled = await activeIntent(s, [b.product_id]);
+    await activateIntent(deps(), s, cancelled.intent.id);
+    const [cBid] = await intentHeld(cancelled.intent.id);
+    await voidBid(deps(), cBid!.id, 'CANCELLED', { type: 'SHOPPER', id: s });
+
+    const selected = async () =>
+      (
+        await db.pool.query(
+          `SELECT entity_id FROM audit_events WHERE action IN ('INTENT_FULFILLED', 'INTENT_CANCELLED')
+             AND entity_id = ANY($1::uuid[])`,
+          [[won.intent.id, cancelled.intent.id]],
+        )
+      ).rowCount;
+    const first = await runOpenIntents(deps());
+    expect(first.closed).toBeGreaterThanOrEqual(2);
+    const intent = async (id: string) =>
+      (
+        await db.pool.query(
+          `SELECT i.status, i.fulfilled_at, m.status AS mandate_status
+             FROM intents i JOIN mandates m ON m.id = i.mandate_id WHERE i.id = $1`,
+          [id],
+        )
+      ).rows[0];
+    expect(await intent(won.intent.id)).toMatchObject({
+      status: 'FULFILLED',
+      fulfilled_at: expect.any(Date),
+      mandate_status: 'FULFILLED',
+    });
+    expect(await intent(cancelled.intent.id)).toMatchObject({
+      status: 'CANCELLED',
+      fulfilled_at: null,
+      mandate_status: 'PAUSED',
+    });
+
+    // The job no longer selects them: no second close, and nothing re-places for them.
+    const before = await selected();
+    const second = await runOpenIntents(deps());
+    expect(second.closed).toBe(0);
+    expect(await selected()).toBe(before);
+    const open = (
+      await db.pool.query(
+        `SELECT count(*)::int AS n FROM intents WHERE id = ANY($1::uuid[]) AND status = 'OPEN'`,
+        [[won.intent.id, cancelled.intent.id]],
+      )
+    ).rows[0].n;
+    expect(open).toBe(0);
+    expect(await intentHeld(cancelled.intent.id)).toEqual([]);
+    const [view] = (await listIntents(db.pool, s)).filter((i) => i.intentId === won.intent.id);
+    expect(view).toMatchObject({ status: 'FULFILLED', mandateStatus: 'FULFILLED' });
   });
 
   describe('races (stub)', () => {
