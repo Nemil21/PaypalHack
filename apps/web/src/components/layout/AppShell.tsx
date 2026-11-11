@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { cn } from '../../lib/cn';
 import { DEMO_OFFER_SLUG, paths } from '../../lib/routes';
+import { setShortcutsEnabled, shortcutFor, shortcutsEnabled } from '../../lib/shortcuts';
 import { ButtonLink } from '../ui';
 
 const links = [
@@ -18,18 +19,22 @@ export function AppShell() {
   const navigate = useNavigate();
   useEffect(() => setOpen(false), [location.pathname]);
 
-  // The shortcut chips on the nav buttons work: B → brand console, P → place a bid.
+  // B → brand console, P → place a bid; guarded in lib/shortcuts.ts, can be turned off.
+  const [shortcuts, setShortcuts] = useState(() => shortcutsEnabled(safeStorage()));
   useEffect(() => {
+    if (!shortcuts) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      if (e.key === 'b' || e.key === 'B') navigate(paths.brand);
-      if (e.key === 'p' || e.key === 'P') navigate(paths.offer(DEMO_OFFER_SLUG));
+      const hit = shortcutFor(e, document);
+      if (hit === 'brand') navigate(paths.brand);
+      if (hit === 'bid') navigate(paths.offer(DEMO_OFFER_SLUG));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  }, [navigate, shortcuts]);
+  const toggleShortcuts = () => {
+    setShortcutsEnabled(safeStorage(), !shortcuts);
+    setShortcuts(!shortcuts);
+  };
 
   return (
     <div className="relative min-h-dvh">
@@ -57,10 +62,10 @@ export function AppShell() {
             ))}
           </ul>
           <div className="flex items-center gap-2">
-            <ButtonLink to={paths.brand} variant="secondary" shortcut="B">
+            <ButtonLink to={paths.brand} variant="secondary" shortcut={shortcuts ? 'B' : undefined}>
               For brands
             </ButtonLink>
-            <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)} shortcut="P">
+            <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)} shortcut={shortcuts ? 'P' : undefined}>
               Place a bid
             </ButtonLink>
           </div>
@@ -98,6 +103,16 @@ export function AppShell() {
       <main className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-24 sm:px-8 lg:px-18">
         <Outlet />
       </main>
+      <footer className="relative z-10 mx-auto hidden w-full max-w-[1440px] px-8 pb-8 lg:block lg:px-18">
+        <button
+          type="button"
+          onClick={toggleShortcuts}
+          aria-pressed={shortcuts}
+          className="label text-[11px] text-muted hover:text-ink"
+        >
+          Keyboard shortcuts {shortcuts ? 'on' : 'off'} · turn {shortcuts ? 'off' : 'on'}
+        </button>
+      </footer>
     </div>
   );
 }
@@ -137,4 +152,12 @@ export function PageHeader({
       )}
     </div>
   );
+}
+
+function safeStorage(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }
