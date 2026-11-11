@@ -160,7 +160,9 @@ export async function loadSettlementView(
                   GROUP BY b.unit_root_bid_id
                  HAVING bool_and(s.status IN ('FAILED', 'CANCELLED'))) u) AS unfilled_units,
               (SELECT max(s.updated_at) FROM settlements s WHERE s.listing_id = l.id)
-                AS settlements_updated_at
+                AS settlements_updated_at,
+              (SELECT r.workflow_run_id FROM settlement_runs r WHERE r.listing_id = l.id)
+                AS workflow_run_id
          FROM listings l JOIN brands br ON br.id = l.brand_id
         WHERE l.id = $1 AND ($2::uuid IS NULL OR l.brand_id = $2::uuid)`,
       [listingId, brandId],
@@ -176,6 +178,7 @@ export async function loadSettlementView(
         captured_cents: number;
         unfilled_units: number;
         settlements_updated_at: Date | null;
+        workflow_run_id: string | null;
       }
     | undefined;
   if (!head) return null;
@@ -229,5 +232,6 @@ export async function loadSettlementView(
         }
       : null,
     updatedAt: new Date(Math.max(...updated.map((d) => d.getTime()))).toISOString(),
+    workflowRunId: head.workflow_run_id,
   };
 }

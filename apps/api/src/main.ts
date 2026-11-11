@@ -22,6 +22,7 @@ import {
 } from '@holdfast/core';
 import { ListingEventBus } from './events/bus.js';
 import { buildServer } from './server.js';
+import { createWorkflowsSettlement } from './settlement-workflows.js';
 
 loadDotenv();
 
@@ -55,16 +56,22 @@ const payouts = {
   onError: (err: unknown, ctx: { step: string; listingId?: string }) =>
     app.log.warn({ err: (err as Error).message, ...ctx }, 'payout step failed'),
 };
-// HF-030a: the in-process settlement coordinator is the default runner (HF-030b adds Workflows).
+// HF-030a: the in-process settlement coordinator is the default runner. HF-030b:
+// SETTLEMENT_RUNNER=workflows starts the same coordinator as a Render Workflows task run instead
+// (Clear's kick, the outbox kicker and admin retry all go through `kick`).
 const settlement =
-  config.SETTLEMENT_RUNNER === 'inprocess'
-    ? inProcessSettlementRunner({
+  config.SETTLEMENT_RUNNER === 'workflows'
+    ? createWorkflowsSettlement(config, sql, {
+        // Called only once the server is built, so `app` is initialised by then.
+        onResult: (listingId, result) =>
+          app.log.info({ listingId, settlementWorkflow: result }, 'settlement workflow kick'),
+      })
+    : inProcessSettlementRunner({
         db: sql,
         paypal,
         allowMockDecline: mockDeclinesAllowed(config),
         payoutBrand: makePayoutBrand(payouts),
-      })
-    : null;
+      });
 // HF-036b: live rounds timer. ROUNDS_TIME_SCALE scales round timing only (never hold age or
 // clear_deadline_at). Claude phrases one nudge template per round; without a key (or on error /
 // 5 s timeout) nudges use the template text.
@@ -86,7 +93,7 @@ const app = buildServer(config, {
   events,
   channel3,
   settlement: {
-    kick: settlement?.kick,
+    kick: settlement.kick,
     retryPayout: (input) => retryPayout(payouts, input),
   },
   rounds,
@@ -99,7 +106,7 @@ const app = buildServer(config, {
       db: sql,
       paypal,
       audit: auditHook,
-      kickSettlement: settlement?.kick,
+      kickSettlement: settlement.kick,
       demoMode: config.DEMO_MODE,
     },
   },
@@ -129,7 +136,7 @@ const crons = startCrons({
     audit: auditHook,
     appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
     allowTestCard: testCardAllowed(config),
-    kickSettlement: settlement?.kick,
+    kickSettlement: settlement.kick,
     pollPayouts: () => pollPayouts(payouts),
     onError: (err, ctx) =>
       app.log.warn(

@@ -24,6 +24,8 @@ export const settlementViewSchema = z.object({
   rows: z.array(settlementRowSchema),
   payout: payoutViewSchema.nullable(),
   updatedAt: z.string(),
+  /** Render Workflows task run that settles this listing (HF-030b); null on the in-app runner. */
+  workflowRunId: z.string().nullable().optional(),
 });
 
 export type SettlementView = z.infer<typeof settlementViewSchema>;

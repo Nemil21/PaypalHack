@@ -7,7 +7,7 @@ Everything Render needs is in [`render.yaml`](../../render.yaml) (a Blueprint). 
 | Resource | Name | Plan | Notes |
 |---|---|---|---|
 | Web service | `holdfast` | Starter (paid), **1 instance** | Fastify serves the API (`/api/*`), `/mcp`, `/healthz` and the built SPA from one origin (M31). In-process jobs and rate limits assume one instance. |
-| Workflow | `holdfast-workflows` | per task (set in code) | Render Workflows. The `hello` task now (HF-048a); settlement tasks in HF-030b. |
+| Workflow | `holdfast-workflows` | per task (set in code) | Render Workflows: the `hello` task (HF-048a) and the settlement tasks `settleListing` / `settleBid` (HF-030b). |
 | Postgres 16 | `holdfast-db` | `basic-256mb` (paid), 1 GB disk | Free Postgres expires ~30 days after creation, before judging ends Dec 21. Private network only (`ipAllowList: []`). |
 | Env group | `holdfast-config` | | Non-secret flags only: `NODE_VERSION=22`, `NODE_ENV=production`, sandbox PayPal base/mode, `SETTLEMENT_RUNNER=inprocess`, `DEMO_MODE=true`, `RENDER_WORKFLOW_SLUG`. |
 
@@ -47,6 +47,21 @@ Do these in order. Secret values come from your local `.env`: paste them straigh
    | Channel3 dashboard / product subscriptions (HF-042b) | Webhook URL | `https://<host>/api/webhooks/channel3`. The signing secret goes in `CHANNEL3_WEBHOOK_SECRET`. |
    | Claude Desktop / MCP clients (HF-043/044a) | Server URL | `https://<host>/mcp` |
 
+## Settlement on Workflows (HF-030b)
+
+`SETTLEMENT_RUNNER=workflows` on `holdfast` makes every settlement kick (Clear, the 1-minute outbox kick, admin retry) start the `settleListing` task on `holdfast-workflows` instead of settling in the web process. That task runs the same coordinator as the in-process runner, and each settlement row is a child `settleBid` run, so the run view shows the fan-out. Render-level retries are 0 on both tasks; `settleBid` owns PayPal retries (D11).
+
+- The first run per listing starts with `idempotencyKey = listingId`; its id is stored on `settlement_runs.workflow_run_id` and returned as `workflowRunId` by `GET /api/listings/:id/settlement`. A kick while that run is live does nothing. A run that ended without finishing the listing (killed, failed, or handed back after 5 minutes) is followed by run n with key `<listingId>:<n>` on the next kick; one Render still calls running after its lease expired is cancelled first.
+- The workflow service needs the same config as the web service (`loadConfig`): the Blueprint adds `SESSION_SECRET` (generated) and a prompted `ALLOW_MOCK_DECLINE` (set `true` for the decline run). It must use the sandbox, not `PAYPAL_MODE=stub`.
+
+Smoke (from the `holdfast` Shell, after the steps above):
+
+1. Set `ALLOW_MOCK_DECLINE=true` on both services and `SETTLEMENT_RUNNER=workflows` on `holdfast`; redeploy. `/api/healthz` shows `settlementRunner: "workflows"`.
+2. Place 10 sandbox holds on a listing (offer page with the labelled test card, or HF-045's seed once merged; `npm run dev:bids` makes stub holds and won't capture on the sandbox) and Clear it from the console. Then `npm run workflows:settle -- <listingId>`: it kicks (or finds) the run, waits, and prints `workflowRunId`, counts and each capture's PayPal id. Expect SETTLED, one capture per winner, one payout.
+3. 50 bids with one decline (`demo_decline_rank` set before Clear): same command; expect 1 promotion at the promoted bidder's own bid and the same counts as the in-process run.
+4. Kill and resume: start a 50-bid run, cancel it in `holdfast-workflows` → Runs mid-way; within about a minute the outbox kick starts run 2 (`<listingId>:2`). Each charged authorization has exactly one capture id; one payout.
+5. If any step misbehaves, set `SETTLEMENT_RUNNER=inprocess` again (the default) and say so in the README.
+
 ## Checking a deploy
 
 ```sh
@@ -56,7 +71,7 @@ curl -sI https://<host>/              # the SPA demo hub (HF-007), same origin
 ```
 
 - **A redeploy migrates and doesn't touch data**: Manual Deploy → *Deploy latest commit*. The pre-deploy log should read `[migrate] done: 0 applied, 1 already up to date`, and existing rows are unchanged. The runner skips applied files by checksum, and nothing seeds.
-- **Workflows**: `npm run workflows:hello` from the web Shell, then the run in `holdfast-workflows` → Runs.
+- **Workflows**: `npm run workflows:hello` from the web Shell, then the run in `holdfast-workflows` → Runs. Settlement: `npm run workflows:settle -- <listingId>`.
 
 ## Local equivalents
 
@@ -64,11 +79,11 @@ curl -sI https://<host>/              # the SPA demo hub (HF-007), same origin
 npm run build && npm run migrate && npm start      # uses the repo-root .env
 curl -s localhost:3000/healthz
 # Workflow task server locally (Render CLI):  render workflows dev -- node apps/workflows/dist/main.js
-TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres npx vitest run apps/workflows   # hello task against Postgres
+TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres npx vitest run --maxWorkers=2 apps/workflows   # hello + settlement adapter against Postgres
 ```
 
 ## Notes
 
 - Never use free instances. Free web services sleep: 30–60 s cold starts, dropped SSE, and a stopped in-process round tick.
-- `SETTLEMENT_RUNNER` stays `inprocess` until HF-030b's 10-bid smoke on Render is green.
+- `SETTLEMENT_RUNNER` stays `inprocess` until HF-030b's 10-bid smoke on Render is green (steps above).
 - To reach the database from a laptop (psql, manual seed), add your IP under `holdfast-db` → Networking. The Blueprint allows only the private network.
