@@ -21,6 +21,7 @@ import {
   type OfferPaymentMethod,
   type OfferView,
 } from '../../lib/offer';
+import { CardHold } from '../../lib/card-hold';
 import type { CardFieldsSession } from '../../lib/paypal-sdk';
 import { NotFound } from '../ScreenPlaceholder';
 import { CardFields } from './CardFields';
@@ -43,13 +44,6 @@ type Load =
   | { state: 'missing' }
   | { state: 'error'; message: string }
   | { state: 'ready'; offer: OfferView };
-
-/** A card order whose card-fields submit failed: the shopper may retry it with the same order. */
-interface PendingCard {
-  bidId: string;
-  orderId: string;
-  amountCents: number;
-}
 
 /**
  * W12 / M01 shopper offer page (HF-019; features/03 §Logic 1–4). Payment, in build order:
@@ -76,7 +70,8 @@ export function OfferPage() {
   const [busy, setBusy] = useState<OfferPaymentMethod | null>(null);
   const [failure, setFailure] = useState<{ text: string; retry?: OfferPaymentMethod } | null>(null);
   const [cardSession, setCardSession] = useState<CardFieldsSession | null>(null);
-  const pendingCard = useRef<PendingCard | null>(null);
+  /** The half-done card bid, if any: retries continue it (see lib/card-hold.ts). */
+  const cardHold = useRef(new CardHold());
   const inFlight = useRef(false);
   const bidAction = useRef(new ApiAction(api));
   const authorizeAction = useRef(new ApiAction(api));
@@ -148,71 +143,61 @@ export function OfferPage() {
     setBusy(pay);
     setFailure(null);
     setWarningFor(null);
-    try {
-      // A card order whose submit failed is retried with the same order, not a new bid.
-      const retryCard =
-        pay === 'CARD' && pendingCard.current?.amountCents === amount ? pendingCard.current : null;
-      let placed: PlaceBidResponse;
-      if (retryCard) {
-        placed = {
-          bidId: retryCard.bidId,
-          status: 'PENDING_APPROVAL',
+    const cancelBid = (bidId: string) =>
+      api.request({ method: 'POST', path: `/api/bids/${bidId}/cancel` }, crypto.randomUUID());
+    const placeBid = async () => {
+      const placed = await bidAction.current.run<PlaceBidResponse>({
+        method: 'POST',
+        path: '/api/bids',
+        body: {
+          listingId: offer.listingId,
           amountCents: amount,
-          orderId: retryCard.orderId,
-        };
-      } else {
-        if (pendingCard.current) {
-          // Switching away from a half-done card bid: release it first (D3: one live bid).
-          await api.request(
-            { method: 'POST', path: `/api/bids/${pendingCard.current.bidId}/cancel` },
-            crypto.randomUUID(),
-          );
-          pendingCard.current = null;
-        }
-        placed = await bidAction.current.run<PlaceBidResponse>({
-          method: 'POST',
-          path: '/api/bids',
-          body: {
-            listingId: offer.listingId,
-            amountCents: amount,
-            paymentMethod: pay,
-            releaseIfCheaper: !(warning && confirmedOver),
-            ...(utmSource ? { utmSource } : {}),
-          },
+          paymentMethod: pay,
+          releaseIfCheaper: !(warning && confirmedOver),
+          ...(utmSource ? { utmSource } : {}),
+        },
+      });
+      // The bid exists: its key is spent. Continuing it (card submit / authorize) needs no new
+      // POST /bids, and the next one, if any, is a new attempt with a new key.
+      bidAction.current.reset();
+      return placed;
+    };
+    try {
+      if (pay === 'CARD') {
+        const session = cardSession!;
+        const out = await cardHold.current.run(amount, {
+          placeBid,
+          submit: (orderId) => session.submit(orderId, { billingAddress: { countryCode: 'US' } }),
+          authorize: (bidId) =>
+            authorizeAction.current.run<PlaceBidResponse>({
+              method: 'POST',
+              path: `/api/bids/${bidId}/authorize`,
+            }),
+          cancel: cancelBid,
         });
+        if (out.kind === 'held') {
+          authorizeAction.current.reset();
+          return heldDone(out.bidId);
+        }
+        setFailure({
+          text:
+            out.kind === 'not_held'
+              ? "PayPal hasn't confirmed your hold yet. Try again in a moment."
+              : out.cancelled
+                ? 'Card verification was cancelled. Nothing was held.'
+                : "Your card couldn't be verified. Check the details and try again, or use PayPal.",
+          retry: 'CARD',
+        });
+        return;
       }
 
+      // Switching away from a half-done card bid: release it first (D3: one live bid).
+      await cardHold.current.release({ cancel: cancelBid });
+      const placed = await placeBid();
       if (placed.status === 'HELD') return heldDone(placed.bidId);
       if (pay === 'PAYPAL' && placed.approveUrl) {
         window.location.assign(placed.approveUrl); // rel=payer-action; PayPal returns to /api/bids/return
         return;
-      }
-      if (pay === 'CARD' && placed.orderId && cardSession) {
-        const submit = await cardSession.submit(placed.orderId, {
-          billingAddress: { countryCode: 'US' },
-        });
-        if (submit.state !== 'succeeded') {
-          pendingCard.current = {
-            bidId: placed.bidId,
-            orderId: placed.orderId,
-            amountCents: amount,
-          };
-          setFailure({
-            text:
-              submit.state === 'canceled'
-                ? 'Card verification was cancelled. Nothing was held.'
-                : "Your card couldn't be verified. Check the details and try again, or use PayPal.",
-            retry: 'CARD',
-          });
-          return;
-        }
-        pendingCard.current = null;
-        const auth = await authorizeAction.current.run<PlaceBidResponse>({
-          method: 'POST',
-          path: `/api/bids/${placed.bidId}/authorize`,
-        });
-        authorizeAction.current.reset();
-        if (auth.status === 'HELD') return heldDone(placed.bidId);
       }
       setFailure({ text: 'We could not confirm your hold. Check My bids before trying again.' });
     } catch (err) {
