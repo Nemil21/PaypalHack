@@ -17,6 +17,8 @@ export interface ConsoleKpis {
   heldCents: number;
   /** The SIM part of `heldCents`, for the "incl. $X simulated" hover. */
   simulatedHeldCents: number;
+  /** "SIM · no hold" seed fallbacks (HF-045): never in Clear (D8), shown only in the hover. */
+  simulatedNoHoldBids?: number;
   liveBids: number;
   quantity: number;
   cutoffCents: number | null;
@@ -58,6 +60,7 @@ export function consoleKpisAt(
   return {
     heldCents: book.stats.heldCents,
     simulatedHeldCents: book.stats.simulatedHeldCents,
+    simulatedNoHoldBids: book.stats.simulatedNoHoldBids ?? 0,
     liveBids: book.stats.liveBids,
     quantity: at?.quantity ?? book.listing.quantity,
     cutoffCents: at?.cutoffCents ?? null,
@@ -81,9 +84,19 @@ function trim(n: number): string {
   return (Math.round(n * 10) / 10).toFixed(1).replace(/\.0$/, '');
 }
 
-/** "incl. $1,240 simulated" (hover on Held demand); null when nothing is simulated. */
-export function simulatedNote(k: Pick<ConsoleKpis, 'simulatedHeldCents'>): string | null {
-  return k.simulatedHeldCents > 0 ? `incl. ${formatUsd(k.simulatedHeldCents)} simulated` : null;
+/**
+ * "incl. $1,240 simulated" (hover on Held demand); null when nothing is simulated. Seed fallbacks
+ * with no hold are not in the held total (D8) and are named separately.
+ */
+export function simulatedNote(
+  k: Pick<ConsoleKpis, 'simulatedHeldCents' | 'simulatedNoHoldBids'>,
+): string | null {
+  const noHold = k.simulatedNoHoldBids ?? 0;
+  const parts = [
+    k.simulatedHeldCents > 0 ? `incl. ${formatUsd(k.simulatedHeldCents)} simulated` : null,
+    noHold > 0 ? `${noHold} SIM · no hold not counted` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
 }
 
 /**

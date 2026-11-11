@@ -61,6 +61,7 @@ interface ListingHead {
   channel3_subscription_id: string | null;
   fee_bps: number;
   released_by_price_watch: string;
+  simulated_no_hold_bids: string;
   db_now: Date;
 }
 
@@ -100,6 +101,9 @@ async function loadSnapshot(tx: Tx, brandId: string, listingId: string): Promise
               br.fee_bps,
               (SELECT count(*) FROM bids
                 WHERE listing_id = l.id AND void_reason = 'PRICE_DROP') AS released_by_price_watch,
+              (SELECT count(*) FROM bids
+                WHERE listing_id = l.id AND status = 'HELD' AND paypal_authorization_id IS NULL
+                  AND source = 'SIM') AS simulated_no_hold_bids,
               now() AS db_now
          FROM listings l
          JOIN products p ON p.id = l.product_id
@@ -228,6 +232,7 @@ export async function loadBook(db: Db, brandId: string, listingId: string): Prom
         simulatedHeldCents,
         bestPublicPriceCents: head.best_public_price_cents,
         releasedByPriceWatch: Number(head.released_by_price_watch),
+        simulatedNoHoldBids: Number(head.simulated_no_hold_bids),
       },
       // Per-shopper deduped, same as clear() sees it (superseded bids are not extra demand).
       curve: buildDemandCurve(ordered.filter((b) => rank[b.id] || belowFloor.has(b.id))),
