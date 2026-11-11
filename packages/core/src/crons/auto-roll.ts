@@ -63,6 +63,11 @@ export interface RollCandidate {
   mandate_id: string;
   intent_id: string | null;
   release_if_cheaper: boolean;
+  /**
+   * Where it may roll: the mandate's allowed products, intersected with the intent's products for
+   * an intent bid (HF-052; an empty set on either side does not narrow), else the lost listing's
+   * own product.
+   */
   product_ids: string[];
   vaulted: boolean;
   roll_listing_id: string | null;
@@ -88,7 +93,11 @@ export async function rollCandidates(
   const res = await q.query(
     `SELECT b.id, b.shopper_id, b.listing_id, b.amount_cents, b.mandate_id, b.intent_id,
             b.release_if_cheaper,
-            CASE WHEN cardinality(m.allowed_product_ids) > 0 THEN m.allowed_product_ids
+            CASE WHEN cardinality(i.product_ids) > 0 AND cardinality(m.allowed_product_ids) > 0
+                   THEN ARRAY(SELECT unnest(m.allowed_product_ids)
+                              INTERSECT SELECT unnest(i.product_ids))
+                 WHEN cardinality(i.product_ids) > 0 THEN i.product_ids
+                 WHEN cardinality(m.allowed_product_ids) > 0 THEN m.allowed_product_ids
                  ELSE ARRAY[l.product_id] END AS product_ids,
             s.paypal_vault_id IS NOT NULL AS vaulted,
             r.listing_id AS roll_listing_id, r.amount_cents AS roll_amount_cents
@@ -96,6 +105,7 @@ export async function rollCandidates(
        JOIN mandates m ON m.id = b.mandate_id
        JOIN shoppers s ON s.id = b.shopper_id
        JOIN listings l ON l.id = b.listing_id
+       LEFT JOIN intents i ON i.id = b.intent_id
        LEFT JOIN bids r ON r.replaces_bid_id = b.id
       WHERE b.status = 'VOIDED' AND b.void_reason IN ('LOST', 'WINDOW_EXPIRED')
         AND m.status = 'ACTIVE' AND m.auto_roll AND NOT m.needs_payment_method
@@ -115,8 +125,8 @@ export async function rollCandidates(
 }
 
 /**
- * The listing a lost bid rolls into: OPEN and inside its window, for an allowed product (the lost
- * listing's product when the mandate allows any), not the lost listing, floor at or under the
+ * The listing a lost bid rolls into: OPEN and inside its window, for an allowed product, not the
+ * lost listing, floor at or under the
  * amount, and no live bid of this shopper there (D3). Newest window first.
  */
 export async function rollTarget(

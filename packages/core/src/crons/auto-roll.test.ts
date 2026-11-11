@@ -369,6 +369,33 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-053 auto-roll', { timeout: 60_000 }, () 
     expect(orderCreates()).toHaveLength(0);
   });
 
+  it("an intent bid only rolls into the intent's products (mandate [X, Y], intent [X])", async () => {
+    const shopperId = await vaultedShopper();
+    const x = await product();
+    const y = await product();
+    const oldListing = await listing(x, { open: false });
+    await listing(y, { open: true });
+    const m = await mandate(shopperId);
+    await db.pool.query(`UPDATE mandates SET allowed_product_ids = $2::uuid[] WHERE id = $1`, [
+      m,
+      [x, y],
+    ]);
+    const intent = await one<{ id: string }>(
+      `INSERT INTO intents (shopper_id, mandate_id, product_ids) VALUES ($1, $2, $3::uuid[])
+       RETURNING id`,
+      [shopperId, m, [x]],
+    );
+    const lost = await lostBid(oldListing, shopperId, m);
+    await db.pool.query(`UPDATE bids SET intent_id = $2 WHERE id = $1`, [lost, intent.id]);
+
+    expect(await autoRollBids(deps())).toMatchObject({ rolled: 0, idle: { waiting: 1 } });
+    expect(orderCreates()).toHaveLength(0);
+
+    const xWindow = await listing(x, { open: true });
+    expect((await autoRollBids(deps())).rolled).toBe(1);
+    expect((await rollsOf(lost))[0]).toMatchObject({ listing_id: xWindow, intent_id: intent.id });
+  });
+
   it('rolls a WINDOW_EXPIRED bid too', async () => {
     const shopperId = await vaultedShopper();
     const productId = await product();
