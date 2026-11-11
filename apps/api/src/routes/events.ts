@@ -51,6 +51,20 @@ const SHOPPER_LISTING_WIDE: ReadonlySet<ListingEventType> = new Set<ListingEvent
 /** Never on a shopper stream. */
 const BRAND_ONLY: ReadonlySet<ListingEventType> = new Set<ListingEventType>(['payout.updated']);
 
+export interface EventStreamStats {
+  /** Streams currently open on this instance. */
+  open: number;
+  /** Per-principal slots in use (sums to `open` unless one leaked). */
+  slots: number;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Open SSE streams and slots on this instance (HF-008; ops and tests). */
+    eventStreamStats(): EventStreamStats;
+  }
+}
+
 const notFound = (what: string) => new ApiError('NOT_FOUND', `${what} not found.`);
 
 function frame(event: string, data: unknown): string {
@@ -85,12 +99,26 @@ export function registerEventRoutes(app: FastifyInstance, deps: EventRoutesDeps)
     for (const res of open) res.end();
   });
 
+  app.decorate('eventStreamStats', (): EventStreamStats => {
+    let slots = 0;
+    for (const n of perPrincipal.values()) slots += n;
+    return { open: open.size, slots };
+  });
+
   function stream(
     req: FastifyRequest,
     reply: FastifyReply,
     listingId: string,
     filter: (n: ListingEventNotice) => boolean,
   ): void {
+    const res = reply.raw;
+    // The client may have gone while the tenant lookup was pending; its 'close' already fired,
+    // so a listener attached now would never run. Take nothing (no slot, subscription or timer).
+    if (req.raw.destroyed || req.raw.socket?.destroyed || res.destroyed) {
+      reply.hijack();
+      return;
+    }
+
     const p = req.auth.principal!;
     const key = `${p.type}:${p.id}`;
     const count = perPrincipal.get(key) ?? 0;
@@ -100,7 +128,6 @@ export function registerEventRoutes(app: FastifyInstance, deps: EventRoutesDeps)
     perPrincipal.set(key, count + 1);
 
     reply.hijack();
-    const res = reply.raw;
     res.writeHead(200, {
       'content-type': 'text/event-stream; charset=utf-8',
       'cache-control': 'no-cache, no-transform',
@@ -128,14 +155,23 @@ export function registerEventRoutes(app: FastifyInstance, deps: EventRoutesDeps)
     const heartbeat = setInterval(() => write(': ping\n\n'), heartbeatMs);
     heartbeat.unref();
 
-    res.on('close', () => {
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       clearInterval(heartbeat);
       unsubscribe();
       open.delete(res);
       const left = (perPrincipal.get(key) ?? 1) - 1;
       if (left > 0) perPrincipal.set(key, left);
       else perPrincipal.delete(key);
-    });
+    };
+    res.on('close', cleanup);
+    // Belt and braces: if the socket died between the check above and here, 'close' is gone too.
+    if (res.destroyed || req.raw.socket?.destroyed) {
+      cleanup();
+      return;
+    }
 
     write(`retry: ${RETRY_MS}\n: connected\n\n`);
     req.log.debug({ listingId }, 'sse stream opened');

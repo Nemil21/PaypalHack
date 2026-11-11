@@ -11,7 +11,8 @@ import type { AddressInfo } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { emit, loadConfig } from '@holdfast/core';
+import type pg from 'pg';
+import { emit, loadConfig, type Db } from '@holdfast/core';
 import type { ListingEvent } from '@holdfast/shared';
 // Test-only harness from HF-003a (throwaway migrated database); not part of the package API.
 import {
@@ -438,4 +439,105 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-008 SSE event bus (Postgres)', () => {
     await client.until(() => client.ofType('listing.status').length === 1);
     client.close();
   }, 15_000);
+
+  describe('client gone while the tenant lookup is pending (no leaked slot, subscription or timer)', () => {
+    /** A server whose listing / bid lookups wait on `gate`; auth queries pass straight through. */
+    async function slowServer() {
+      let release!: () => void;
+      const gate = new Promise<void>((r) => (release = r));
+      let started = 0;
+      const real = tdb.db.pool;
+      const query = real.query.bind(real) as (...a: unknown[]) => Promise<unknown>;
+      const slow = Object.create(real) as pg.Pool;
+      slow.query = (async (...args: unknown[]) => {
+        if (typeof args[0] === 'string' && /FROM (listings|bids) WHERE id = \$1/.test(args[0])) {
+          started += 1;
+          await gate;
+        }
+        return query(...args);
+      }) as unknown as pg.Pool['query'];
+      const sql: Db = { pool: slow, tx: tdb.db.tx };
+      const bus2 = new ListingEventBus({ connectionString: tdb.url, backoffMs: [50] });
+      await bus2.start();
+      const app2 = buildServer(loadConfig(env(tdb.url)), {
+        webDistDir: null,
+        sql,
+        db: real,
+        limiter: new RateLimiter(),
+        events: bus2,
+        sseHeartbeatMs: 50,
+      });
+      await app2.listen({ port: 0, host: '127.0.0.1' });
+      return {
+        app2,
+        bus2,
+        port2: (app2.server.address() as AddressInfo).port,
+        started: () => started,
+        release,
+        async close() {
+          await app2.close();
+          await bus2.close();
+        },
+      };
+    }
+
+    /** Open `count` requests, wait until each is parked in the lookup, then abort them all. */
+    async function abortDuringLookup(
+      srv: Awaited<ReturnType<typeof slowServer>>,
+      path: string,
+      cookie: string,
+      count: number,
+    ) {
+      const reqs = Array.from({ length: count }, () => {
+        const r = http.get({ host: '127.0.0.1', port: srv.port2, path, headers: { cookie } });
+        r.on('error', () => {});
+        return r;
+      });
+      const deadline = Date.now() + 5_000;
+      while (srv.started() < count) {
+        if (Date.now() > deadline) throw new Error(`only ${srv.started()} lookups started`);
+        await sleep(10);
+      }
+      for (const r of reqs) r.destroy();
+      await sleep(100); // let the server see every socket close
+      srv.release();
+      await sleep(200);
+    }
+
+    it('listing stream: aborted requests leave no stream, slot or subscriber; the user is not locked out', async () => {
+      const { listingId, cookie } = await listingWithBrand();
+      const srv = await slowServer();
+      try {
+        const path = `/api/listings/${listingId}/events`;
+        await abortDuringLookup(srv, path, cookie, MAX_STREAMS_PER_PRINCIPAL + 1);
+        expect(srv.app2.eventStreamStats()).toEqual({ open: 0, slots: 0 });
+        expect(srv.bus2.subscriberCount).toBe(0);
+
+        // With a leak every slot would be gone and this would be a 429.
+        const client = await SseClient.open(srv.port2, path, cookie);
+        expect(client.status).toBe(200);
+        expect(srv.app2.eventStreamStats()).toEqual({ open: 1, slots: 1 });
+        client.close();
+        await sleep(100);
+        expect(srv.app2.eventStreamStats()).toEqual({ open: 0, slots: 0 });
+        expect(srv.bus2.subscriberCount).toBe(0);
+      } finally {
+        await srv.close();
+      }
+    }, 20_000);
+
+    it('bid stream: an aborted request leaves no stream, slot or subscriber', async () => {
+      const { listingId } = await listingWithBrand();
+      const me = await fx.shopper();
+      const bid = await fx.heldBid(listingId, me.id);
+      const srv = await slowServer();
+      try {
+        await abortDuringLookup(srv, `/api/bids/${bid.id}/events`, shopperCookie(me.id), 3);
+        expect(srv.app2.eventStreamStats()).toEqual({ open: 0, slots: 0 });
+        expect(srv.bus2.subscriberCount).toBe(0);
+      } finally {
+        await srv.close();
+      }
+    }, 20_000);
+  });
 });
