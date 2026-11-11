@@ -13,6 +13,7 @@ import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
+import { registerMyBidRoutes } from './routes/my-bids.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -88,7 +89,11 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
 
   registerHealthz(app, deps.db);
   if (deps.clear) registerClearRoute(app, deps.clear);
-  if (deps.bids) registerBidRoutes(app, deps.bids);
+  if (deps.bids) {
+    registerBidRoutes(app, deps.bids);
+    // HF-016: cancel, my bids and bid detail share the bid service's deps.
+    registerMyBidRoutes(app, deps.bids);
+  }
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
 
