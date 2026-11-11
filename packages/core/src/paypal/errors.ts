@@ -2,7 +2,15 @@ import type { ErrorClass } from '@holdfast/shared';
 
 /** The call a failed response came from; classification depends on it (D11, B4). */
 export type PayPalCall =
-  'token' | 'order_create' | 'authorize' | 'capture' | 'void' | 'payout' | 'get' | 'verify_webhook';
+  | 'token'
+  | 'order_create'
+  | 'authorize'
+  | 'capture'
+  | 'void'
+  | 'payout'
+  | 'track'
+  | 'get'
+  | 'verify_webhook';
 
 /** What a failed response looked like. `http` is 0 when no response arrived (network, timeout). */
 export interface FailureInfo {
