@@ -1,16 +1,19 @@
 import { createHash } from 'node:crypto';
 import { audit } from '../audit.js';
 import { cancelBid, cancelBidResponse } from '../bid-cancel.js';
+import { moveBid, moveBidResponse } from '../bid-move.js';
 import { raiseBid, raiseBidResponse } from '../bid-raise.js';
 import { placeBid, placeBidResponse, type PlaceBidDeps } from '../bids.js';
 import type { Queryable } from '../db.js';
 import type { IdempotentResponse } from '../idempotency.js';
+import { activateIntent } from '../intents.js';
 import { appendMessage, isUuid } from './history.js';
 
 /**
  * Pending money actions (HF-039; B10, M24; data-model §agent_pending_actions).
  *
- * The model never moves money. `place_bid`, `raise_bid` and `cancel_bid` only store their
+ * The model never moves money. `place_bid`, `raise_bid`, `cancel_bid`, `move_bid` and
+ * `create_intent` (HF-052: its mandate stays PAUSED until this confirm) only store their
  * arguments here and end the turn with `confirm_required`. `POST /agent/actions/:id/confirm`
  * then runs the **stored** arguments (never re-asking the model) with `Idempotency-Key =
  * action.id`.
@@ -24,7 +27,7 @@ import { appendMessage, isUuid } from './history.js';
  * EXECUTED is safe to re-run: the bid service replays by idempotency key.
  */
 
-export type MoneyTool = 'place_bid' | 'raise_bid' | 'cancel_bid';
+export type MoneyTool = 'place_bid' | 'raise_bid' | 'cancel_bid' | 'move_bid' | 'create_intent';
 export type ActionStatus = 'PENDING' | 'CONFIRMED' | 'EXECUTED' | 'EXPIRED' | 'REJECTED';
 
 export interface PlaceBidArgs {
@@ -40,7 +43,17 @@ export interface RaiseBidArgs {
 export interface CancelBidArgs {
   bidIds: string[];
 }
-export type ActionArgs = PlaceBidArgs | RaiseBidArgs | CancelBidArgs;
+export interface MoveBidArgs {
+  bidId: string;
+  toListingId: string;
+  amountCents: number;
+}
+/** The intent and its PAUSED mandate already exist; confirm activates them (HF-052). */
+export interface CreateIntentArgs {
+  intentId: string;
+}
+export type ActionArgs =
+  PlaceBidArgs | RaiseBidArgs | CancelBidArgs | MoveBidArgs | CreateIntentArgs;
 
 export interface PendingActionRow {
   id: string;
@@ -308,6 +321,55 @@ async function execute(money: PlaceBidDeps, action: PendingActionRow): Promise<A
       }
       const allOk = results.every((r) => r.status < 400);
       return { status: allOk ? 200 : 207, body: { cancelled: results } };
+    }
+    case 'move_bid': {
+      const args = action.args as MoveBidArgs;
+      const result = await moveBid(money, {
+        bidId: args.bidId,
+        toListingId: args.toListingId,
+        amountCents: args.amountCents,
+        shopperId: action.shopper_id,
+        idempotencyKey: action.id,
+        reason: 'SHOPPER',
+        actor,
+        initiator: 'CUSTOMER',
+      });
+      return asResult(moveBidResponse(result));
+    }
+    case 'create_intent': {
+      const args = action.args as CreateIntentArgs;
+      const r = await activateIntent(money, action.shopper_id, args.intentId, actor);
+      if (!r.ok) {
+        return {
+          status: r.code === 'NOT_FOUND' ? 404 : 409,
+          body: { error: { code: r.code, message: r.message } },
+        };
+      }
+      const run = r.run;
+      const placed = run?.action === 'placed' ? run.result : null;
+      const bid = placed?.ok ? placed.bid : null;
+      return {
+        status: 201,
+        body: {
+          intentId: args.intentId,
+          mandateStatus: 'ACTIVE',
+          decision: run?.decision.kind ?? 'none',
+          why: run?.decision.why ?? null,
+          // The bid the rule placed, when there was an open book (else the intent watches).
+          bidId: bid?.id ?? null,
+          status: bid?.status ?? null,
+          amountCents: bid?.amount_cents ?? null,
+          listingId: bid?.listing_id ?? null,
+          placeError: placed && !placed.ok ? placed.error.code : null,
+          message: bid
+            ? `Your intent is on. ${run!.decision.why}`
+            : placed && !placed.ok
+              ? `Your intent is on, but its first bid didn't go through (${placed.error.code}).`
+              : run?.decision.kind === 'watch'
+                ? `Your intent is on. ${run.decision.why}`
+                : 'Your intent is on.',
+        },
+      };
     }
   }
 }

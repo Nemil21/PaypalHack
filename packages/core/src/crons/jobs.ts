@@ -19,7 +19,9 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  *   rows with `processed_at IS NULL`, M13/M14);
  * - `channel3-probe`: every 5 min, HF-042b's `probeChannel3` (outage banner on / off);
  * - `price-poll`: hourly, HF-042b's `pollPublicPrices`, which polls only when the last poll is
- *   ≥ 23 h old (the nightly backup for missed Channel3 webhooks).
+ *   ≥ 23 h old (the nightly backup for missed Channel3 webhooks);
+ * - `intent-move-rule`: every minute, HF-052's `runOpenIntents` (place when a book opens or the
+ *   current one closed lost, move when a better book opens).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -30,6 +32,7 @@ export const CRON_JOB_IDS = {
   priceEventReplay: 'price-event-replay',
   channel3Probe: 'channel3-probe',
   pricePoll: 'price-poll',
+  intentMoveRule: 'intent-move-rule',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -47,6 +50,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   probeChannel3?: () => Promise<unknown>;
   /** HF-042b `() => pollPublicPrices(priceWatchDeps)`. No nightly poll without it. */
   pollPublicPrices?: () => Promise<unknown>;
+  /** HF-052 `() => runOpenIntents(bidDeps)`. No intent job without it. */
+  runIntents?: () => Promise<unknown>;
   sweep?: SweepOptions;
   onError?: (err: unknown, context: { job: string; detail?: string }) => void;
 }
@@ -99,6 +104,10 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
       intervalMs: PRICE_POLL_CHECK_INTERVAL_MS,
       run: () => pricePoll(),
     });
+  }
+  const intents = deps.runIntents;
+  if (intents) {
+    jobs.push({ id: CRON_JOB_IDS.intentMoveRule, intervalMs: MINUTE_MS, run: () => intents() });
   }
   jobs.push({
     id: CRON_JOB_IDS.listingExpiry,

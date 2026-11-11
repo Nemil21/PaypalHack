@@ -21,7 +21,7 @@ export type LandHoldFailure =
   | MandateRefusal
   /** Raise: the old bid is no longer HELD (Clear, a watcher void, a cancel or a parallel raise won). */
   | 'REPLACED_BID_NOT_HELD'
-  /** Raise: the old bid is on another listing or belongs to another shopper. */
+  /** Raise / move: the old bid belongs to another shopper. */
   | 'REPLACED_BID_MISMATCH'
   /** Raise: another bid already replaces the old one (`UNIQUE(replaces_bid_id)`, B1). */
   | 'ALREADY_REPLACED'
@@ -63,7 +63,11 @@ export interface LandHoldInput {
   authorizedAmountCents: number;
   authorizationExpiresAt?: Date | string | null;
   paypalOrderId?: string | null;
-  /** Raise / roll: the HELD bid this one replaces (same listing, same shopper). */
+  /**
+   * Raise / roll: the HELD bid this one replaces (same listing, same shopper). Move (HF-052): a
+   * HELD bid of the same shopper on **another** listing; both listings are locked FOR SHARE in id
+   * order and this bid's listing must be biddable.
+   */
   replacesBidId?: string | null;
   actor?: Actor;
 }
@@ -99,7 +103,8 @@ const SYSTEM: Actor = { type: 'SYSTEM' };
  * authorization; the bid row stays PENDING_APPROVAL during the PayPal call (INV-1).
  *
  * One short transaction, locks in the documented order (listing → mandate → bids by id):
- * 1. listing `FOR SHARE`, re-check `isBiddable` (new bid) or `isRaisable` (raise) on DB time (D7);
+ * 1. listing `FOR SHARE`, re-check `isBiddable` (new bid, move) or `isRaisable` (raise) on DB time
+ *    (D7); a move (HF-052) locks its source and target listings FOR SHARE in id order;
  * 2. mandate `FOR UPDATE` if `mandate_id` is set, re-check ACTIVE and the cap (D12);
  * 3. the new and replaced bids `FOR UPDATE` in id order; for a raise, old HELD→VOIDING
  *    (`REPLACED`, `void-<oldId>`);
@@ -179,9 +184,23 @@ async function land(
 ): Promise<{ bid: BidRow; replaced: BidRow | null }> {
   if (input.authorizedAmountCents !== pending.amount_cents) throw new Refused('AMOUNT_MISMATCH');
 
+  // A move (HF-052) replaces a bid on another listing. A bid's listing never changes, so it is
+  // safe to read before locking; both listings are then locked FOR SHARE in id order.
+  const sourceListingId = replacesBidId ? await listingOfBid(tx, replacesBidId) : null;
+  const isMove = sourceListingId !== null && sourceListingId !== pending.listing_id;
+
   // 1. Listing FOR SHARE: blocks (and is blocked by) Clear / Cancel / Expire's conditional UPDATE.
-  const listing = await lockListing(tx, pending.listing_id, 'share');
-  if (!listing || !accepts(listing, replacesBidId !== null)) throw new Refused('WINDOW_CLOSED');
+  //    For a move the source listing is locked too, so a Clear there either commits first (the old
+  //    bid is then WON / LOST and the flip below touches 0 rows) or waits for this swap.
+  let listing: LockedListing | null = null;
+  for (const id of isMove ? [pending.listing_id, sourceListingId].sort() : [pending.listing_id]) {
+    const locked = await lockListing(tx, id, 'share');
+    if (id === pending.listing_id) listing = locked;
+  }
+  // A move is a new bid on its target: biddable, not merely raisable (D7).
+  if (!listing || !accepts(listing, replacesBidId !== null && !isMove)) {
+    throw new Refused('WINDOW_CLOSED');
+  }
 
   // 2. Mandate FOR UPDATE.
   if (pending.mandate_id) {
@@ -200,7 +219,7 @@ async function land(
   let replaced: BidRow | null = null;
   if (replacesBidId) {
     const old = locked.find((b) => b.id === replacesBidId);
-    if (!old || old.listing_id !== current.listing_id || old.shopper_id !== current.shopper_id) {
+    if (!old || old.shopper_id !== current.shopper_id) {
       throw new Refused('REPLACED_BID_MISMATCH');
     }
     replaced = await transition<'bids', BidRow>(tx, 'bids', replacesBidId, 'HELD', 'VOIDING', {
@@ -242,8 +261,9 @@ async function land(
   }
   if (!bid) throw new Refused('NOT_PENDING');
 
-  // 5. Events, delivered on COMMIT only.
-  await emitHeld(tx, bid, replaced);
+  // 5. Events, delivered on COMMIT only. A move is not a raise of anything on the target book:
+  //    `bid.held` there, and the source book hears `bid.voided` once the old hold is released.
+  await emitHeld(tx, bid, isMove ? null : replaced);
   await deps.audit?.(tx, {
     actor,
     action: 'BID_HELD',
@@ -254,6 +274,11 @@ async function land(
     data: { amountCents: bid.amount_cents, replacesBidId },
   });
   return { bid, replaced };
+}
+
+async function listingOfBid(q: Queryable, bidId: string): Promise<string | null> {
+  const res = await q.query(`SELECT listing_id FROM bids WHERE id = $1`, [bidId]);
+  return (res.rows[0] as { listing_id: string } | undefined)?.listing_id ?? null;
 }
 
 function accepts(listing: LockedListing, isRaise: boolean): boolean {

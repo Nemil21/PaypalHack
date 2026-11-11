@@ -15,7 +15,7 @@ import { formatUsd } from '@holdfast/shared';
 // Wire types (packages/core/src/agent/loop.ts `AgentEvent`, tools.ts `ConfirmRequired`)
 // ---------------------------------------------------------------------------------------------
 
-export type MoneyTool = 'place_bid' | 'raise_bid' | 'cancel_bid';
+export type MoneyTool = 'place_bid' | 'raise_bid' | 'cancel_bid' | 'move_bid' | 'create_intent';
 
 export interface ConfirmRequired {
   actionId: string;
@@ -25,6 +25,14 @@ export interface ConfirmRequired {
   product: { title: string | null; imageUrl: string | null } | null;
   listing: { id: string; slug: string | null; brandName: string | null } | null;
   bids?: Array<{ bidId: string; amountCents: number; title: string | null }>;
+  /** `create_intent` (HF-052): the want and its products; `amountCents` is the max per item. */
+  intent?: {
+    intentId: string;
+    text: string | null;
+    products: Array<{ productId: string; title: string | null }>;
+  };
+  /** `move_bid`: the bid being moved. */
+  from?: { bidId: string; amountCents: number; title: string | null; listingId: string };
   /** `INLINE`: approve in chat (vaulted card). `OFFER_PAGE`: continue on W12 at `offerUrl`. */
   confirmMode: 'INLINE' | 'OFFER_PAGE';
   offerUrl: string | null;
@@ -57,6 +65,9 @@ export interface ConfirmResultBody {
   previousAmountCents?: number;
   message?: string | null;
   cancelled?: Array<{ bidId: string; status: number; body: { message?: string } }>;
+  /** `create_intent`: the intent that is now on, and what the move rule did first. */
+  intentId?: string;
+  why?: string | null;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -343,6 +354,9 @@ const RUNNING: Record<string, string> = {
   place_bid: 'Preparing a proposal',
   raise_bid: 'Preparing a raise',
   cancel_bid: 'Preparing a cancel',
+  move_bid: 'Preparing a move',
+  create_intent: 'Setting up your intent',
+  my_intents: 'Checking your intents',
   my_bids: 'Checking your bids',
 };
 
@@ -353,6 +367,9 @@ const FAILED: Record<string, string> = {
   place_bid: 'Couldn’t propose that bid',
   raise_bid: 'Couldn’t propose that raise',
   cancel_bid: 'Couldn’t propose that cancel',
+  move_bid: 'Couldn’t propose that move',
+  create_intent: 'Couldn’t set up that intent',
+  my_intents: 'Couldn’t load your intents',
   my_bids: 'Couldn’t load your bids',
 };
 
@@ -398,7 +415,11 @@ export function resultLabel(name: string, ok: boolean, result: unknown): string 
     case 'place_bid':
     case 'raise_bid':
     case 'cancel_bid':
+    case 'move_bid':
+    case 'create_intent':
       return 'Proposal ready to confirm';
+    case 'my_intents':
+      return `Checked ${plural(arr(r.intents).length, 'intent')}`;
     case 'my_bids':
       return `Checked ${plural(arr(r.bids).length, 'bid')}`;
     default:
@@ -507,10 +528,18 @@ export function cardTitle(card: ConfirmRequired): string {
       const n = card.bids?.length ?? 1;
       return n === 1 ? 'Cancel this bid' : `Cancel ${n} bids`;
     }
+    case 'move_bid':
+      return `Move bid: ${amount}`;
+    case 'create_intent':
+      return `Bid up to ${amount}`;
   }
 }
 
 export function cardWhere(card: ConfirmRequired): string | null {
+  if (card.tool === 'create_intent') {
+    const titles = (card.intent?.products ?? []).map((p) => p.title).filter(Boolean);
+    return titles.length ? `on ${titles.join(' or ')}` : null;
+  }
   const brand = card.listing?.brandName;
   return brand ? `in ${brand}’s book` : null;
 }
@@ -524,6 +553,10 @@ export function cardNote(card: ConfirmRequired): string {
       return 'A new hold at the higher amount; the old hold is released once it lands.';
     case 'cancel_bid':
       return 'Your holds are released. Nothing is charged.';
+    case 'move_bid':
+      return 'A new hold in this book first; your old hold is released once it lands.';
+    case 'create_intent':
+      return 'One live bid at a time, never above this max. Holdfast moves it to the book most likely to clear. Nothing is held until you approve.';
   }
 }
 
@@ -535,6 +568,10 @@ export function approveLabel(card: ConfirmRequired): string {
       return `Raise to ${cardAmount(card) ?? ''}`;
     case 'cancel_bid':
       return (card.bids?.length ?? 1) === 1 ? 'Cancel bid' : 'Cancel bids';
+    case 'move_bid':
+      return 'Move bid';
+    case 'create_intent':
+      return 'Approve intent';
   }
 }
 
@@ -550,7 +587,16 @@ export function expiryText(expiresAt: string | null, now: number): string | null
 
 /** "That bid didn’t go through: <why>." for a refused place / raise / cancel. */
 export function failedText(card: ConfirmRequired, why: string | null | undefined): string {
-  const what = card.tool === 'raise_bid' ? 'raise' : card.tool === 'cancel_bid' ? 'cancel' : 'bid';
+  const what =
+    card.tool === 'raise_bid'
+      ? 'raise'
+      : card.tool === 'cancel_bid'
+        ? 'cancel'
+        : card.tool === 'move_bid'
+          ? 'move'
+          : card.tool === 'create_intent'
+            ? 'intent'
+            : 'bid';
   const reason = why?.trim().replace(/\.$/, '');
   return reason ? `That ${what} didn’t go through: ${reason}.` : `That ${what} didn’t go through.`;
 }
@@ -567,6 +613,9 @@ export function failureOf(card: ConfirmRequired, result: ConfirmResultBody): str
   if (card.tool === 'cancel_bid') {
     return Array.isArray(result.cancelled) ? null : failedText(card, result.message);
   }
+  if (card.tool === 'create_intent') {
+    return result.intentId ? null : failedText(card, result.message);
+  }
   return result.bidId && result.status ? null : failedText(card, result.message);
 }
 
@@ -580,11 +629,12 @@ export function doneText(card: ConfirmRequired, result: ConfirmResultBody): stri
       ? `${plural(ok, 'bid')} cancelled. Holds are released once PayPal confirms.`
       : `${ok} of ${list.length} bids cancelled. Check My bids for the rest.`;
   }
+  if (card.tool === 'create_intent') return result.message ?? 'Your intent is on.';
   const amount = result.amountCents != null ? formatUsd(result.amountCents) : cardAmount(card);
   if (result.status === 'HELD') {
-    return card.tool === 'raise_bid'
-      ? `Raised. ${amount} is held, not charged.`
-      : `${amount} held, not charged.`;
+    if (card.tool === 'raise_bid') return `Raised. ${amount} is held, not charged.`;
+    if (card.tool === 'move_bid') return `Moved. ${amount} is held, not charged.`;
+    return `${amount} held, not charged.`;
   }
   if (result.status === 'PENDING_APPROVAL') return `${amount} is waiting for PayPal approval.`;
   return result.message ?? `Bid ${amount}: ${(result.status ?? '').toLowerCase()}.`;
@@ -703,8 +753,10 @@ function rebuiltCard(
   listings: Map<string, { slug: string | null; brand: string | null; title: string | null }>,
 ): ConfirmRequired {
   const tool =
-    (['place_bid', 'raise_bid', 'cancel_bid'] as const).find((t) => t === call.name) ?? 'place_bid';
-  const listingId = str(call.input.listingId);
+    (['place_bid', 'raise_bid', 'cancel_bid', 'move_bid', 'create_intent'] as const).find(
+      (t) => t === call.name,
+    ) ?? 'place_bid';
+  const listingId = str(call.input.listingId) ?? str(call.input.toListingId);
   const l = listingId ? listings.get(listingId) : undefined;
   const amountCents = num(r.amountCents);
   return {
