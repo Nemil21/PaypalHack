@@ -1,6 +1,7 @@
 import { CHANNEL3_PROBE_INTERVAL_MS } from '../price-watch/health.js';
 import { PRICE_POLL_CHECK_INTERVAL_MS } from '../price-watch/poll.js';
 import { SETTLEMENT_KICK_INTERVAL_MS, type KickSettlement } from '../settlement/outbox.js';
+import { AUTO_ROLL_INTERVAL_MS, autoRollBids } from './auto-roll.js';
 import { expireListings } from './expiry.js';
 import type { CronJob } from './scheduler.js';
 import { kickSettlements } from './settlement-kick.js';
@@ -13,6 +14,8 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  * - `payout-poll`: every minute, HF-032's `pollPayouts` (PENDING / PENDING_UNKNOWN < 30 min);
  * - `listing-expiry`: every minute;
  * - `hold-sweeper`: every 5 min;
+ * - `auto-roll`: every 5 min, HF-053's `autoRollBids` (lost bids under an ACTIVE auto-roll mandate
+ *   re-bid in a new window as merchant-initiated vault holds);
  * - `paypal-webhook-replay`: every minute (and at boot), HF-033's `reprocessPayPalWebhooks`
  *   (`webhook_events` rows with `processed_at IS NULL`, M14);
  * - `price-event-replay`: every minute (and at boot), HF-042a's `reprocessPriceEvents` (Channel3
@@ -26,6 +29,7 @@ export const CRON_JOB_IDS = {
   payoutPoll: 'payout-poll',
   listingExpiry: 'listing-expiry',
   holdSweeper: 'hold-sweeper',
+  autoRoll: 'auto-roll',
   paypalWebhookReplay: 'paypal-webhook-replay',
   priceEventReplay: 'price-event-replay',
   channel3Probe: 'channel3-probe',
@@ -48,6 +52,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   /** HF-042b `() => pollPublicPrices(priceWatchDeps)`. No nightly poll without it. */
   pollPublicPrices?: () => Promise<unknown>;
   sweep?: SweepOptions;
+  /** HF-053 auto-roll. Default on; `false` leaves the job out. */
+  autoRoll?: boolean;
   onError?: (err: unknown, context: { job: string; detail?: string }) => void;
 }
 
@@ -118,5 +124,16 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
           }),
       }),
   });
+  if (deps.autoRoll ?? true) {
+    jobs.push({
+      id: CRON_JOB_IDS.autoRoll,
+      intervalMs: AUTO_ROLL_INTERVAL_MS,
+      run: () =>
+        autoRollBids(deps, {
+          onError: (err, bidId) =>
+            deps.onError?.(err, { job: CRON_JOB_IDS.autoRoll, detail: bidId }),
+        }),
+    });
+  }
   return jobs;
 }
