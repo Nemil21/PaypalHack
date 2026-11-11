@@ -15,6 +15,7 @@ import {
   type SimulateResponse,
 } from '@holdfast/shared';
 import { loadClearInput } from '../clearInput.js';
+import { recommend } from '../recommend.js';
 import type { Db, Tx } from '../db.js';
 import { NotFoundError, forBrand } from '../tenancy.js';
 
@@ -61,6 +62,7 @@ interface ListingHead {
   channel3_subscription_id: string | null;
   price_watch_paused_at: Date | null;
   fee_bps: number;
+  max_discount_bps: number | null;
   released_by_price_watch: string;
   simulated_no_hold_bids: string;
   db_now: Date;
@@ -100,7 +102,7 @@ async function loadSnapshot(tx: Tx, brandId: string, listingId: string): Promise
               p.title, p.image_url, p.best_public_price_cents, p.best_public_merchant,
               p.best_public_offer_url, p.price_updated_at, p.channel3_subscription_id,
               l.price_watch_paused_at,
-              br.fee_bps,
+              br.fee_bps, br.max_discount_bps,
               (SELECT count(*) FROM bids
                 WHERE listing_id = l.id AND void_reason = 'PRICE_DROP') AS released_by_price_watch,
               (SELECT count(*) FROM bids
@@ -243,6 +245,15 @@ export async function loadBook(db: Db, brandId: string, listingId: string): Prom
       pending,
       bookVersion: input.bookVersion,
       asOf: head.db_now.toISOString(),
+      // Brand agent card (HF-051a): from the same snapshot, so it matches the slider and W07.
+      recommendation: recommend(input, {
+        listingQuantity: head.quantity,
+        feeBps: head.fee_bps,
+        liquidationQuoteCents: head.liquidation_quote_cents,
+        publicLowCents: head.best_public_price_cents,
+        maxDiscountBps: head.max_discount_bps,
+        isAged: agedAt(head.db_now.getTime()),
+      }),
     };
   });
 }

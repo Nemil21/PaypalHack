@@ -1,5 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { formatUsd, type ListingPhaseName, type SimulateResponse } from '@holdfast/shared';
+import {
+  formatUsd,
+  type ListingPhaseName,
+  type Recommendation,
+  type SimulateResponse,
+} from '@holdfast/shared';
 import {
   clearCopy,
   confirmPhrase,
@@ -7,12 +12,13 @@ import {
   isConfirmTyped,
   shortfallNote,
 } from '../../lib/console/clear';
+import { recommendationClearNote } from '../../lib/console/recommendation';
 import { useSlider } from '../../lib/console/slider-store';
 import { useClear } from '../../lib/console/use-clear';
 import { Button, ErrorBanner, Skeleton } from '../ui';
 
 /** Phases in which the brand can clear (the server accepts OPEN and ROUNDS). */
-const CLEARABLE: ReadonlySet<ListingPhaseName> = new Set([
+export const CLEARABLE: ReadonlySet<ListingPhaseName> = new Set([
   'BIDDING',
   'AWAITING_ROUNDS_OR_CLEAR',
   'ROUNDS_ACTIVE',
@@ -23,16 +29,19 @@ const CLEARABLE: ReadonlySet<ListingPhaseName> = new Set([
  * W06 Clear button + W07 confirmation modal (HF-028, features/08 §Layout 7, screens.md W07).
  * Clears at the slider's committed quantity. During live rounds the button reads "Stop rounds &
  * clear": it stops rounds (the book freezes, D7), re-simulates, then asks for the confirm.
- * VIEWER: the button is disabled (the API refuses with 403 as well).
+ * VIEWER: the button is disabled (the API refuses with 403 as well). The brand agent's
+ * recommendation (HF-051a) is shown next to the numbers when there is one.
  */
 export function ClearAction({
   listingId,
   phase,
   viewer,
+  recommendation,
 }: {
   listingId: string;
   phase: ListingPhaseName;
   viewer: boolean;
+  recommendation?: Recommendation;
 }) {
   const slider = useSlider();
   const clear = useClear(listingId);
@@ -92,6 +101,7 @@ export function ClearAction({
             typed={typed}
             setTyped={setTyped}
             inputId={inputId}
+            recommendation={recommendation}
             onClose={() => dialog.current?.close()}
           />
         )}
@@ -105,18 +115,21 @@ function ClearBody({
   typed,
   setTyped,
   inputId,
+  recommendation,
   onClose,
 }: {
   clear: ReturnType<typeof useClear>;
   typed: string;
   setTyped(v: string): void;
   inputId: string;
+  recommendation?: Recommendation;
   onClose(): void;
 }) {
   const { step, summary, quantity, error } = clear;
   const titleId = `${inputId}-title`;
   const typedOk = quantity !== null && isConfirmTyped(typed, quantity);
   const submitting = step === 'submitting';
+  const agentNote = quantity === null ? null : recommendationClearNote(recommendation, quantity);
 
   const heading =
     step === 'holds_too_old'
@@ -231,6 +244,11 @@ function ClearBody({
             <p className="text-[15px] leading-[22px] text-body" data-testid="clear-copy">
               {clearCopy(summary)}
             </p>
+            {agentNote && (
+              <p className="text-[14px] text-body" data-testid="clear-recommendation">
+                {agentNote}
+              </p>
+            )}
             <div className="flex flex-col gap-2">
               {shortfallNote(quantity, summary.winners) && (
                 <p className="text-[14px] text-ink" role="status">

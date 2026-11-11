@@ -11,6 +11,7 @@ export * from './webhooks.js';
 export type { Queryable } from './db.js';
 export * from './listings/clear-listing.js';
 export * from './listings/book.js';
+export * from './recommend.js';
 export * from './settlement/outbox.js';
 export * from './paypal/index.js';
 export * from './bids.js';

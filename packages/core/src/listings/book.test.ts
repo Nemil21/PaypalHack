@@ -27,6 +27,7 @@ import {
 import { FakePayPal } from '../paypal/fake.js';
 import { orderRequestId } from '../paypal/ids.js';
 import type { PayPalClient } from '../paypal/types.js';
+import { recommend } from '../recommend.js';
 import { NotFoundError } from '../tenancy.js';
 import { SimulateQuantityError, loadBook, simulateListing } from './book.js';
 import { clearListing, type ClearListingDeps } from './clear-listing.js';
@@ -443,6 +444,64 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-022 book and simulate', () => {
       { numRuns: 25 },
     );
   }, 120_000);
+
+  describe('HF-051a brand agent recommendation on /book', () => {
+    it('Aurel demo book: 240 at $219 from the same snapshot, matching /simulate', async () => {
+      const l = await listing({ quantity: 300 });
+      await db.pool.query(`UPDATE brands SET max_discount_bps = 2200 WHERE id = $1`, [l.brandId]);
+      const amounts = [
+        ...Array<number>(120).fill(22_900),
+        ...Array<number>(60).fill(22_700),
+        ...Array<number>(60).fill(21_900),
+        ...Array<number>(30).fill(21_500),
+        ...Array<number>(16).fill(19_900),
+      ];
+      await seed(
+        l,
+        amounts.map((a, i) => ({ amountCents: a, sim: i % 4 === 0 })),
+      );
+      await seed(l, [{ amountCents: 40_000, noHold: true }]); // D8: never counted
+
+      const book = bookResponseSchema.parse(await loadBook(db, l.brandId, l.id));
+      expect(book.recommendation).toMatchObject({
+        kind: 'RECOMMEND',
+        quantity: 240,
+        cutoffCents: 21_900,
+        grossCents: 5_424_000,
+        netCents: 5_424_000 - feeCents(5_424_000, 900),
+        liquidationCents: 240 * 3_800,
+        minCutoffCents: 21_762,
+      });
+      const input = (await loadClearInput(db.pool, l.id))!;
+      expect(book.recommendation).toEqual(
+        recommend(input, {
+          listingQuantity: 300,
+          feeBps: 900,
+          liquidationQuoteCents: 3_800,
+          publicLowCents: 27_900,
+          maxDiscountBps: 2_200,
+        }),
+      );
+      const sim = await simulateListing(db, l.brandId, l.id, 240);
+      expect(book.recommendation).toMatchObject({
+        cutoffCents: sim.cutoffCents,
+        grossCents: sim.grossCents,
+        netCents: sim.netCents,
+        liquidationCents: sim.liquidationCents,
+      });
+
+      // Without a max discount the floor is the only guard: clear every qualifying bid.
+      await db.pool.query(`UPDATE brands SET max_discount_bps = NULL WHERE id = $1`, [l.brandId]);
+      const open = await loadBook(db, l.brandId, l.id);
+      expect(open.recommendation).toMatchObject({ kind: 'RECOMMEND', quantity: 286 });
+    });
+
+    it('no bids → NO_DEMAND', async () => {
+      const l = await listing();
+      const book = await loadBook(db, l.brandId, l.id);
+      expect(book.recommendation).toEqual({ kind: 'NO_DEMAND', minCutoffCents: 19_900 });
+    });
+  });
 
   it('feeCents rounds exactly like Postgres integer math', async () => {
     const cases = fc.sample(
