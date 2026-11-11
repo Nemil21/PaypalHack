@@ -10,13 +10,16 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  *   ticket's 1 min);
  * - `payout-poll`: every minute, HF-032's `pollPayouts` (PENDING / PENDING_UNKNOWN < 30 min);
  * - `listing-expiry`: every minute;
- * - `hold-sweeper`: every 5 min.
+ * - `hold-sweeper`: every 5 min;
+ * - `paypal-webhook-replay`: every minute (and at boot), HF-033's `reprocessPayPalWebhooks`
+ *   (`webhook_events` rows with `processed_at IS NULL`, M14).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
   payoutPoll: 'payout-poll',
   listingExpiry: 'listing-expiry',
   holdSweeper: 'hold-sweeper',
+  paypalWebhookReplay: 'paypal-webhook-replay',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -26,6 +29,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   kickSettlement?: KickSettlement;
   /** HF-032 `() => pollPayouts(payoutDeps)`. No payout job without it. */
   pollPayouts?: () => Promise<unknown>;
+  /** HF-033 `() => reprocessPayPalWebhooks(webhookDeps)`. No replay job without it. */
+  reprocessPayPalWebhooks?: () => Promise<unknown>;
   sweep?: SweepOptions;
   onError?: (err: unknown, context: { job: string; detail?: string }) => void;
 }
@@ -50,6 +55,10 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
   const poll = deps.pollPayouts;
   if (poll) {
     jobs.push({ id: CRON_JOB_IDS.payoutPoll, intervalMs: MINUTE_MS, run: () => poll() });
+  }
+  const replay = deps.reprocessPayPalWebhooks;
+  if (replay) {
+    jobs.push({ id: CRON_JOB_IDS.paypalWebhookReplay, intervalMs: MINUTE_MS, run: () => replay() });
   }
   jobs.push({
     id: CRON_JOB_IDS.listingExpiry,

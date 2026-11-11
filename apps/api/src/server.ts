@@ -31,6 +31,10 @@ import { registerSettlementRoutes, type RetryPayout } from './routes/settlement.
 import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { registerOfferRoutes } from './routes/offers.js';
+import {
+  registerPayPalWebhookRoute,
+  type PayPalWebhookRouteDeps,
+} from './routes/paypal-webhook.js';
 import { registerProductRoutes } from './routes/products.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
@@ -72,6 +76,8 @@ export interface ServerDeps {
   listings?: { money?: CancelListingDeps };
   /** Channel3 client (HF-009). Default: `createChannel3Client(config)` (`CHANNEL3_MODE`). */
   channel3?: Channel3Client;
+  /** `POST /api/webhooks/paypal` (HF-033): verifier and processor deps. Not mounted without it. */
+  paypalWebhooks?: PayPalWebhookRouteDeps;
 }
 
 /**
@@ -137,6 +143,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });
   }
   if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
+  if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   if (deps.sql) {
     registerSettlementRoutes(app, {

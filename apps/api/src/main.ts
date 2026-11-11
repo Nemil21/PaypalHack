@@ -13,6 +13,7 @@ import {
   makePayoutBrand,
   mockDeclinesAllowed,
   pollPayouts,
+  reprocessPayPalWebhooks,
   retryPayout,
   roundsTiming,
   startCrons,
@@ -72,6 +73,16 @@ const settlement =
         allowMockDecline: mockDeclinesAllowed(config),
         payoutBrand: makePayoutBrand(payouts),
       });
+// HF-033: PayPal webhooks back up every money state. Same PayPal client, so `verifyWebhook` is the
+// real verify-webhook-signature (PAYPAL_WEBHOOK_ID) in deployed envs and FakePayPal's in stub mode.
+const paypalWebhooks = {
+  db: sql,
+  paypal,
+  kickSettlement: settlement.kick,
+  // Called only once the server is built, so `app` is initialised by then.
+  onError: (err: unknown, ctx: { eventId: string; step: string }) =>
+    app.log.warn({ err: (err as Error).message, ...ctx }, 'paypal webhook step failed'),
+};
 // HF-036b: live rounds timer. ROUNDS_TIME_SCALE scales round timing only (never hold age or
 // clear_deadline_at). Claude phrases one nudge template per round; without a key (or on error /
 // 5 s timeout) nudges use the template text.
@@ -97,6 +108,10 @@ const app = buildServer(config, {
     retryPayout: (input) => retryPayout(payouts, input),
   },
   rounds,
+  paypalWebhooks: {
+    ...paypalWebhooks,
+    verify: (headers, rawBody) => paypal.verifyWebhook(headers, rawBody),
+  },
   // HF-012b: listing cancel voids every hold through the same PayPal client.
   listings: { money: { db: sql, paypal, audit: auditHook } },
   // HF-027/028: Clear behind the brand session (OWNER/MANAGER); COMMIT kicks the settlement
@@ -138,6 +153,7 @@ const crons = startCrons({
     allowTestCard: testCardAllowed(config),
     kickSettlement: settlement.kick,
     pollPayouts: () => pollPayouts(payouts),
+    reprocessPayPalWebhooks: () => reprocessPayPalWebhooks(paypalWebhooks),
     onError: (err, ctx) =>
       app.log.warn(
         { err: (err as Error).message, job: ctx.job, detail: ctx.detail },
