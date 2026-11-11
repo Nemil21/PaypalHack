@@ -1,28 +1,31 @@
 # HF-055: Embed widget and share links (W10)
 
-- **Track / owner:** C shopper & agents
+- **Track:** C shopper & agents (label for grouping only; builders are Agent Orchestrator workers)
 - **Priority:** P1
+- **Wave:** 7
 - **Estimate:** 3
-- **Depends on:** HF-019
+- **Depends on:** HF-019, HF-031, HF-032, HF-034 (sequencing: after the money spine)
 - **Spec refs:** features/14-embed-widget.md (all); screens.md §W10, §W12 (embed mode)
 
 ## Goal
 Brands drop a "Make an offer" button on their site or share a tracked link.
 
 ## Scope
-- W10: link with UTM builder + copy + QR; script snippet; light/dark preview on a labelled mock product page; stats by source.
-- `widget.js` < 10 KB, no deps; modal iframe on desktop, new tab on mobile; "Offers closed" when not OPEN; CSP fallback to new tab.
-- Offer page `?embed=1` hides header and `postMessage("bid_held")`; click events per source; `utm_source` attributed on bids.
+- Share link first: W10 link with UTM builder + copy + QR; `utm_source` copied from the offer-page URL into `POST /bids` → `bids.utm_source` (HF-002); stats by source.
+- `widget.js` < 10 KB, no deps; "Offers closed" when not biddable (`isBiddable`, D7).
+- **The widget opens `/o/:slug` in a new tab**, not a modal iframe: PayPal approval can't be framed and the `SameSite=Lax` shopper cookie isn't sent cross-site, so sign-in and holds fail inside an iframe. Offer page `?embed=1` keeps the hidden-header mode for previews only.
+- Script snippet; light/dark preview on a labelled mock Aurel Audio product page; click events per source.
 
 ## Out of scope
 - Brand-site analytics beyond counts.
 
 ## Acceptance criteria
-- [ ] The link attributes source on bids.
-- [ ] The widget renders on a test HTML page and opens the offer flow.
+- [ ] The link attributes source on bids (`utm_source` stored).
+- [ ] The widget renders on a test HTML page and opens the offer flow in a new tab where a hold completes.
 
 ## Test plan
-- Manual on a static mock "Sony store" page (labelled as a mock).
+- Manual on a static mock "Aurel Audio store" page (labelled as a mock).
 
 ## Notes & risks
-- Spec question: 14 marks the share link P0, but there is no `utm_source`/attribution column on bids (`bids.source` is an enum). The plain `/o/:slug` link is already delivered by HF-012/HF-019.
+- Kept P1 by user override (§5 proposed P2). The plain `/o/:slug` link (HF-012a/HF-019) covers 14's "link P0".
+- Resolved (D17 / HF-002 column list): `bids.utm_source` added.

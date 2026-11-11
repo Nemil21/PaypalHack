@@ -18,7 +18,7 @@ W10 Embed widget & share links · W12 / M01 (opened from the widget)
    - **Link:** `https://<app>/o/<slug>?utm_source=email` with a copy button and QR code.
    - **Button snippet:**
      ```html
-     <script src="https://<app>/widget.js" data-listing="sony-xm5-a7f2" data-theme="light" async></script>
+     <script src="https://<app>/widget.js" data-listing="aurel-a7-a7f2" data-theme="light" async></script>
      ```
    - **Preview** of the button in light and dark mode on a mock product page.
    - **Stats:** clicks, bids and held $ by source.
@@ -35,4 +35,4 @@ W10 Embed widget & share links · W12 / M01 (opened from the widget)
 - [ ] (P1) The widget renders on a test HTML page and opens the offer flow.
 
 ## Test plan
-Manual on a static demo "Sony store" page (clearly labelled as a mock store in the video).
+Manual on a static demo "Aurel Audio store" page (clearly labelled as a mock store in the video).

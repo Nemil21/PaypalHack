@@ -32,7 +32,7 @@ Status: money path **GO**, because the sandbox spikes S1–S4 passed on 2026-11-
 | **Brand agent** | Claude; can only send nudges | Recommends a quantity ("Clear 240, cutoff $219 → $54.2k vs $11.4k liquidation") and writes truthful live-round nudges; it can never clear or move money |
 | **Price watcher** | Plain code, not AI | Reacts to Channel3 price-drop webhooks and voids affected holds |
 | **Clearing engine** | Plain deterministic code | Ranks bids; each winner pays their own final bid |
-| **Settlement workflow** | Render Workflows | Captures winners, voids losers, promotes the next bidder on a decline, pays the brand |
+| **Settlement workflow** | In-process coordinator, then Render Workflows | Captures winners, voids losers, promotes the next bidder on a decline, pays the brand |
 | **PayPal** | Sandbox REST | Holds, capture, void, vault, payouts, tracking, webhooks |
 
 **Rule:** agents choose *what to bid*. Code decides *who wins and what is charged*. Only the backend talks to PayPal.
@@ -45,10 +45,10 @@ Brand **Aurel Audio** lists **Aurel A7 Wireless — Midnight**:
 - liquidator quote $38/unit;
 - 48-hour bidding window, then up to 6 h of live rounds, then up to 6 h to press Clear.
 
-1. **Bid.** The shopper says "I'd buy at $229." The agent confirms it's the exact product (GTIN match), shows the cheapest public price ($279), and the shopper approves once with PayPal → **AUTHORIZE hold of $229**.
+1. **Bid.** The shopper says "I'd buy at $229." The agent confirms it's the exact product (GTIN match), shows the cheapest public price ($279), and the shopper approves once with PayPal (wallet) or card fields (create → browser submit → authorize) → **AUTHORIZE hold of $229**. One live bid per shopper per listing: changing it means raising (or cancel + a new bid).
 2. **Protect.** With "Release if cheaper elsewhere" on (the default), the agent watches 25 stores. If any store sells the same new product below $229, it **voids the hold** and links the cheaper store. Shoppers can switch this off; paying above retail is their call.
 3. **Book.** The brand sees a private book: "$61,240 held at ≥ $219", a demand curve, a bids grid, and a quantity slider comparing recovery against liquidation.
-4. **Live rounds.** The brand starts live rounds for 240 units. Each round, the brand agent tells everyone below the cutoff the real number: "The cutoff for 240 units is $219. Raise to stay in?" Their agents raise once, straight to the needed amount, within each shopper's limit, or ask the shopper.
+4. **Live rounds.** The brand starts live rounds for 240 units (once; this closes new bidding, and only raises are accepted until rounds end). Each round, the brand agent tells everyone below the cutoff the real number: "The cutoff for 240 units is $219. Raise to stay in?" Their agents raise once, straight to the needed amount, within each shopper's limit, or ask the shopper.
 5. **Clear.** The brand presses **Clear 240**. The engine ranks the bids; the top 240 win and **each pays their own final bid** (cutoff $219, average $226). 46 holds are released.
 6. **Settle.** One workflow task runs per bid:
    - capture each winner's own bid (equal to their hold, `final_capture`);
@@ -66,17 +66,17 @@ P0 = must ship for the demo · P1 = ship if time allows · P2 = README only.
 | 02 | Listing creation | P0 | Search Channel3, pick the exact product, set quantity, floor and window (≤ 48 h) |
 | 03 | Offer page + held bid | P0 | Public link per listing; price input; PayPal hold; "held, not charged" confirmation |
 | 04 | Buyer agent chat | P0 | Natural-language intent → product match → suggested bid → confirm → hold |
-| 05 | Mandates + auto-roll | P1 | Shopper limits: max price, total held cap, products, expiry; agent re-bids in later windows using a vaulted card (spike S2 passed) |
+| 05 | Mandates + auto-roll | P0 (limits, settings), P1 (auto-roll) | Shopper limits: max price, total held cap, products, expiry; agent re-bids in later windows using a vaulted card (spike S2 passed) |
 | 06 | Price watcher + auto-void | P0 | Channel3 `offer.price.changed` → void holds above the new public price → notify with the link |
-| 07 | MCP server | P0 | `get_book`, `place_bid`, `cancel_bid`, `my_bids` for Claude Desktop and others |
+| 07 | MCP server | P0 | `get_book`, `place_bid`, `cancel_bid`, `my_bids`, then `raise_bid`, for Claude Desktop and others |
 | 08 | Brand console | P0 (hero) | AG Grid book, AG Charts demand curve, quantity slider with live simulation, Clear button, order timeline |
-| 09 | Brand agent | P1 | Read-only recommendation with reasons |
+| 09 | Brand agent | P0 (live-round nudge text), P1 (recommendation, Ask panel) | Recommendation with reasons; its only write is `send_nudge` |
 | 10 | Clearing engine | P0 | Pay-your-bid call auction with a hold-age guard (rules in §6) |
 | 19 | Live rounds | P0 | Brand agent nudges bidders below the cutoff; buyer agents raise within limits (the agent-to-agent demo moment) |
-| 11 | Settlement workflows | P0 | Render Workflows fan-out: capture, void, promote; retries; idempotent |
+| 11 | Settlement workflows | P0 | In-process coordinator, then the Render Workflows adapter: capture, void, inline promotion; retries; idempotent |
 | 12 | Payouts, fees, tracking | P0 | Payout net of 9%; PayPal tracking per capture |
-| 13 | Notifications | P1 | Email, push and in-app: held, released, below clearing, won, shipped |
-| 14 | Embed widget + share links | P2 | A "Make an offer" button brands can drop on their site |
+| 13 | Notifications | P0 (in-app), P1 (bell, email, push) | Held, released, below clearing, won, shipped |
+| 14 | Embed widget + share links | P1 (offer link P0) | A "Make an offer" button brands can drop on their site |
 | 15 | Audit + ops | P0 | Append-only audit row for every money action, with PayPal IDs |
 | 16 | Auth, security, multi-tenancy | P0 | Sessions, MCP tokens, tenant isolation, concurrency rules (§7) |
 | 17 | Demo seeding | P0 | ~285 simulated bidders, **always labelled SIM**; the foreground holds are real sandbox |
@@ -117,11 +117,11 @@ The order status everywhere is a **Bryntum Gantt timeline**:
 It has a "Now" marker and appears on the console, the settlement view, payouts and the shopper's bid detail.
 
 ## 6. Clearing rules (no AI involved)
-1. Only bids with status HELD and amount ≥ floor are eligible.
+1. Only bids with status HELD, a real PayPal authorization and amount ≥ floor are eligible. Each shopper has at most one live bid per listing.
 2. Rank by **amount DESC, then earliest placed, then id**. Time comes from the database, never the client.
 3. The top Q win. **Each winner pays exactly their own final bid**, which equals their hold. The lowest winning bid is the **cutoff**, always ≥ floor.
-4. Losers form a reserve list in rank order. If a winner's capture is declined, the next reserve bidder wins that unit at their own bid, but only if their void hasn't run yet. At most 3 promotions per unit; then it stays unsold.
-5. **Timeline guard:** 48 h bidding + ≤ 6 h live rounds + ≤ 6 h to Clear (≈ 60 h worst case). Clear is refused if any live hold is older than 66 h, because PayPal only guarantees card holds for 3 days.
+4. Every loser at or above the floor forms the reserve list, in rank order; their holds are released only after captures finish. If a winner's capture is declined, the next reserve bidder wins that unit at their own bid, promoted inline before the listing is marked settled. At most 3 promotions per unit; then it stays unsold.
+5. **Timeline guard:** ≤ 48 h bidding + ≤ 6 h live rounds + ≤ 6 h to Clear (≈ 60 h worst case, enforced by DB checks). Hold age counts from the PayPal authorization time. Holds older than 66 h are released at Clear, and Clear is refused if a winner's hold would be that old, because PayPal only guarantees card holds for 3 days.
 6. If fewer eligible bids than Q, clear them all. The modal says so before you confirm.
 
 The same pure `clear()` function runs on the server and in the console slider, so what the brand previews is exactly what runs.
@@ -129,13 +129,16 @@ The same pure `clear()` function runs on the server and in the console slider, s
 ## 7. Non-functional requirements
 - **Money safety:**
   - money is stored as integer cents;
-  - every PayPal call carries a `PayPal-Request-Id`: bid id for the hold, settlement id for capture and void, payout id for the payout. Replaying a call can't double-charge (proven in S3);
-  - a raise **creates the new hold before voiding the old one**;
-  - a nightly cron voids any hold left on a closed listing.
+  - every PayPal call carries a fixed `PayPal-Request-Id`: bid id for the order, `authz-<bidId>` for authorize, settlement id for capture, `void-<bidId>` for every void, the payout attempt id for the payout. Replaying a call can't double-charge (proven in S3);
+  - a raise **creates the new hold before voiding the old one**, and swaps them in one transaction so both are never live;
+  - a sweeper every 5 minutes voids any hold left on a closed listing, stuck or unknown, plus a `reconcile:holds` check against PayPal.
 - **Concurrency** (many shoppers and brands at once):
   - every state change is a conditional `UPDATE … WHERE status = expected`;
-  - Clear flips the listing OPEN → CLEARING in one transaction, so later bids get `WINDOW_CLOSED`;
-  - the mandate cap is checked under `SELECT … FOR UPDATE`;
+  - every new hold lands through one `landHold` transaction that re-checks the listing and mandate under locks;
+  - Clear, Cancel and Expire flip the listing from OPEN/ROUNDS in one transaction and lock the live bids, so later bids get `WINDOW_CLOSED`;
+  - new bids only while OPEN and before the window closes; during live rounds, raises only;
+  - one live bid per shopper per listing (unique index; a second bid gets `ALREADY_BID`);
+  - the mandate cap is checked under `SELECT … FOR UPDATE`, counting pending holds too;
   - mutating calls need an `Idempotency-Key`;
   - webhooks are de-duplicated by event id.
 - **Tenancy and privacy:**
@@ -155,7 +158,7 @@ The same pure `clear()` function runs on the server and in the console slider, s
   - the console updates live over server-sent events;
   - settlement of 286 bids finishes within about a minute.
 - **Hold lifetime:** PayPal guarantees card holds for 3 days, so the timeline is 48 h + 6 h + 6 h, with a 66 h guard at Clear.
-- **Raises:** the new hold is placed before the old one is released; the shopper's limit check ignores the hold being replaced. If the new hold is declined, the old bid stands. Minimum raise $1 or 1%, no cap on raises; the bank may show released holds as pending for a few days, and the copy says so.
+- **Raises:** the new hold is placed before the old one is released, and the swap is atomic; the shopper's limit check ignores the hold being replaced. If the new hold is declined, the old bid stands. Minimum raise $1 or 1%, no cap on raises; the bank may show released holds as pending for a few days, and the copy says so.
 - **Audit:** append-only, with no UPDATE or DELETE grants. Every hold, void, capture and payout has a row with its PayPal id.
 
 ## 8. Architecture
@@ -183,8 +186,8 @@ PayPal webhooks ────┘     │ Clear
 
 **Data model (core tables):**
 - brands, brand_users, shoppers, products;
-- listings (DRAFT → OPEN → CLEARING → SETTLED → PAID_OUT);
-- bids (PENDING_APPROVAL → HELD → WON/LOST → CAPTURED/VOIDED);
+- listings (DRAFT → OPEN → (ROUNDS) → CLEARING → SETTLED → PAID_OUT);
+- bids (PENDING_APPROVAL → HELD → WON/LOST → CAPTURED/VOIDED; or HOLD_FAILED / ABANDONED);
 - settlements, payouts, mandates, intents, shipments, notifications;
 - audit_events, webhook_events, mcp_clients, agent_messages.
 
@@ -217,19 +220,20 @@ Full detail is in [`spec/data-model.md`](spec/data-model.md) and [`spec/api.md`]
 ## 11. Honest limits (state these in the README)
 - In the sandbox **we are the merchant of record** and pay the brand through Payouts. Production would use PayPal multiparty (`platform_fees`, delayed disbursement), which needs partner approval.
 - Most bidders in the demo are simulated and labelled SIM. The foreground holds are real sandbox holds.
-- Wallet (PayPal account) holds need buyer approval in a browser; the demo uses card holds plus one wallet hold.
+- Wallet (PayPal account) holds need buyer approval in a browser. Card holds on the offer page use PayPal card fields; a labelled "Use sandbox test card" button (server-side test-card hold) exists as the fallback, and the seed uses raw sandbox test cards.
 - Reauthorization is untested, which is why the whole timeline fits inside PayPal's 3-day card-hold guarantee.
 - If the live Channel3 webhook isn't ready, the price-drop event may be a replayed fixture, labelled as such.
 
 ## 12. Still open / to verify
 | Item | Status |
 |---|---|
-| S3 on Render Workflows (the local half passed) | To do |
+| S3 on Render Workflows (the local half passed) | To do; the in-process coordinator ships first |
+| S7 spike pack (card fields, wallet, replays, ≈ $50k payout from captures) | First thing Nov 11 (HF-063) |
 | S5: Channel3 price webhook reaches Render | To do; fallback is a labelled fixture replay |
 | S6: `platform_fees` + delayed disbursement | 30-minute timebox; README note only |
 | Channel3 API key, Render account + paid Postgres | To set up |
 | Second hackathon submission (ProofLoop or SafeHandoff) | Not decided |
-| Rotate the PayPal sandbox secret (it was pasted in chat) | After the hackathon |
+| Keep the same PayPal sandbox credentials (user decision, no rotation); keep the secret out of every committed file | Now; `gitleaks` on the full history before the repo goes public |
 
 ## 13. Definition of done
 - [ ] A brand lists a product; shoppers place **real sandbox holds** from the offer page.

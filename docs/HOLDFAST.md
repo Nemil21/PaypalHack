@@ -18,37 +18,37 @@
 
 ## 2. Who it's for
 - **Primary customer (pays us):** the e-commerce or channel manager at a $20–200M consumer-electronics or outdoor DTC brand with a MAP policy.
-- **Other side:** a deal-savvy shopper whose AI agent watches "Sony-class headphones under $230" and backs that wish with a PayPal hold.
+- **Other side:** a deal-savvy shopper whose AI agent watches "A7-class headphones under $230" and backs that wish with a PayPal hold.
 
 ## 3. How it works, end to end
 1. **The shopper's agent bids.**
    - The shopper says: "I'd buy these if they hit $229."
    - The buyer agent (Claude) looks up the product on **Channel3**: canonical product, live offers across retailers, cheapest public price (e.g. $279).
-   - It suggests a ceiling and the shopper approves once with PayPal.
-   - **PayPal AUTHORIZE holds $229.** "Held, not charged."
+   - It suggests a ceiling and the shopper approves once with PayPal (wallet) or PayPal card fields (two-step: create, browser submit, authorize).
+   - **PayPal AUTHORIZE holds $229.** "Held, not charged." One live bid per shopper per listing; changing it is a raise (or cancel + new bid).
 2. **The agent protects its owner.**
    - It subscribes to Channel3 price-change webhooks for that product.
-   - If any retailer drops below the bid, the agent **voids its own hold** and links the cheaper offer.
-3. **Outside agents can bid too.** Our **MCP server** (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) lets any agent, such as Claude Desktop, post held bids into the same book.
+   - If any authorized retailer drops below the bid (and the shopper left "Release if cheaper elsewhere" on), the agent **voids its own hold** and links the cheaper offer.
+3. **Outside agents can bid too.** Our **MCP server** (`get_book`, `place_bid`, `cancel_bid`, `my_bids`, `raise_bid`) lets any agent, such as Claude Desktop, post held bids into the same book.
 4. **The brand sees the private book** (**AG Grid / AG Studio**):
    - the held-demand curve ("$61k held at ≥ $219"), the bids grid, and a quantity slider comparing recovery to the liquidation quote;
    - a **brand agent** recommends quantity and price under a margin floor: "Clear 240 (cutoff $219): $54.2k vs $11.4k liquidation; no public price change."
-5. **The window clears** (48 h of bidding, optional live rounds of up to 6 h, then Clear within 6 h; a pay-your-bid call auction):
-   - In **live rounds**, the brand agent tells bidders below the cutoff the real number, and their agents may raise (spec 19).
+5. **The window clears** (24/48 h of bidding, optional live rounds of up to 6 h, then Clear within 6 h; a pay-your-bid call auction):
+   - In **live rounds** (once per listing; starting them closes new bidding), the brand agent tells bidders below the cutoff the real number, and their agents may raise until rounds end (spec 19).
    - **Deterministic code** ranks the bids. The top N win, and **each winner pays their own final bid**, never more than they approved.
    - Agents advise; code clears. There's no free-form haggling and no hallucinated deals.
-6. **Money moves** (**Render Workflows** fan-out, idempotent, with retries):
+6. **Money moves** (settlement coordinator, in-process first and then on **Render Workflows**; idempotent, with retries):
    - each winner: **capture their own bid** (equal to their hold, `final_capture`);
    - each loser: **void**;
-   - if a capture is declined, the next bidder wins that unit at their own bid (at most 3 tries per unit);
-   - **Payouts** to the brand, net of our fee; shipment **tracking** attached.
-7. **The shopper sees** "your agent bought at $219" and was never charged more than their ceiling.
+   - if a capture is declined, the next reserve bidder wins that unit at their own bid, promoted inline before anything is marked settled (at most 3 tries per unit);
+   - **Payouts** to the brand from the captured winners' money, net of our fee; shipment **tracking** attached.
+7. **The shopper sees** "You won at your bid of $229. Charged $229." and was never charged more than their ceiling.
 
 ### How the agents "negotiate"
 They negotiate through a **structured auction, not chat**:
 - Buyer agents place, raise or cancel held bids within their owner's mandate.
 - The brand agent opens a window with quantity and floor.
-- In live rounds, buyer agents get the real cutoff ("the cutoff for 240 units is $219") once per round and decide whether to raise.
+- In live rounds, buyer agents get the real cutoff ("the cutoff for 240 units is $219") once per round and decide whether to raise; no new bids enter during rounds.
 - The clearing rule is fixed and auditable.
 - Pitch line: **"Agents negotiate by bidding; code clears; PayPal settles."**
 
@@ -58,9 +58,9 @@ They negotiate through a **structured auction, not chat**:
 | Money | **PayPal** Orders v2 AUTHORIZE → capture (partial, `final_capture`) / void; vault + merchant-initiated holds (if spike S2 passes); Payouts; Tracking; webhooks; negative testing | The whole money path (mostly direct REST; the Agent Toolkit lacks authorize/capture/void/payouts) |
 | Market data | **Channel3** lookup/search, live offers, `offer.price.changed` webhooks | Anchors bids to real prices; auto-void trigger (critical path, real API calls) |
 | Brand console | **AG Grid + AG Charts + AG Studio** agent | Demand curve, bids grid, clearing simulation, Clear button (largest prize pool, so polish it) |
-| Clearing | **Render** web service + **Render Workflows** | One task per authorization, retries, `idempotencyKey`, next-bidder promotion |
+| Clearing | **Render** web service + **Render Workflows** | In-process coordinator first, then the Workflows adapter: one task per authorization, retries, fixed request ids, inline next-bidder promotion |
 | Agents | Claude (buyer agent, brand agent) + our **MCP server** | Bidding, protection, recommendations; outside-agent access |
-| Order status | **Bryntum Gantt** | Window timeline (open → price watch → signal → lock → capture fan-out → payout → shipping) on the brand console, settlement view, payouts, and the shopper's bid detail |
+| Order status | **Bryntum Gantt** | The settlement fan-out on W08 first, then the window timeline (open → price watch → signal → lock → capture fan-out → payout → shipping) on the console, payouts and the shopper's bid detail |
 | Build | **APIMatic** PayPal Context Plugin | Grounds our coding agents while writing the REST money path (say so in the README) |
 
 **Sandbox reality:** Channel3 offers are affiliate links, so in the demo **we are the merchant of record** and pay the sandbox brand through Payouts. Production would use PayPal multiparty (partner referrals, `platform_fees`, delayed disbursement), which needs approved-partner status. That's documented as the production path.
@@ -95,16 +95,17 @@ Sandbox credentials go in `.env` (git-ignored). Never commit them.
 - **S4 PASS:** Payouts to the sandbox brand account returned 201 (batch PENDING).
 - Gotcha: an India (IN) sandbox business account fails card holds (`PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING`) and Payouts (`PAYOUT_NOT_AVAILABLE`). Use a **US** business account.
 - Not yet tested: PayPal-wallet holds (need buyer approval in a browser), S5 Channel3 webhook, S6 `platform_fees`.
+- **S7 spike pack (HF-063, first thing Nov 11):** card fields + authorize + vault; wallet approve + authorize; authorize / void / order-create replays (record the issue codes); void twice / capture twice; a ≈ $50k payout funded by a large capture batch + GET batch; a second MIT hold from one vault; a CIT vault hold; mocked `AUTHORIZATION_EXPIRED`; a 300-hold run across 4–5 test cards.
 
 **Verdict: GO** on the money path.
 
 ## 7. Demo (≤ 3:00), beat by beat
-1. **The brand's problem:** 300 units, a $38-a-unit liquidator quote, MAP risk.
+1. **The brand's problem:** Aurel Audio (a fictional demo brand) has 300 Aurel A7 units, a $38-a-unit liquidator quote, MAP risk.
 2. **The buyer agent:** Channel3 shows a cheapest public price of $279; the agent holds a $229 bid.
 3. **Claude Desktop** bids over MCP, and the row appears live.
-4. **A price drop** below one buyer's bid: that agent voids its own hold.
-5. **The brand book:** "$61k held"; the agent recommends clearing 240 at $219; **Clear**.
-6. **Money moves:** 240 captures at $219, 46 voids, one decline replaced automatically, the payout lands.
+4. **A price drop** (live or a labelled replay) to just under one foreground bid (e.g. the $249 Claude Desktop bid → $245): that agent voids its own hold. SIM bids above it were seeded with `release_if_cheaper=false`, so only that bid (≤ 3) is released and the Clear numbers still hold.
+5. **The brand book:** "$61k held"; live rounds (time-lapsed, labelled) lift bids below the cutoff; the agent recommends clearing 240 (cutoff $219); **Clear**.
+6. **Money moves:** 240 captures, each at the winner's own bid (lowest $219, average $226; $54,240 gross), 46 voids, one injected decline replaced automatically by the next reserve bidder at their own bid, and the payout ($49,358 net) lands. Use the numbers the seed script prints after the drop and rounds.
 7. **Why now, and the path.** State plainly which bids are simulated and which are real sandbox holds.
 
 ## 8. Startup path

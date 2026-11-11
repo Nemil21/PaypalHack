@@ -1,9 +1,9 @@
 # 01: Brand Onboarding & Verification
 
-**Priority:** P0 (simplified), P1 (DNS check) · **Owner:** B · **Effort:** 4 h
+**Priority:** P0 (`DEMO_MODE` login + admin verify first; then Log in with PayPal and the W03 onboarding UI), P1 (DNS check, teammate invites) · **Owner:** B · **Effort:** 4 h
 
 ## Purpose
-Only real brands can sell. This blocks the "fake brand lists Sony stock" attack and makes sure payouts go to a verified PayPal account.
+Only real brands can sell. This blocks the "fake brand lists someone else's stock" attack and makes sure payouts go to a verified PayPal account.
 
 ## User stories
 - As a brand manager, I sign in with PayPal so I don't make another password.
@@ -14,8 +14,9 @@ Only real brands can sell. This blocks the "fake brand lists Sony stock" attack 
 W02 Brand sign-in · W03 Verification onboarding · W11 Brand settings · M10 (brand alerts after onboarding)
 
 ## Logic
-1. W02: "Continue with PayPal" → `GET /auth/paypal/start` (Log in with PayPal, scopes `openid email`).
-2. Callback: look up `brand_users` by email. If none, create a brand_user with no brand yet and send them to W03.
+0. **Built first:** `DEMO_MODE` "Sign in as demo brand" with a seeded verified brand and a seeded VIEWER, and admin verification (`POST /admin/brands/:id/verify`, `npm run admin:verify`; admins from `ADMIN_EMAILS`). Log in with PayPal follows after the money spine.
+1. W02: "Continue with PayPal" → `GET /auth/paypal/start` (Log in with PayPal, scopes `openid email` + `https://uri.paypal.com/services/paypalattributes` for the payer id; state cookie).
+2. Callback: look up `brand_users` by `lower(email)`. If none, keep the identity in the session (no `brand_users` row yet) and send them to W03; W03 upserts the pending brand and re-issues the session with `brandId`.
 3. W03 step 1, Company: name, website domain, payout PayPal email (defaults to the login email).
 4. W03 step 2, Prove domain: show a DNS TXT record `holdfast-verify=<token>`. A "Check now" button calls `POST /brands/verification/check`.
    - Demo shortcut: admin approves in W20, and the UI says "Verified by Holdfast team".

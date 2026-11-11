@@ -15,10 +15,10 @@ W04 Overview dashboard · W06 Listing console · W07 Clear confirmation modal ·
 
 ## Layout of W06
 1. **Header:**
-   - product image, title, status pill (OPEN · closes in 41:12:09);
+   - product image, title, status pill from shared `listingPhase()` (OPEN · closes in 41:12:09 / ROUNDS · round 2 / FROZEN · clear by …); "Clear by" = min(`clear_deadline_at`, oldest hold `authorized_at` + 66 h);
    - public low price badge with "price watch on";
    - buttons: Share offer link, Cancel window.
-2. **KPI tiles (AG Studio widgets):**
+2. **KPI tiles (AG Studio widgets; the KPI row is built on AG Studio, the AG Grid prize criterion):**
    - Held demand ($);
    - Live bids;
    - Projected cutoff and gross revenue at the current slider;
@@ -30,22 +30,26 @@ W04 Overview dashboard · W06 Listing console · W07 Clear confirmation modal ·
    - vertical markers for floor (brand only), public low and current projected cutoff.
    - Hovering shows "120 bids ≥ $229 · $27.5k held".
 4. **Quantity slider (0 … listing quantity):**
-   - on change, call `/simulate` (debounced 150 ms; or compute client-side with the same pure `auction.ts` from `packages/shared`);
+   - range 1 … min(quantity, eligible bids); prefix sums while dragging, the shared pure `clear()` on release (same code as the server);
    - updates the cutoff marker and the KPIs.
 5. **Bids grid (AG Grid Enterprise).** Columns:
    - Rank, Bid, Placed, Source (Offer page / Agent / MCP / SIM), Shopper label, Status, Would win? (at the current slider).
-   - Live row insert/remove via SSE with row flash animation.
+   - Live row insert/remove via SSE with row flash animation (`getRowId` + `applyTransactionAsync`); a raise (`bid.raised`) flashes the row in place.
+   - Below-floor bids show "below floor" instead of a rank.
    - Grouping by source; set filter; sticky header.
    - SIM rows show a grey "SIM" chip.
 6. **Brand agent panel** (right side, see 09): recommendation card, plus "Ask about this book" input.
 7. **Clear button** (primary). Opens W07 with:
    - quantity, cutoff, gross revenue, winners, losers;
    - gross, fee and net;
-   - "Holds above $219 are charged $219; the rest released";
+   - "Each winner is charged their own bid (lowest $219, average $226). Everyone else's hold is released.";
    - a type-to-confirm field (`CLEAR 240`).
+   - during ROUNDS the button reads **"Stop rounds & clear"** (stops rounds, then opens W07);
+   - on 409 the modal shows the new numbers with one-click "Confirm $X" (`reason: BOOK_CHANGED`) or a read-only message (`reason: NOT_CLEARABLE`).
 8. After Clear, W06 switches to W08 Settlement live view.
 
 ## Overview W04
+- Backed by `GET /brands/me/overview` (later wave; the console works without it).
 - Cards per listing: status, held demand, time left, sparkline.
 - Totals: recovered this month, fees, payouts pending.
 - "New listing" CTA.
@@ -58,7 +62,8 @@ W04 Overview dashboard · W06 Listing console · W07 Clear confirmation modal ·
 |---|---|
 | 0 bids | Empty state: "No bids yet. Share your offer link." + W10 shortcut |
 | Fewer qualifying bids than slider quantity | The slider clamps to max qualifying (bids ≥ floor); tooltip explains |
-| Book changes while the modal is open | Clear sends `expectedGrossCents`; on 409, re-simulate and show "Book changed: new gross $54.0k" |
+| Book changes while the modal is open | Clear sends `expectedGrossCents`; on 409 `BOOK_CHANGED` the response carries the new numbers: "Book changed: new gross $54.0k. Confirm $54.0k?" (one click). The demo pauses `sim:stream` before Clear |
+| Bids without a hold | Never shown as eligible; excluded from the curve, slider and Clear (shared eligibility, D8) |
 | VIEWER role | Clear hidden; read-only |
 | 5k+ bids | AG Grid virtualization; curve computed server-side |
 

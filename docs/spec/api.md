@@ -3,8 +3,9 @@
 Base URL: `https://<render-app>/api`. JSON in and out. Money is in **cents**.
 
 **Auth:**
-- **Brand users:** session cookie after Log in with PayPal.
-- **Shoppers:** session cookie (email magic link or PayPal login).
+- **Brand users:** session cookie after Log in with PayPal. Before that ships (and on Render for judges), `DEMO_MODE` "Sign in as demo brand" (D13).
+- **Shoppers:** session cookie. An anonymous shopper row is bound to a cookie on the first offer-page visit; sign-in by email magic link (console-logged locally) or PayPal login; `DEMO_MODE` "Sign in as demo shopper" (D13).
+- **Admins:** emails in the `ADMIN_EMAILS` allowlist.
 - **MCP clients:** `Authorization: Bearer <mcp token>`.
 - **Webhooks:** provider signature.
 
@@ -16,26 +17,29 @@ Base URL: `https://<render-app>/api`. JSON in and out. Money is in **cents**.
 | 401 | `UNAUTHENTICATED` |
 | 403 | `FORBIDDEN`, `BRAND_NOT_VERIFIED` |
 | 404 | `NOT_FOUND` |
-| 409 | `WINDOW_CLOSED`, `STATE_CONFLICT`, `DUPLICATE` |
+| 409 | `WINDOW_CLOSED`, `STATE_CONFLICT` (with `reason`), `DUPLICATE`, `ALREADY_BID`, `IN_PROGRESS` |
 | 422 | `MANDATE_EXCEEDED`, `BELOW_FLOOR`, `ABOVE_MANDATE_MAX`, `HOLD_FAILED`, `PRODUCT_MISMATCH` |
 | 429 | `RATE_LIMITED` |
 | 502 | `PAYPAL_ERROR`, `CHANNEL3_ERROR` |
 
-Mutating calls require an `Idempotency-Key` header.
+Mutating calls require an `Idempotency-Key` header, scoped per principal with a request hash: same key + different body → 422; a request still in progress → 409; retryable failures are not stored, so the client mints a new key after a terminal failure. Exempt: `/webhooks/*`, `/mcp` (tool-level keys) and the OAuth callback.
 
 ## PayPal calls used (all sandbox, direct REST)
 
 | Name | Call | Notes |
 |---|---|---|
 | `pp.token` | `POST /v1/oauth2/token` | Cache until `expires_in - 60s` |
-| `pp.createAuthOrder` | `POST /v2/checkout/orders` `{intent:"AUTHORIZE", purchase_units:[{amount, custom_id: bidId}], payment_source}` | Header `PayPal-Request-Id: bidId`. With `payment_source.paypal.experience_context.return_url` for the wallet approval flow, or `payment_source.card` (+ `attributes.vault.store_in_vault: ON_SUCCESS`) for the first card hold, or `card.vault_id` + `stored_credential {MERCHANT, UNSCHEDULED, SUBSEQUENT}` for merchant-initiated holds (S2) |
-| `pp.authorizeOrder` | `POST /v2/checkout/orders/{id}/authorize` | After wallet approval |
-| `pp.capture` | `POST /v2/payments/authorizations/{authId}/capture` `{amount, final_capture:true}` | `PayPal-Request-Id: settlementId` (S1, S3) |
-| `pp.void` | `POST /v2/payments/authorizations/{authId}/void` | `PayPal-Request-Id: settlementId` |
-| `pp.payout` | `POST /v1/payments/payouts` `{sender_batch_header:{sender_batch_id: payoutId}, items:[{recipient_type:"EMAIL", receiver, amount}]}` | S4 |
-| `pp.track` | `POST /v2/checkout/orders/{id}/track` `{tracking_number, carrier, capture_id}` | |
+| `pp.createAuthOrder` | `POST /v2/checkout/orders` `{intent:"AUTHORIZE", purchase_units:[{amount, custom_id: bidId, invoice_id: bidId}], payment_source}` | Header `PayPal-Request-Id: bidId`. With `payment_source.paypal.experience_context.return_url` for the wallet approval flow (read the `rel=payer-action` link), or `payment_source.card.attributes.vault.store_in_vault: ON_SUCCESS` with no card data for **card fields** (the browser submits the card, maybe 3DS, then we authorize; the card is vaulted on success), or `card.vault_id` + `stored_credential {MERCHANT, UNSCHEDULED, SUBSEQUENT}` for merchant-initiated holds (S2). A raw `payment_source.card` is used only by the seed and the labelled "Use sandbox test card" button (S1) |
+| `pp.authorizeOrder` | `POST /v2/checkout/orders/{id}/authorize` | After wallet approval or card-fields submit. `PayPal-Request-Id: authz-<bidId>`; on `ORDER_ALREADY_AUTHORIZED`, GET the order |
+| `pp.getAuthorization` | `GET /v2/payments/authorizations/{authId}` | RECONCILE path for any capture/void 422, and `reconcile:holds` |
+| `pp.capture` | `POST /v2/payments/authorizations/{authId}/capture` `{amount, final_capture:true}` | `PayPal-Request-Id: settlementId` (S1, S3). Amount must equal the bid (INV-5) |
+| `pp.void` | `POST /v2/payments/authorizations/{authId}/void` | `PayPal-Request-Id: void-<bidId>` on every path (D4) |
+| `pp.payout` | `POST /v1/payments/payouts` `{sender_batch_header:{sender_batch_id: payoutAttemptId}, items:[{recipient_type:"EMAIL", receiver, amount}]}` | S4; ≈ $50k payout funded by captured winners' money checked in S7. Poll `GET /v1/payments/payouts/{batch_id}` and read the item status |
+| `pp.track` | `POST /v2/checkout/orders/{id}/track` `{tracking_number, carrier, capture_id}` | `PayPal-Request-Id: track-<shipmentId>` |
 | `pp.verifyWebhook` | `POST /v1/notifications/verify-webhook-signature` | |
-| Test only | Header `PayPal-Mock-Response: {"mock_application_codes":"INSTRUMENT_DECLINED"}` | Demo decline |
+| Test only | Header `PayPal-Mock-Response: {"mock_application_codes":"INSTRUMENT_DECLINED"}` | Demo decline; only when `DEMO_MODE` and `ALLOW_MOCK_DECLINE` are set |
+
+Client results are `held | pending | denied | needs_approval`, judged by the response body `status` (only authorization `CREATED` is a hold), never the HTTP code. Errors are classed `TRANSIENT | TERMINAL | RECONCILE`. `PAYPAL_MODE=sandbox|stub` swaps in the `FakePayPal` stub for tests and dev seeds.
 
 ## Brand endpoints
 
@@ -44,52 +48,61 @@ Mutating calls require an `Idempotency-Key` header.
 
 ### `POST /brands/verification`
 ```json
-{ "name": "Sony Audio US", "domain": "sony.example", "payoutEmail": "sb-ktv5q…@business.example.com" }
+{ "name": "Aurel Audio", "domain": "aurelaudio.example", "payoutEmail": "sb-ktv5q…@business.example.com" }
 ```
 → `201 { "brandId": "…", "verificationStatus": "PENDING", "dnsTxtRecord": "holdfast-verify=8f2c…" }`
 
 ### `POST /brands/verification/check` → `{ "verificationStatus": "VERIFIED" }` (checks the DNS TXT record; demo: admin approve)
 
-### `GET /products/search?q=sony+xm5` (Channel3 proxy)
+### `GET /products/search?q=aurel+a7` (Channel3 proxy; needs a session; rate-limited)
 ```json
-{ "results": [ { "channel3Id": "c3_123", "title": "Sony WH-1000XM5", "gtin": "0027242923782", "mpn": "WH1000XM5/B",
+{ "results": [ { "channel3Id": "c3_123", "variant": "Midnight", "title": "Aurel A7 Wireless — Midnight", "gtin": "0012345678905", "mpn": "A7-MID",
   "imageUrl": "…", "bestPublicPriceCents": 27900, "offerCount": 14, "condition": "NEW" } ] }
 ```
 
 ### `POST /listings`
 ```json
-{ "channel3Id": "c3_123", "quantity": 300, "floorCents": 19900, "liquidationQuoteCents": 3800,
-  "windowHours": 72 }
+{ "channel3Id": "c3_123", "variant": "Midnight", "quantity": 300, "floorCents": 19900, "liquidationQuoteCents": 3800,
+  "windowHours": 48 }
 ```
-→ `201 { "listingId": "…", "status": "DRAFT", "slug": "sony-xm5-a7f2" }`
-Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (windowHours > 48).
+→ `201 { "listingId": "…", "status": "DRAFT", "slug": "aurel-a7-a7f2" }`
+`windowHours` is `24` or `48` only. Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (windowHours not 24/48), `DUPLICATE` (a live listing already exists for this product).
 
-### `POST /listings/:id/publish` → `{ "status": "OPEN", "windowClosesAt": "…" }`. Also subscribes to Channel3 price webhooks.
+### `POST /listings/:id/publish` → `{ "status": "OPEN", "windowClosesAt": "…", "clearDeadlineAt": "…" }`. Sets every D6 deadline. Reuses the product's Channel3 subscription or creates one (outside the DB transaction).
+
+### `PATCH /listings/:id` `{ "quantity": 320 }` (later wave) → raise quantity only, while OPEN. Floor and window are locked (02).
 
 ### `GET /listings/:id/book` (brand only)
 ```json
-{ "listing": { "id": "…", "status": "OPEN", "quantity": 300, "floorCents": 19900, "windowClosesAt": "…" },
+{ "listing": { "id": "…", "status": "OPEN", "phase": "OPEN", "quantity": 300, "floorCents": 19900, "windowClosesAt": "…",
+               "roundsEndAt": null, "clearDeadlineAt": "…", "oldestHoldAuthorizedAt": "…" },
+  "bookVersion": 1842,
   "stats": { "liveBids": 286, "heldCents": 6120000, "bestPublicPriceCents": 27900 },
   "curve": [ { "priceCents": 22900, "bidsAtOrAbove": 120, "heldAtOrAboveCents": 2748000 } ],
   "bids": [ { "id": "…", "amountCents": 22900, "placedAt": "…", "source": "MCP", "isSimulated": false,
-              "shopperLabel": "Shopper #1042", "status": "HELD" } ] }
+              "shopperLabel": "Shopper #1042", "rank": 17, "status": "HELD" } ] }
 ```
+`bids` is exactly the Clear input (D8 eligibility: HELD with an authorization); `shopperLabel` is opaque.
 
 ### `GET /listings/:id/simulate?quantity=240` → `{ "cutoffCents": 21900, "winners": 240, "grossCents": 5424000, "feeCents": 488160, "netCents": 4935840, "liquidationCents": 912000 }` (pay-your-bid: gross = sum of winners' own bids)
 
-### `POST /listings/:id/rounds/start` `{ "targetQuantity": 240 }` → `{ "status": "ROUNDS", "roundsEndAt": "…" }` · `POST /listings/:id/rounds/stop` (see 19)
+### `POST /listings/:id/rounds/start` `{ "targetQuantity": 240 }` → `{ "status": "ROUNDS", "roundsEndAt": "…", "windowClosesAt": "…", "clearDeadlineAt": "…" }` · `POST /listings/:id/rounds/stop` (sets `rounds_end_at = now()`) · `POST /listings/:id/rounds/next` (basic mode: advance one round) · `PATCH /listings/:id/rounds` `{ "targetQuantity" }` (see 19). OWNER/MANAGER only; rounds start once.
 
-### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `settlement.updated`, `listing.status`
+### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `bid.raised`, `settlement.updated`, `listing.status`, `round.started`, `round.nudged`, `round.extended`, `round.ended`, `payout.updated`, `pricewatch.released`
 
 ### `POST /listings/:id/clear` (brand OWNER/MANAGER)
 ```json
 { "quantity": 240, "expectedGrossCents": 5424000 }
 ```
-→ `202 { "status": "CLEARING", "cutoffCents": 21900, "grossCents": 5424000, "winners": 240, "losers": 46, "workflowRunId": "…" }`
-Errors: `STATE_CONFLICT` (not OPEN/ROUNDS), `STATE_CONFLICT` (book changed: expected gross differs → client re-simulates), `HOLDS_TOO_OLD` (oldest live hold > 66 h).
+→ `202 { "status": "CLEARING", "cutoffCents": 21900, "grossCents": 5424000, "winners": 240, "losers": 46, "settlementRunId": "…" }`
+`1 ≤ quantity ≤ listing.quantity`. Errors (409 `STATE_CONFLICT` carries `reason` and the new numbers, so the console can offer one-click "Confirm $X"):
+- `reason: NOT_CLEARABLE`: listing not OPEN/ROUNDS;
+- `reason: BOOK_CHANGED`: expected gross differs → `{ "cutoffCents", "grossCents", "winners" }` recomputed;
+- `HOLDS_TOO_OLD`: a **winner's** hold is ≥ 66 h old (older non-winner holds are released instead of blocking Clear).
 
-### `POST /listings/:id/cancel` → voids all live bids.
-### `GET /listings/:id/settlement` → counts by status + rows.
+### `POST /listings/:id/cancel` (OWNER/MANAGER; from OPEN or ROUNDS) → `202 { "status": "CANCELLED" }`; bids go VOIDING and are voided asynchronously (concurrency ≤ 10); progress over SSE.
+### `GET /listings/:id/settlement` → counts by status + rows (settlement-view payload from `packages/shared`), incl. promotion links via `unit_root_bid_id`, "Cleared $X · Captured $Y".
+### `GET /brands/me/overview` → per-listing cards and totals for W04.
 ### `GET /brands/me/payouts`, `GET /brands/me/reports?from&to` (CSV via `Accept: text/csv`).
 ### `POST /listings/:id/shipments` `{ "bidId", "carrier", "trackingNumber" }` → calls `pp.track`.
 ### `POST /brand-agent/ask` `{ "listingId", "question" }` → `{ "answer", "recommendation": { "quantity", "cutoffCents", "grossCents", "reasons": [] } }`
@@ -98,32 +111,38 @@ Errors: `STATE_CONFLICT` (not OPEN/ROUNDS), `STATE_CONFLICT` (book changed: expe
 
 ### `GET /offers/:slug` (public)
 ```json
-{ "listingId": "…", "brand": { "name": "Sony Audio US", "verified": true },
-  "product": { "title": "Sony WH-1000XM5", "imageUrl": "…", "bestPublicPriceCents": 27900 },
-  "windowClosesAt": "…", "suggestedBidCents": 22900, "status": "OPEN" }
+{ "listingId": "…", "brand": { "name": "Aurel Audio", "verified": true },
+  "product": { "title": "Aurel A7 Wireless — Midnight", "imageUrl": "…", "bestPublicPriceCents": 27900 },
+  "publicOffer": { "domain": "retailer.example", "priceCents": 27900, "url": "…" },
+  "windowClosesAt": "…", "suggestedBidCents": 22900, "likelyBand": { "fromCents": 21000, "toCents": 22000 } , "status": "OPEN",
+  "myBid": null }
 ```
-Floor is never exposed.
+Floor is never exposed. `likelyBand()` (shared, floor-blind): $10 buckets, bands with fewer than 3 bids merged, shown only if eligible ≥ quantity; changing the floor never changes the response (M22).
 
 ### `POST /bids` (Idempotency-Key)
 ```json
-{ "listingId": "…", "amountCents": 22900, "paymentMethod": "PAYPAL" | "CARD" | "VAULT", "intentId": null }
+{ "listingId": "…", "amountCents": 22900, "paymentMethod": "PAYPAL" | "CARD" | "VAULT" | "TEST_CARD", "releaseIfCheaper": true, "intentId": null }
 ```
 Logic:
-- check the listing is OPEN;
-- check the mandate (if any);
-- insert the bid as PENDING_APPROVAL;
-- call `pp.createAuthOrder`.
+- check `isBiddable` (OPEN and `now() < window_closes_at`) → else 409 `WINDOW_CLOSED`;
+- one live bid per shopper per listing → else 409 `ALREADY_BID { bidId }` (raise or cancel instead; D3);
+- set `mandate_id` and check the cap (D12), inserting the bid as PENDING_APPROVAL in the same transaction;
+- call `pp.createAuthOrder`; holds land only through `landHold` (D1).
 
 Responses:
-- PAYPAL → `201 { "bidId", "status": "PENDING_APPROVAL", "approveUrl": "https://www.sandbox.paypal.com/checkoutnow?token=…" }`
-- CARD/VAULT → `201 { "bidId", "status": "HELD", "authorizationId": "…" }`
-- Every response also carries `publicOffer { merchant, priceCents, url }` (Channel3, refreshed if older than 10 min). The server never rejects a bid for being above it; the shopper side decides (03, 06).
+- PAYPAL → `201 { "bidId", "status": "PENDING_APPROVAL", "approveUrl": "<rel=payer-action link>" }`
+- CARD → `201 { "bidId", "status": "PENDING_APPROVAL", "orderId": "…" }`: the browser submits PayPal card fields (JS SDK v6, maybe 3DS) against `orderId`, then calls `POST /bids/:id/authorize`. - TEST_CARD (sandbox / `DEMO_MODE` only; the labelled "Use sandbox test card" button, built before card fields) → server-side S1-style hold → `201 { "bidId", "status": "HELD", "authorizationId" }`. Card fields remain the full path.
+- VAULT → `201 { "bidId", "status": "HELD", "authorizationId": "…" }`
+- Declined outright (no authorization created) → `422 HOLD_FAILED`, bid status `HOLD_FAILED` (terminal; a retry is a new bid row with a new Idempotency-Key). If an authorization exists but the `landHold` re-check fails, the new authorization is voided and the bid ends VOIDED with a `void_reason` (e.g. `WINDOW_CLOSED`). A retry with another method needs a new Idempotency-Key.
+- Every response also carries `publicOffer { domain, priceCents, url }` (Channel3, refreshed asynchronously if older than 10 min). The server never rejects a bid for being above it; the shopper side decides (03, 06). Confirming the over-public-price warning sets `releaseIfCheaper=false`.
 
-### `GET /bids/return?token=…` (PayPal return URL) → `pp.authorizeOrder` → bid HELD → 302 `/bids/:id?held=1`
-### `GET /bids/mine` → list with status, listing, amount, outbid signal.
-### `GET /bids/:id` → bid plus timeline (audit events for that bid).
-### `POST /bids/:id/raise` `{ "amountCents": 23900 }` → mandate check excludes the old hold; creates the new hold first, then voids old (`void_reason=REPLACED`). If the new hold is declined, the old bid stands (`422 HOLD_FAILED`). Minimum raise $1 or 1%; no cap on raises (05).
-### `POST /bids/:id/cancel` → HELD→VOIDING → `pp.void` → VOIDED.
+### `POST /bids/:id/authorize` (Idempotency-Key) → after card-fields submit or wallet approval: `pp.authorizeOrder` (`authz-<bidId>`), assert amount and `custom_id`, then `landHold`. If the listing is no longer biddable, don't authorize; return 409 `WINDOW_CLOSED`. → `200 { "bidId", "status": "HELD", "authorizationId" }`
+### `GET /bids/return?token=…` (PayPal return URL) → same path as `POST /bids/:id/authorize` → 302 `/bids/:id?held=1`
+### `PATCH /bids/:id` `{ "releaseIfCheaper": false }` → change the price-watch setting on a live bid.
+### `GET /bids/mine` → list with status, listing, amount, `belowCutoff` (only during ROUNDS), reserve-list flag. Clients poll every 5 s during ROUNDS (D18).
+### `GET /bids/:id` → bid plus timeline (audit events for that bid, walking the `replaces_bid_id` chain) and money box.
+### `POST /bids/:id/raise` `{ "amountCents": 23900 }` → `isRaisable` (D7); mandate check excludes the old hold; new bid PENDING_APPROVAL with `replaces_bid_id`, then `landHold` swaps atomically (old HELD→VOIDING `REPLACED`, new →HELD) and the old hold is voided. If the new hold is declined, the old bid stands (`422 HOLD_FAILED`). Vaulted shoppers raise in one call; wallet bids return an `approveUrl`. Minimum raise $1 or 1%; no cap on raises (05).
+### `POST /bids/:id/cancel` → HELD→VOIDING → `pp.void` (`void-<bidId>`) → VOIDED; PENDING_APPROVAL → ABANDONED. "Already voided" counts as success.
 
 ### Mandates
 - `POST /mandates` `{ "maxPriceCents": 23000, "totalHoldCapCents": 23000, "productIds": ["…"], "autoRoll": true, "expiresAt": "…" }`
@@ -131,9 +150,11 @@ Responses:
 
 ### `POST /agent/chat` (buyer agent)
 ```json
-{ "conversationId": "…", "message": "Sony XM5-class headphones, I'd buy at $229" }
+{ "conversationId": "…", "message": "Aurel A7-class headphones, I'd buy at $229" }
 ```
-→ SSE stream of `{type:"text"|"tool_call"|"tool_result"|"confirm_required", …}`. Money-moving tools return `confirm_required` until the shopper confirms or a mandate covers it.
+→ SSE stream of `{type:"text"|"tool_call"|"tool_result"|"confirm_required", …}`. The conversation must belong to the session's shopper. Money-moving tools (`place_bid`, `raise_bid`) return `confirm_required { actionId, tool, args }` unless a mandate covers them: the server stores the arguments in `agent_pending_actions`.
+
+### `POST /agent/actions/:id/confirm` → executes the **stored** arguments (never re-asks the model) with `Idempotency-Key = action.id` → the tool result. Expired or another shopper's action → 404/409 (B10).
 
 ### `POST /notifications/subscribe` (web push subscription), `GET /notifications`, `POST /notifications/:id/read`
 
@@ -143,38 +164,42 @@ Auth: Bearer token from W19 (scoped to one shopper; the token holder's own PayPa
 
 | Tool | Input | Output | Backend |
 |---|---|---|---|
-| `get_book` | `{ listingSlug }` | `{ product, bestPublicPriceCents, windowClosesAt, demandBands:[{fromCents,toCents,bids}] }` (anonymized, no floor, no shopper data) | `GET /listings/:id/book` summarized |
-| `place_bid` | `{ listingSlug, amountCents, idempotencyKey }` | `{ bidId, status, approveUrl? }` | `POST /bids` with source=MCP; VAULT if mandate + saved method, else approveUrl |
+| `get_book` | `{ listingSlug }` | `{ product, bestPublicPriceCents, windowClosesAt, demandBands:[{fromCents,toCents,bids}] }` (`publicBookBands` via floor-blind `likelyBand()`; anonymized, no floor, no shopper data) | `GET /listings/:id/book` summarized |
+| `place_bid` | `{ listingSlug, amountCents, idempotencyKey }` | `{ bidId, status, amountCents, amountFormatted, offerUrl? }` | `POST /bids` with source=MCP; VAULT if mandate + saved method, else **our offer-page link** `/o/:slug?amount=…` (not a wallet approveUrl). Tool error `ALREADY_BID { bidId }` |
 | `cancel_bid` | `{ bidId }` | `{ bidId, status:"VOIDED" }` | `POST /bids/:id/cancel` |
 | `my_bids` | `{}` | `{ bids:[{ bidId, listingSlug, amountCents, status, belowCutoff, cutoffCents? }] }` (cutoff only during live rounds) | `GET /bids/mine` |
 | `raise_bid` | `{ bidId, amountCents, idempotencyKey }` | `{ bidId, status }` | `POST /bids/:id/raise` |
+
+Five tools ship; the four above `raise_bid` are built and recorded first (HF-044a), `raise_bid` follows (HF-044b). Amounts are integer **cents** and every result echoes `amountFormatted`. Transport: stateless `StreamableHTTPServerTransport`; bearer token only (cookies ignored).
 
 Tool descriptions say plainly: "Places a real PayPal hold. If you win, you're charged exactly amountCents; otherwise it's released."
 
 ## Webhooks
 
-### `POST /webhooks/channel3`: `offer.price.changed`
+### `POST /webhooks/channel3`: price change on a subscribed product
+Channel3's model: offers carry no GTIN and no merchant name; an offer is `{url, domain, price{price, currency}, availability, condition}`, and a subscription is pinned to one product **variant `selection`** and up to 25 domains. Shape (confirm against the live fixture recorded in HF-009 before coding):
 ```json
-{ "id": "evt_…", "type": "offer.price.changed", "data": { "productId": "c3_123", "gtin": "0027242923782",
-  "offer": { "merchant": "Best Buy", "priceCents": 21900, "condition": "NEW", "url": "…" } } }
+{ "id": "evt_…", "type": "offer.price.changed", "subscription_id": "sub_…",
+  "data": { "product_id": "c3_123", "selection": { "color": "Midnight" },
+    "offer": { "url": "…", "domain": "retailer.example", "price": { "price": 219.0, "currency": "USD" },
+               "availability": "InStock", "condition": "new" } } }
 ```
 Logic:
-1. Verify the signature.
-2. Dedupe on `id`.
-3. Update `products.best_public_*`.
-4. Run the exact-match check (GTIN equal, condition NEW, authorized merchant).
-5. For each bid `HELD` with `release_if_cheaper` and `amount_cents > priceCents` on that product: HELD→VOIDING, `pp.void`, `void_reason=PRICE_DROP`.
-6. Notify the shopper with the affiliate link.
+1. Verify the HMAC signature (`CHANNEL3_WEBHOOK_SECRET`, constant-time).
+2. Insert into `webhook_events`; skip only if already processed. Return 2xx within 15 s; process async (unprocessed rows are retried every minute).
+3. Exact-match gate, per offer: Channel3 product id + variant equal to the listing's, `condition == "new"`, `domain` in `brands.authorized_domains`, `currency == "USD"`. Convert to cents once (`Math.round(price * 100)`).
+4. Recompute `products.best_public_*` from the free detail endpoint (cheapest new, in-stock, allowlisted, USD offer), not `min(old, new)`.
+5. Void each bid `HELD` with `release_if_cheaper` where `newPrice < amount_cents AND newPrice < public_price_at_placement`, on a listing OPEN/ROUNDS: conditional HELD→VOIDING, `pp.void` (`void-<bidId>`), `void_reason=PRICE_DROP`. Re-run the selection until it returns zero rows.
+6. Notify the shopper in-app with the affiliate link and the disclosure.
 
-Return 200 fast and do the work async.
+`POST /admin/replay-price-event` replays a fixture (admin only, no signature) and stamps `replayed=true`.
 
 ### `POST /webhooks/paypal`
-Verify with `pp.verifyWebhook`, then dedupe.
+Verify with `pp.verifyWebhook`, then dedupe. Map events by authorization id; conditional updates only. A missed wallet return is caught by the sweeper GETting the order, not by a webhook.
 
 | Event | Action |
 |---|---|
-| `PAYMENT.AUTHORIZATION.CREATED` | Confirm bid HELD (backup to return URL) |
-| `PAYMENT.AUTHORIZATION.VOIDED` | Confirm VOIDED |
+| `PAYMENT.AUTHORIZATION.VOIDED` | Confirm VOIDED; an unexpected void of a HELD bid → VOIDED (`EXPIRED`) |
 | `PAYMENT.CAPTURE.COMPLETED` | settlement SUCCEEDED, bid CAPTURED |
 | `PAYMENT.CAPTURE.DENIED` / `DECLINED` | settlement FAILED → promote |
 | `PAYMENT.PAYOUTSBATCH.SUCCESS` / `DENIED` | payout status |
@@ -183,5 +208,6 @@ Verify with `pp.verifyWebhook`, then dedupe.
 ## Ops (admin only)
 - `GET /admin/audit?brandId&entity&from&to`
 - `POST /admin/brands/:id/verify`
-- `POST /admin/listings/:id/retry-settlement`
+- `POST /admin/listings/:id/retry-settlement` (refused once SETTLED)
+- `POST /admin/replay-price-event` (demo, labelled)
 - `GET /admin/health` (PayPal token ok, Channel3 ok, queue depth)

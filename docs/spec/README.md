@@ -22,9 +22,9 @@ Product background: [../HOLDFAST.md](../HOLDFAST.md). Sandbox proof: [../../spik
 | [features/08-brand-console.md](features/08-brand-console.md) | AG Grid book, demand curve, quantity slider |
 | [features/09-brand-agent.md](features/09-brand-agent.md) | Brand agent recommendations (read-only) |
 | [features/10-clearing-engine.md](features/10-clearing-engine.md) | Pay-your-bid call auction and hold-age guard |
-| [features/11-settlement-workflows.md](features/11-settlement-workflows.md) | Render Workflows: capture, void, promote |
+| [features/11-settlement-workflows.md](features/11-settlement-workflows.md) | Settlement coordinator (in-process, then Render Workflows): capture, void, inline promotion |
 | [features/12-payouts-fees-tracking.md](features/12-payouts-fees-tracking.md) | Payouts, platform fee, shipment tracking |
-| [features/13-notifications.md](features/13-notifications.md) | Email, push and in-app messages |
+| [features/13-notifications.md](features/13-notifications.md) | In-app messages (P0), email and push (P1) |
 | [features/14-embed-widget.md](features/14-embed-widget.md) | "Make an offer" button and share links |
 | [features/15-audit-ops.md](features/15-audit-ops.md) | Audit log and ops/admin |
 | [features/16-auth-security-tenancy.md](features/16-auth-security-tenancy.md) | Auth, security, multi-tenancy, concurrency |
@@ -40,16 +40,18 @@ Product background: [../HOLDFAST.md](../HOLDFAST.md). Sandbox proof: [../../spik
 | **Capture** | Charging a hold. We capture the winner's **own bid**, which equals the hold, with `final_capture: true`. |
 | **Void** | Releasing a hold without charging anything. |
 | **Bid** | One held offer: listing, max price, hold ID, status. |
-| **Intent** | A shopper's want that can cover several products ("any of XM5 / QC45 / M4 up to $230"). An intent owns 0–1 live bids at a time. |
+| **Intent** | A shopper's want that can cover several products ("any of Aurel A7 / A5 up to $230"). An intent owns 0–1 live bids at a time. |
 | **Mandate** | Hard limits the shopper gives their agent: max price, total held cap, allowed products, expiry, auto-roll on/off. Enforced in code. |
 | **Listing** | One product a brand is clearing: quantity, floor (minimum price), window. |
 | **Book** | All live bids on a listing. Private to that brand. |
 | **Window** | The time a listing accepts bids: ≤ 48 h, then optional live rounds (≤ 6 h), then ≤ 6 h to Clear. Keeps every capture inside PayPal's 3-day card-hold guarantee. |
-| **Live rounds** | Optional final phase: the brand agent tells bidders below the cutoff the real cutoff; their agents may raise (19). |
+| **Live rounds** | Optional final phase (once per listing, may start before the window closes): new bids stop, the brand agent tells bidders below the cutoff the real cutoff, and their agents may raise until `rounds_end_at` (19). |
 | **Pay-your-bid** | Each winner pays exactly their own final bid, never more. |
 | **Cutoff** | The lowest winning bid for the chosen quantity. Used in nudges and the console; nobody else pays it. |
 | **Floor** | The brand's minimum price. No winner is below it. |
-| **Promotion** | When a winner's capture fails, the next-best losing bid wins that unit at its own bid; at most 3 promotions per unit. |
+| **Promotion** | When a winner's capture fails, the next-best reserve bid wins that unit at its own bid, inline in the same transaction; at most 3 promotions per unit (`unit_root_bid_id`). |
+| **Reserve list** | Every loser at or above the floor; their holds stay until captures finish. Shown to the shopper as "on the reserve list". |
+| **`landHold`** | The only code path that turns a bid HELD; re-checks the listing and mandate under locks (data-model rule 3). |
 | **Simulated bidder** | A seeded demo bidder. Always labelled "SIM" in the UI. |
 
 ## System overview
@@ -64,8 +66,8 @@ Product background: [../HOLDFAST.md](../HOLDFAST.md). Sandbox proof: [../../spik
                        │  Agent loop (Claude API): buyer agent, brand agent (read-only tools) │                 │
                        └──────────────────────────────────┬──────────────────────────────────┴─────────────────┘
                                                           │ Clear
-                                              Render Workflows: one task per bid
-                                              capture / void / promote → Payout
+                                    Settlement coordinator (in-process; Render Workflows adapter)
+                                    capture / void / inline promote → Payout
                                                           │
                                               PayPal REST (Orders v2, Payments v2, Payouts v1, Vault)
 ```
@@ -78,7 +80,7 @@ Rule: **agents choose what to bid; code decides who wins and what is charged; on
 |---|---|
 | Backend | Node 20+ / TypeScript, Fastify, Zod validation |
 | DB | Postgres (Render **paid** instance; the free one expires in ~30 days and judging runs to Dec 21) |
-| Jobs | Render Workflows (settlement fan-out), Render cron (window close, hold expiry) |
+| Jobs | In-process settlement coordinator first, then the Render Workflows adapter (settlement fan-out); Render cron (5-min sweeper, 1-min settlement kick and payout poll, deadlines, daily `demo:refresh`) |
 | Frontend | React + Vite, AG Grid Enterprise / AG Charts / AG Studio (licence in `AG_GRID_LICENSE_KEY`), Tailwind |
 | Mobile | Responsive web / PWA (no native app for the hackathon) |
 | AI | Claude API (latest Claude model) with tool use; MCP via `@modelcontextprotocol/sdk` |
@@ -93,43 +95,33 @@ Rule: **agents choose what to bid; code decides who wins and what is charged; on
 ```
 apps/
   api/            Fastify server: REST, MCP, webhooks, agent loop
-    src/core/     auction.ts (pure), mandates.ts, bids.ts, listings.ts
-    src/paypal/   client.ts (token cache, request-id), orders.ts, payouts.ts
-    src/channel3/ client.ts, match.ts (GTIN/MPN exact match)
+    src/channel3/ client.ts, match.ts (two-stage exact match)
     src/agents/   buyer.ts, brand.ts, tools.ts
     src/mcp/      server.ts
     src/webhooks/ channel3.ts, paypal.ts
-  workflows/      Render Workflows tasks: settleBid, promoteNext, payoutBrand
-  web/            React app: brand console + shopper pages + landing
-packages/shared/  zod schemas, types
+  workflows/      Render Workflows adapter over the same packages/core tasks
+  web/            React app (served by Fastify, same origin): brand console + shopper pages + landing
+packages/core/    db, transition, landHold, audit, PayPal client (+ FakePayPal stub), auction, settleBid, promoteWithin, payoutBrand
+packages/shared/  zod schemas, types, isBiddable/isRaisable, listingPhase, eligibility, feeCents, likelyBand, ListingEvent union
 db/migrations/    SQL
 spikes/           existing sandbox spikes
 docs/spec/        this folder
 ```
 
-## Build order and owners (deadline **Nov 12, 12:00 pm PST**)
+## Build order (deadline **Nov 12, 12:00 pm PST**; submit by 10:00 PST)
 
-| Owner | Track | Features | Must be done by |
-|---|---|---|---|
-| **A: money** | DB, PayPal client, auction, settlement | 16 (core), 10, 11, 12, 15 | Nov 11, 12:00 PST: Clear works end to end in sandbox |
-| **B: brand UI** | Brand console in AG Grid | 01, 02, 08, 09, 18 | Nov 11, 18:00: console hero screen polished |
-| **C: shopper and agents** | Offer page, holds, buyer agent, mandates | 03, 04, 05, 13, 14 | Nov 11, 18:00: shopper bids with a real hold |
-| **D: integrations and demo** | Channel3, watcher, MCP, seeding, video | 06, 07, 17, README, video | Nov 11, 22:00: video recorded |
+Builders are Agent Orchestrator workers running many tickets in parallel, so there are no owner tracks. The dependency-ordered **wave plan**, the critical path (money spine and bid chain), checkpoints CP1–CP5 (PST and IST) and the circuit breakers live in [../tickets/INDEX.md](../tickets/INDEX.md). Feature files keep an "Owner" letter as a grouping label only.
 
-Timeline:
-- **Nov 10 evening:** schema, PayPal client, auction unit tests, console skeleton, offer page skeleton.
-- **Nov 11 morning:** holds from the offer page; Clear → Workflows → captures/voids/payout.
-- **Nov 11 afternoon:** price watcher, MCP, brand agent, seeding, polish.
-- **Nov 11 night:** record the video; deploy to Render.
-- **Nov 12 by 10:00 PST:** Devpost submitted (public repo, OSS license in About, YouTube video under 3 min). The last 2 hours are a buffer.
+Every feature stays in scope. Where a fallback exists (`DEMO_MODE` logins before Log in with PayPal, the labelled test-card button before card fields, the in-process coordinator before Render Workflows, template nudges before Claude-phrased ones, the replayed price event before the live Channel3 webhook), the fallback is built first and the full version after it.
 
-P0 = must ship for the demo. P1 = ship if time allows. P2 = describe in README only.
+P0 = must ship for the demo. P1 = ship after the P0 money spine. P2 = describe in README only (only items that were P2 before the engineering review).
 
 ## Definition of done (whole product)
 - [ ] One brand lists a product; shoppers place real sandbox holds from the offer page.
 - [ ] Claude Desktop places a bid over MCP; it appears live on the console.
 - [ ] A Channel3 price drop (real or replayed fixture, labelled) voids a bid.
-- [ ] Clear runs the auction; Workflows captures each winner at their own bid, voids losers, promotes after one injected decline (at the promoted bidder's own bid).
+- [ ] Live rounds: SIM agents and one real bidder raise after a nudge.
+- [ ] Clear runs the auction; settlement captures each winner at their own bid, voids losers, promotes after one injected decline (at the promoted bidder's own bid), on Render Workflows (in-process coordinator as the fallback).
 - [ ] Payout to the brand's sandbox account is created.
 - [ ] Every money action has an audit row with PayPal IDs.
 - [ ] Simulated bidders are labelled SIM everywhere.
@@ -137,8 +129,8 @@ P0 = must ship for the demo. P1 = ship if time allows. P2 = describe in README o
 - [ ] Video under 3 min, public on YouTube.
 
 ## Designs
-Figma file **PayPal-Hack26** (https://www.figma.com/design/BRS9LZjjFKWxvZqv5sQZcG/PayPal-Hack26):
-- **SO v2 — Design System**: semantic colour variables (sampled from the "bgs" paintings: night indigo, ridge violet, meadow periwinkle, grass gold), space/radius variables, effect styles, 36 icons, and components with state variants wired for Smart Animate (Button, Badge, Toggle, Chip, Input, Stat tile, Nav item, Sidebar, Tab item/bar, Status bar, Toast + Toast host, Demand chart Loading→Live, Progress, Gantt bar (Bryntum), Marketing nav). Type + motion specs included.
-- **SO v2 — Screens**: all web (W01–W21) and mobile (M01–M12) screens in Sections, built only from those components, with prototype links between steps.
-- **Holdfast — UI v1 (archive)**: first pass, kept for reference only.
-- Order status everywhere uses a **Bryntum Gantt** (window → price watch → signal → lock → capture fan-out → payout → shipping).
+Figma file **PayPal-Hack26** (https://www.figma.com/design/BRS9LZjjFKWxvZqv5sQZcG/PayPal-Hack26), page **Holdfast — v3** is canonical (D16):
+- Geist for headlines and body, Geist Mono UPPERCASE for nav, buttons and labels; white page with thin guide lines, square corners; orange (#F26B2C) for the main action, charcoal for the secondary (see `../HOLDFAST-SPEC.md` §9).
+- Build app screens from v3 components and tokens without waiting for per-screen frames; screen content and states come from [screens.md](screens.md).
+- Earlier "SO v2" and "UI v1" pages are superseded; don't build from them.
+- Order status uses a **Bryntum Gantt**: the W08 settlement fan-out first, then the other placements (window → price watch → signal → lock → capture fan-out → payout → shipping).

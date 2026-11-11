@@ -1,196 +1,203 @@
 # Holdfast tickets: index
 
-Source of truth: `docs/spec/` (README, data-model, api, screens, features 01–19), with `docs/HOLDFAST.md` / `docs/HOLDFAST-SPEC.md` for context and `spikes/paypal-spikes.mjs` for what is already proven (S1, S2, S3-local, S4).
+Source of truth: `docs/spec/` (README, data-model, api, screens, features 01–19), with `docs/HOLDFAST.md` / `docs/HOLDFAST-SPEC.md` for context and `spikes/paypal-spikes.mjs` for what is already proven (S1, S2, S3-local, S4). The engineering review (`docs/review/SUMMARY.md` and the five track files) is applied: decisions D1–D19 and the "Other answers" paragraph are approved and folded into the spec and these tickets.
 
-Scope trim applied (agreed with the user): notifications (13), embed widget (14), the ops/admin audit **screen** (15; the audit table + writes stay P0 in HF-003), landing page (18), DNS domain verification and teammate invites (01) are **P1** or README-only. Everything else keeps the spec's priority. P2 items (disputes/refunds, brand API keys, multiparty `platform_fees`) are README-only and have no tickets (HF-049 covers the README).
+**Scope rule (user decision, overrides the review).** No feature is dropped or demoted. Where the review proposed "→ P1/P2", "README only", "drop", "narrow", "lite" or "stretch", the ticket stays in scope at its current priority (P1 at the lowest) and is sequenced after the money spine. Where the review proposed a fallback (DEMO_LOGIN, the sandbox test-card button, the in-process settlement coordinator, template nudge text, the price-drop replay, the cron order poll), the ticket builds **both**: Part 1 is the fallback, built first; Part 2 is the full feature. Live rounds ship in full, split into a basic part and a full part, both P0.
 
-Owners: **A** money · **B** brand UI · **C** shopper & agents · **D** integrations & demo. Estimates are focused engineer-hours.
+**Builders.** There is no human team. Tickets are built by Agent Orchestrator workers, many in parallel. The **Track** column is a grouping label only (A money · B brand UI · C shopper & agents · D integrations & demo); it says nothing about who builds a ticket. Estimates are worker-hours and set wave length, not capacity. A ticket is ready when every ticket in "Depends on" is merged; dispatch ready P0 tickets before ready P1 tickets.
+
+**PayPal.** Same sandbox credentials as the spikes. Brand payouts are funded by the captured winners' money in the sandbox business account; HF-063 proves a ≈ $50k payout after a large capture batch.
+
+Splits and merges: HF-003 → 003a/003b · HF-011 → 011a/011b · HF-012 → 012a/012b · HF-014 → 014a/014b (HF-015 merged into 014b) · HF-017 → 017a/017b · HF-020 + HF-021 → HF-020 · HF-030 → 030a/030b · HF-036/037/038 → a (basic) / b (full) · HF-039 + HF-040 → HF-039 · HF-042 → 042a/042b · HF-044 → 044a/044b · HF-047 slimmed (race tests moved into the tickets that create each race) · HF-048 → 048a/048b · HF-050 → 050a/050b · HF-051 → 051a/051b · HF-054 → 054a/054b · HF-059 → 059a/059b · new HF-063 (PayPal spike pack S7). HF-062 is unused.
 
 ## All tickets
 
-| ID | Title | Track | Pri | Est (h) | Depends on |
-|---|---|---|---|---|---|
-| [HF-001](HF-001-monorepo-scaffold.md) | Monorepo scaffold, config and env | A | P0 | 2 | none |
-| [HF-002](HF-002-postgres-schema.md) | Postgres schema and migrations | A | P0 | 2 | HF-001 |
-| [HF-003](HF-003-data-access-core.md) | Data-access core: conditional transitions, tenancy helper, audit, idempotency | A | P0 | 3 | HF-002 |
-| [HF-004](HF-004-paypal-client.md) | PayPal REST client (orders, payments, payouts, webhooks verify) | A | P0 | 2 | HF-001 |
-| [HF-005](HF-005-pure-auction-clear.md) | Pure pay-your-bid `clear()` with property tests | A | P0 | 1 | HF-001 |
-| [HF-006](HF-006-auth-middleware.md) | Sessions, auth middleware, error envelope, rate limits, CSRF | A | P0 | 3 | HF-003 |
-| [HF-007](HF-007-web-scaffold.md) | Web app scaffold, design tokens, AG Grid licence, routing | B | P0 | 2 | HF-001 |
-| [HF-008](HF-008-sse-event-bus.md) | SSE event bus for listings | A | P0 | 1 | HF-006 |
-| [HF-009](HF-009-channel3-client-match.md) | Channel3 client, product search proxy and exact-match gate | D | P0 | 3 | HF-002, HF-006 |
-| [HF-010](HF-010-brand-login-with-paypal.md) | Brand sign-in with Log in with PayPal (W02) | B | P0 | 2 | HF-006, HF-007 |
-| [HF-011](HF-011-brand-verification-onboarding.md) | Brand verification onboarding (W03), admin approval, publish guard | B | P0 | 2 | HF-010 |
-| [HF-012](HF-012-listings-api.md) | Listings API: create, publish, cancel | B | P0 | 3 | HF-009, HF-011 |
-| [HF-013](HF-013-create-listing-wizard.md) | Create listing wizard (W05) | B | P0 | 3 | HF-012, HF-007 |
-| [HF-014](HF-014-bid-service-card-vault.md) | Bid service: `POST /bids` with card and vaulted holds | C | P0 | 4 | HF-003, HF-004, HF-006, HF-008 |
-| [HF-015](HF-015-wallet-approval-flow.md) | PayPal wallet approval flow and return URL | C | P0 | 2 | HF-014 |
-| [HF-016](HF-016-cancel-and-my-bids-api.md) | Cancel bid, my bids and bid detail APIs | C | P0 | 2 | HF-014 |
-| [HF-017](HF-017-mandates.md) | Mandates: `authorize()`, API, pause/revoke, minimal W17/M09 | C | P0 | 3 | HF-014 |
-| [HF-018](HF-018-raise-bid.md) | Raise bid (new hold first, then release) | C | P0 | 3 | HF-017, HF-016 |
-| [HF-019](HF-019-offer-page.md) | Shopper offer page (W12 / M01) and `GET /offers/:slug` | C | P0 | 4 | HF-014, HF-012, HF-007 |
-| [HF-020](HF-020-hold-confirmation-errors.md) | Hold confirmation (W13 / M02) and error states (W21) | C | P0 | 2 | HF-019, HF-015 |
-| [HF-021](HF-021-my-bids-and-timeline.md) | My bids (W14 / M03) and bid detail timeline (W15 / M04) | C | P0 | 3 | HF-016, HF-007 |
-| [HF-022](HF-022-book-and-simulate-api.md) | Book and simulate API | B | P0 | 2 | HF-005, HF-003 |
-| [HF-023](HF-023-console-shell-kpis.md) | Listing console shell (W06): header, KPI tiles, live updates | B | P0 | 3 | HF-022, HF-008, HF-007 |
-| [HF-024](HF-024-demand-curve-slider.md) | Demand curve (AG Charts) and quantity slider | B | P0 | 3 | HF-023 |
-| [HF-025](HF-025-bids-grid.md) | Bids grid (AG Grid Enterprise) | B | P0 | 3 | HF-023 |
-| [HF-026](HF-026-brand-overview.md) | Brand overview dashboard (W04) | B | P0 | 2 | HF-022, HF-007 |
-| [HF-027](HF-027-clear-transaction.md) | Clear transaction (`POST /listings/:id/clear`) with hold-age guard | A | P0 | 3 | HF-005, HF-003, HF-008 |
-| [HF-028](HF-028-clear-modal.md) | Clear confirmation modal (W07) and role gating | B | P0 | 2 | HF-027, HF-024 |
-| [HF-029](HF-029-settle-bid-task.md) | `settleBid` task: capture / void with retries | A | P0 | 3 | HF-027, HF-004 |
-| [HF-030](HF-030-settle-listing-orchestration.md) | `settleListing` orchestration on Render Workflows (+ in-process fallback) | A | P0 | 4 | HF-029 |
-| [HF-031](HF-031-promote-next.md) | `promoteNext`: replace a failed winner at the promoted bidder's own bid | A | P0 | 3 | HF-030 |
-| [HF-032](HF-032-payout-brand.md) | `payoutBrand`: fee math, payout, PAID_OUT / PAYOUT_FAILED | A | P0 | 2 | HF-030 |
-| [HF-033](HF-033-paypal-webhooks.md) | PayPal webhooks: verify, dedupe, reconcile | A | P0 | 2 | HF-029, HF-032, HF-015 |
-| [HF-034](HF-034-crons-expiry-sweeper.md) | Crons: window expiry, abandoned approvals, dangling-hold sweeper | A | P0 | 2 | HF-027, HF-016 |
-| [HF-035](HF-035-settlement-live-view.md) | Settlement live view (W08) | B | P0 | 3 | HF-030, HF-031, HF-032 |
-| [HF-036](HF-036-live-rounds-engine.md) | Live rounds engine: start/stop, round runner, nudges | B | P0 | 4 | HF-005, HF-008, HF-012 |
-| [HF-037](HF-037-live-rounds-console.md) | Live rounds console controls (W06) | B | P0 | 2 | HF-036, HF-023 |
-| [HF-038](HF-038-buyer-side-rounds.md) | Buyer side of live rounds: auto-raise or ask, raise sheet (M07) | C | P0 | 3 | HF-018, HF-036, HF-017 |
-| [HF-039](HF-039-buyer-agent-loop.md) | Buyer agent loop and chat API | C | P0 | 3 | HF-006 |
-| [HF-040](HF-040-buyer-agent-tools.md) | Buyer agent tools and guardrails | C | P0 | 3 | HF-039, HF-009, HF-014, HF-016, HF-017 |
-| [HF-041](HF-041-agent-chat-ui.md) | Buyer agent chat UI (W16 / M05) | C | P0 | 3 | HF-039, HF-007 |
-| [HF-042](HF-042-price-watcher.md) | Price watcher: Channel3 webhook, auto-void, labelled replay | D | P0 | 4 | HF-009, HF-016 |
-| [HF-043](HF-043-mcp-tokens-w19.md) | MCP tokens and developer connect page (W19) | D | P0 | 2 | HF-006, HF-007 |
-| [HF-044](HF-044-mcp-server.md) | MCP server (`/mcp`) with get_book, place_bid, cancel_bid, my_bids, raise_bid | D | P0 | 3 | HF-043, HF-014, HF-016, HF-018, HF-022 |
-| [HF-045](HF-045-demo-seed.md) | Demo seed script (`npm run seed:demo`) | D | P0 | 4 | HF-012, HF-014, HF-017 |
-| [HF-046](HF-046-demo-scripts.md) | Demo scripts: sim:stream, SIM round agents, demo:decline, demo:reset | D | P0 | 3 | HF-045, HF-036, HF-038, HF-030 |
-| [HF-047](HF-047-security-concurrency-tests.md) | Security and concurrency hardening tests | A | P0 | 2 | HF-027, HF-017, HF-044 |
-| [HF-048](HF-048-render-deploy.md) | Render deployment | D | P0 | 3 | HF-001, HF-030, HF-033 |
-| [HF-049](HF-049-readme-license.md) | README and license | D | P0 | 2 | HF-048 |
-| [HF-050](HF-050-demo-video-submission.md) | Demo video and Devpost submission | D | P0 | 3 | HF-046, HF-048, HF-049 |
-| [HF-051](HF-051-brand-agent-recommendations.md) | Brand agent recommendations and "Ask about this book" panel | B | P1 | 4 | HF-022, HF-024 |
-| [HF-052](HF-052-intents-move-rule.md) | Multi-product intents and the move rule | C | P1 | 4 | HF-040, HF-017 |
-| [HF-053](HF-053-auto-roll.md) | Auto-roll cron (merchant-initiated re-bids) | C | P1 | 3 | HF-017, HF-034 |
-| [HF-054](HF-054-notifications.md) | Notifications: `notify()`, in-app list, email, web push, M11 set | C | P1 | 4 | HF-003, HF-021 |
-| [HF-055](HF-055-embed-widget-share.md) | Embed widget and share links (W10) | C | P1 | 3 | HF-019 |
-| [HF-056](HF-056-brand-settings-dns-team.md) | Brand settings (W11): DNS verification check, team invites, retailer allowlist | B | P1 | 4 | HF-011 |
-| [HF-057](HF-057-landing-page.md) | Marketing landing page (W01 / M12) | B | P1 | 4 | HF-007 |
-| [HF-058](HF-058-ops-audit-screen.md) | Ops / audit screen (W20), health, nightly reconcile | A | P1 | 4 | HF-003, HF-004, HF-030 |
-| [HF-059](HF-059-reports-tracking-won-page.md) | Payouts & reports (W09), shipment tracking, won page (W18 / M08) | A | P1 | 4 | HF-032 |
-| [HF-060](HF-060-bryntum-order-timeline.md) | Bryntum Gantt order-status timeline | B | P1 | 3 | HF-023, HF-021, HF-035 |
-| [HF-061](HF-061-brand-mobile-alert.md) | Brand mobile alert and clear approval (M10) | B | P1 | 2 | HF-028, HF-054 |
-
-## Totals
-
-| Track | P0 tickets | P0 hours | P1 tickets | P1 hours | All hours |
-|---|---|---|---|---|---|
-| A money | 15 | 35 | 2 | 8 | 43 |
-| B brand UI | 14 | 36 | 5 | 17 | 53 |
-| C shopper & agents | 12 | 35 | 4 | 14 | 49 |
-| D integrations & demo | 9 | 27 | 0 | 0 | 27 |
-| **Total** | **50** | **133** | **11** | **39** | **172** |
-
-No P2 tickets (P2 = README only).
-
-## Capacity check (deadline Nov 12, 12:00 PST; submit by 10:00 PST)
-
-The README timeline assumed Nov 10 evening for schema, PayPal client, auction tests and skeletons. **As of writing (Nov 11 ≈ 01:00 PST) the repo contains no app code** (only docs, spikes, the skill), so that block is gone.
-
-Assumptions: from Nov 11 01:00 PST to the 10:00 PST Nov 12 submission target is 33 h wall-clock; allowing ~8 h for sleep and meals leaves **≈ 25 focused hours per engineer**. Milestones from `docs/spec/README.md`:
-
-| Track | P0 hours | Focused hours available to submission | Milestone (README) | Wall-clock to milestone | P0 work the milestone needs | Status |
+| ID | Title | Track | Pri | Wave | Est (h) | Depends on |
 |---|---|---|---|---|---|---|
-| A money | 35 | ≈ 25 | Nov 11 12:00: Clear works end to end in sandbox | 11 h | HF-001–006, 008, 027, 029–032 = **29 h** (+ HF-014 hold from C) | **OVER** by ~10 h overall; milestone needs ~29 h in 11 h, so it slips unless work is moved |
-| B brand UI | 36 | ≈ 25 | Nov 11 18:00: console hero polished | 17 h | HF-007, 022–025, 028 = **15 h** (after HF-001/003/005/008 from A) | **OVER** by ~11 h overall; milestone is reachable only if A's foundations land by ~06:00 |
-| C shopper & agents | 35 | ≈ 25 | Nov 11 18:00: shopper bids with a real hold | 17 h | HF-014, 015, 019, 020 = **12 h** (after A's HF-003/004/006/008) | **OVER** by ~10 h overall; milestone OK |
-| D integrations & demo | 27 | ≈ 25 | Nov 11 22:00: video recorded | 21 h | needs nearly every P0 ticket from all tracks | **OVER** by ~2 h; the video milestone depends on the other tracks |
+| [HF-001](HF-001-monorepo-scaffold.md) | Monorepo scaffold, config, env, `packages/core` and `packages/shared` contracts | A money | P0 | 1 | 2 | none |
+| [HF-002](HF-002-postgres-schema.md) | Postgres schema and migrations (frozen by 05:30 PST Nov 11) | A money | P0 | 1 | 3 | none (runs in parallel with HF-001 against the agreed layout: `db/migrations/`, `npm run migrate`) |
+| [HF-003a](HF-003a-landhold-transitions.md) | Money primitives: `landHold`, `transition`, `lockBids`, `voidBid` / `voidKey`, lease, `emit` | A money | P0 | 2 | 1.5 | HF-002, HF-001 |
+| [HF-003b](HF-003b-audit-tenancy-idempotency.md) | Audit pairs, tenancy helpers, generic idempotency, webhook dedupe | A money | P0 | 3 | 2.5 | HF-003a |
+| [HF-004](HF-004-paypal-client.md) | PayPal REST client + `FakePayPal` stub | D integrations & demo | P0 | 2 | 3 | HF-001, HF-063 |
+| [HF-005](HF-005-pure-auction-clear.md) | Pure pay-your-bid `clear()`, eligibility predicate and `loadClearInput` | B brand UI | P0 | 2 | 1.5 | HF-001, HF-002 |
+| [HF-006](HF-006-auth-middleware.md) | Sessions, auth, anonymous shopper, `DEMO_MODE` logins, error envelope, CSRF, rate limits | B brand UI | P0 | 3 | 2 | HF-003a |
+| [HF-007](HF-007-web-scaffold.md) | Web app scaffold, v3 tokens, AG Grid / AG Studio, same-origin SPA, demo hub | B brand UI | P0 | 2 | 2.5 | HF-001 |
+| [HF-008](HF-008-sse-event-bus.md) | SSE event bus for listings (LISTEN side + streams) | B brand UI | P0 | 4 | 1.5 | HF-006 |
+| [HF-009](HF-009-channel3-client-match.md) | Channel3 client, live fixtures, product search proxy and two-stage exact-match gate | D integrations & demo | P0 | 4 | 3 | HF-002, HF-006 |
+| [HF-010](HF-010-brand-login-with-paypal.md) | Brand sign-in with Log in with PayPal (W02) | B brand UI | P0 | 7 | 2.5 | HF-006, HF-007, HF-011a; HF-031, HF-032, HF-034 ‡ |
+| [HF-011a](HF-011a-admin-brand-verify.md) | Admin brand verification (endpoint + `admin:verify`) and publish guard | D integrations & demo | P0 | 4 | 0.5 | HF-006 |
+| [HF-011b](HF-011b-brand-onboarding-ui.md) | Brand verification onboarding (W03) | B brand UI | P0 | 8 | 2 | HF-011a, HF-010, HF-007; HF-031, HF-032, HF-034 ‡ |
+| [HF-012a](HF-012a-listings-create-publish.md) | Listings API: create and publish | B brand UI | P0 | 5 | 1.5 | HF-003a, HF-006, HF-009 |
+| [HF-012b](HF-012b-listings-cancel-quantity.md) | Listings API: async cancel (OPEN or ROUNDS) and quantity increase | B brand UI | P0 | 6 | 2 | HF-012a, HF-004, HF-008, HF-003a |
+| [HF-013](HF-013-create-listing-wizard.md) | Create listing wizard (W05) | B brand UI | P0 | 7 | 3 | HF-012a, HF-007; HF-031, HF-032, HF-034 ‡ |
+| [HF-014a](HF-014a-bid-service-core.md) | Bid service core: `placeBid`, VAULT holds, one live bid, mandate cap | C shopper & agents | P0 | 4 | 3 | HF-003a, HF-003b, HF-004, HF-006 |
+| [HF-014b](HF-014b-card-wallet-authorize.md) | Browser CARD (card fields) and PAYPAL wallet holds, `POST /bids/:id/authorize` | C shopper & agents | P0 | 5 | 3 | HF-014a, HF-063 |
+| [HF-016](HF-016-cancel-and-my-bids-api.md) | Cancel bid, my bids and bid detail APIs | C shopper & agents | P0 | 5 | 2 | HF-014a |
+| [HF-017a](HF-017a-mandates-core.md) | Mandates core: `authorize()`, cap, pause fan-out, `onCaptured` | C shopper & agents | P0 | 5 | 2 | HF-003a, HF-014a |
+| [HF-017b](HF-017b-mandates-api-form.md) | Mandates API and W17 / M09 form | C shopper & agents | P0 | 6 | 2.5 | HF-017a, HF-007 |
+| [HF-018](HF-018-raise-bid.md) | Raise bid: atomic `landHold` swap | C shopper & agents | P0 | 6 | 3.5 | HF-003a, HF-014a, HF-017a |
+| [HF-019](HF-019-offer-page.md) | Shopper offer page (W12 / M01) and `GET /offers/:slug` | C shopper & agents | P0 | 5 | 4 | HF-014a, HF-007, HF-063 (card-fields part also needs HF-014b; builds against fixture listings, integrates with HF-012a) |
+| [HF-020](HF-020-shopper-bid-screens.md) | Hold confirmation (W13 / M02), error states (W21), my bids (W14 / M03) and bid timeline (W15 / M04) | C shopper & agents | P0 | 6 | 3 | HF-019, HF-016 (W13 "Let my agent manage this" links to HF-017b; nudge rows read HF-036a's `nudges`, testable against a fixture SQL file) |
+| [HF-022](HF-022-book-and-simulate-api.md) | Book and simulate API | B brand UI | P0 | 4 | 2 | HF-005, HF-003b, HF-006 |
+| [HF-023](HF-023-console-shell-kpis.md) | Listing console shell (W06): header, KPI row on AG Studio, live updates | B brand UI | P0 | 5 | 3.5 | HF-022, HF-008, HF-007 |
+| [HF-024](HF-024-demand-curve-slider.md) | Demand curve (AG Charts) and quantity slider | B brand UI | P0 | 6 | 3 | HF-023 |
+| [HF-025](HF-025-bids-grid.md) | Bids grid (AG Grid Enterprise) | B brand UI | P0 | 7 | 3 | HF-023, HF-024 |
+| [HF-026](HF-026-brand-overview.md) | Brand overview dashboard (W04) + `GET /brands/me/overview` | B brand UI | P0 | 7 | 3 | HF-022, HF-007, HF-031, HF-032, HF-034 ‡ |
+| [HF-027](HF-027-clear-transaction.md) | Clear transaction (`POST /listings/:id/clear`) with D2 locks, outbox, reserve and hold-age release | A money | P0 | 3 | 3.5 | HF-003a, HF-005 |
+| [HF-028](HF-028-clear-modal.md) | Clear confirmation modal (W07), 409 handling and role gating | B brand UI | P0 | 7 | 2 | HF-027, HF-024 |
+| [HF-029](HF-029-settle-bid-task.md) | `settleBid` task: capture / void with lease, RECONCILE and retries | D integrations & demo | P0 | 4 | 3 | HF-027, HF-004, HF-003a |
+| [HF-030a](HF-030a-settlement-coordinator.md) | Settlement coordinator (in-process) + outbox kick + admin retry | A money | P0 | 5 | 2.5 | HF-029 |
+| [HF-030b](HF-030b-render-workflows-adapter.md) | Render Workflows settlement adapter | D integrations & demo | P0 | 7 | 2 | HF-030a, HF-048a, HF-031, HF-032, HF-034 ‡ |
+| [HF-031](HF-031-promote-within.md) | `promoteWithin(tx, failedBidId)`: inline promotion at the promoted bidder's own bid | A money | P0 | 6 | 2 | HF-029, HF-030a |
+| [HF-032](HF-032-payout-brand.md) | `payoutBrand`: fee math, attempts, PENDING_UNKNOWN, PAID_OUT / PAYOUT_FAILED | A money | P0 | 6 | 2 | HF-030a, HF-004 |
+| [HF-033](HF-033-paypal-webhooks.md) | PayPal webhooks: verify, dedupe, reconcile | A money | P0 | 7 | 2 | HF-029, HF-032, HF-014b, HF-031, HF-034 ‡ |
+| [HF-034](HF-034-crons-expiry-sweeper.md) | Crons: sweeper, `reconcile:holds`, settlement kick, payout poll, expiry | A money | P0 | 6 | 3 | HF-004, HF-027, HF-029, HF-016, HF-036a |
+| [HF-035](HF-035-settlement-live-view.md) | Settlement live view (W08) | B brand UI | P0 | 7 | 2.5 | HF-030a, HF-031, HF-032, HF-023 |
+| [HF-036a](HF-036a-live-rounds-basic.md) | Live rounds basic: start/stop, "Next round", nudge snapshots, template text | B brand UI | P0 | 4 | 2.5 | HF-002, HF-003a, HF-005, HF-006 (build on a fixture listing; no HF-012a dependency) |
+| [HF-036b](HF-036b-live-rounds-full.md) | Live rounds full: timer tick, soft close, extensions, end rules, Claude phrasing | B brand UI | P0 | 7 | 3 | HF-036a, HF-018 |
+| [HF-037a](HF-037a-rounds-console-basic.md) | Live rounds console basic: start/stop, timer, confirm copy | B brand UI | P0 | 6 | 1 | HF-036a, HF-023 |
+| [HF-037b](HF-037b-rounds-console-full.md) | Live rounds console full: raises feed, extensions, raise flash | B brand UI | P0 | 8 | 1.5 | HF-037a, HF-036b |
+| [HF-038a](HF-038a-buyer-rounds-basic.md) | Buyer rounds basic: raise from the bid page, ROUNDS polling | C shopper & agents | P0 | 7 | 2 | HF-018, HF-036a, HF-020 |
+| [HF-038b](HF-038b-buyer-rounds-full.md) | Buyer rounds full: auto-raise runner and raise sheet (M07) | C shopper & agents | P0 | 8 | 3 | HF-038a, HF-036b, HF-017a |
+| [HF-039](HF-039-buyer-agent.md) | Buyer agent loop, chat API and tools (merged HF-039 + HF-040) | C shopper & agents | P0 | 7 | 4 | HF-006, HF-009, HF-014a, HF-016, HF-017a, HF-018 |
+| [HF-041](HF-041-agent-chat-ui.md) | Buyer agent chat UI (W16 / M05) | C shopper & agents | P0 | 8 | 2 | HF-039, HF-007 |
+| [HF-042a](HF-042a-price-watcher-replay.md) | Price watcher: labelled replay and auto-void | D integrations & demo | P0 | 6 | 2 | HF-009, HF-016, HF-003a |
+| [HF-042b](HF-042b-price-watcher-live.md) | Price watcher: live Channel3 webhook, outage banner, nightly poll | D integrations & demo | P0 | 7 | 2 | HF-042a, HF-048a; HF-031, HF-032, HF-034 ‡ |
+| [HF-043](HF-043-mcp-tokens-w19.md) | MCP tokens and developer connect page (W19) with readiness panel | B brand UI | P0 | 6 | 2 | HF-006, HF-007, HF-017a |
+| [HF-044a](HF-044a-mcp-server-core.md) | MCP server (`/mcp`): get_book, place_bid, cancel_bid, my_bids | D integrations & demo | P0 | 7 | 2.5 | HF-043, HF-014a, HF-016, HF-022 |
+| [HF-044b](HF-044b-mcp-raise-bid.md) | MCP `raise_bid` tool | D integrations & demo | P0 | 8 | 1 | HF-044a, HF-018 |
+| [HF-045](HF-045-demo-seed.md) | Demo seed script (`npm run seed:demo`): Aurel Audio, deterministic book, SIM round agents | D integrations & demo | P0 | 6 | 3 | HF-014a, HF-017a, HF-005 (seeds through core services; no HF-012a dependency) |
+| [HF-046](HF-046-demo-scripts.md) | Demo scripts: sim:stream, demo:decline, demo:reset | D integrations & demo | P0 | 7 | 2 | HF-045, HF-027, HF-029, HF-031, HF-034 |
+| [HF-047](HF-047-security-tests.md) | Cross-tenant tests, secret scan, security checklist | A money | P0 | 8 | 1.5 | HF-006, HF-022, HF-044a |
+| [HF-048a](HF-048a-render-deploy-base.md) | Render deploy: web service, Postgres, env, `/healthz`, Workflows hello-world | D integrations & demo | P0 | 2 | 1.5 | HF-001, HF-002 |
+| [HF-048b](HF-048b-render-crons-refresh.md) | Render: crons, daily `demo:refresh`, judge book, smoke | D integrations & demo | P0 | 8 | 2 | HF-048a, HF-034, HF-045, HF-046 |
+| [HF-049](HF-049-readme-license.md) | README and license | D integrations & demo | P0 | 3 | 2 | HF-048a (deployed URL only; the draft starts in Wave 3) |
+| [HF-050a](HF-050a-devpost-draft.md) | Devpost draft | D integrations & demo | P0 | 2 | 0.5 | HF-001 |
+| [HF-050b](HF-050b-demo-video-submission.md) | Demo video and Devpost submission | D integrations & demo | P0 | 9 | 5 | HF-046, HF-048b, HF-049 |
+| [HF-051a](HF-051a-brand-agent-recommendation.md) | Brand agent recommendation card (code-only) | B brand UI | P1 | 7 | 1 | HF-022, HF-024 |
+| [HF-051b](HF-051b-brand-agent-ask-panel.md) | Brand agent "Ask about this book" panel (AG Studio Agent Framework) | B brand UI | P1 | 8 | 3 | HF-051a |
+| [HF-052](HF-052-intents-move-rule.md) | Multi-product intents and the move rule | C shopper & agents | P1 | 8 | 4 | HF-039, HF-017a, HF-018 |
+| [HF-053](HF-053-auto-roll.md) | Auto-roll cron (merchant-initiated re-bids) | C shopper & agents | P1 | 7 | 3 | HF-017a, HF-034, HF-018 |
+| [HF-054a](HF-054a-notify-in-app.md) | `notify()` as an audit subscriber + in-app bell | C shopper & agents | P1 | 7 | 2 | HF-003b, HF-020, HF-031, HF-032, HF-034 ‡ |
+| [HF-054b](HF-054b-notify-email-push.md) | Notifications: email, web push, M11 set | C shopper & agents | P1 | 8 | 2.5 | HF-054a |
+| [HF-055](HF-055-embed-widget-share.md) | Embed widget and share links (W10) | C shopper & agents | P1 | 7 | 3 | HF-019, HF-031, HF-032, HF-034 ‡ |
+| [HF-056](HF-056-brand-settings-dns-team.md) | Brand settings (W11): DNS verification check, team invites, retailer allowlist | B brand UI | P1 | 9 | 4 | HF-011b |
+| [HF-057](HF-057-landing-page.md) | Marketing landing page (W01 / M12) | B brand UI | P1 | 7 | 4 | HF-007, HF-031, HF-032, HF-034 ‡ |
+| [HF-058](HF-058-ops-audit-screen.md) | Ops / audit screen (W20), health, nightly capture reconcile | A money | P1 | 8 | 3.5 | HF-003b, HF-004, HF-030a, HF-006, HF-025 |
+| [HF-059a](HF-059a-won-page.md) | Won page (W18 / M08) | C shopper & agents | P1 | 7 | 2 | HF-032, HF-020 |
+| [HF-059b](HF-059b-payouts-reports-tracking.md) | Payouts & reports (W09) and shipment tracking | A money | P1 | 7 | 3 | HF-032, HF-031, HF-034 ‡ |
+| [HF-060](HF-060-bryntum-order-timeline.md) | Bryntum Gantt: W08 settlement fan-out first, then the order-status timeline | B brand UI | P1 | 8 | 3 | HF-035, HF-020 (part 2 only) |
+| [HF-061](HF-061-brand-mobile-alert.md) | Brand mobile alert and clear approval (M10) | B brand UI | P1 | 9 | 2 | HF-028, HF-054b |
+| [HF-063](HF-063-paypal-spike-pack.md) | PayPal spike pack S7 (card fields, wallet, replays, ~$50k payout funded by captures) | D integrations & demo | P0 | 1 | 2 | none |
 
-Team-wide: **133 P0 hours vs ≈ 100 focused hours.** Every track is over. Options for the user to decide (not applied, since the spec is the authority):
-- **Rebalance:** D has the lightest load and its early work is independent. D could take HF-004 (PayPal client, ported from the spike), the first Render deploy (HF-048) and HF-036 (round runner is backend). A then keeps only the money chain.
-- **P0 candidates to demote if needed** (these are lowest-risk to the Definition of done): HF-026 overview W04 (console works without it), HF-013 wizard (seed can create listings; DoD says "one brand lists a product"), HF-010 Log in with PayPal (session could be seeded), HF-047 hardening tests (partially covered in earlier tickets), HF-015 wallet hold (card holds are proven; HOLDFAST-SPEC §11 already says the demo uses card holds plus one wallet hold).
+‡ = also sequenced after the money spine (HF-031, HF-032, HF-034).
 
-## Critical path: P0 money path (hold → live rounds → clear → capture/void/promote → payout)
+**Totals:** P0: 61 tickets, 144 worker-h · P1: 14 tickets, 40 worker-h · **all: 75 tickets, 184 worker-h** (estimates exclude integration, +20–30%).
 
-Build-time chain (owner, hours):
+## Wave plan
 
-1. HF-001 scaffold (A, 2)
-2. HF-002 schema (A, 2)
-3. HF-003 data core (A, 3) — in parallel: HF-004 PayPal client (A, 2), HF-005 `clear()` (A, 1)
-4. HF-006 auth/middleware (A, 3)
-5. HF-008 SSE (A, 1)
-6. **Hold:** HF-014 bid service, card/vault holds (C, 4) → HF-016 cancel/void (C, 2)
-7. HF-017 mandates (C, 3) → HF-018 raise (C, 3)
-8. **Live rounds:** HF-036 rounds engine (B, 4) → HF-038 buyer auto-raise (C, 3)
-9. **Clear:** HF-027 Clear transaction (A, 3)
-10. **Capture/void:** HF-029 `settleBid` (A, 3) → HF-030 `settleListing` on Render Workflows (A, 4)
-11. **Promote:** HF-031 `promoteNext` (A, 3)
-12. **Payout:** HF-032 `payoutBrand` (A, 2) → HF-033 PayPal webhooks (A, 2)
+A wave is every ticket whose dependencies are all in earlier waves; tickets in a wave run in parallel. Wave numbers are also in each ticket's header. "Target" is when the wave should be merged so the checkpoints hold (PST, Nov 11 unless stated; IST = PST + 13:30).
 
-- HF-027…HF-033 only need HF-005/003/004/008 to *build*; they don't need rounds. Rounds (step 8) are on the critical path for the *demo flow*, not for building Clear.
-- Longest build chain: HF-001→002→003→006→008→014→016→017→018→038 = **26 h**, then HF-046 demo scripts (3) → HF-050 video (3) = **32 h** against 33 h of wall-clock. **There is no slack** unless steps run in parallel without sleep, or the chain is shortened (e.g. HF-036/038 start against fixture bids while HF-017/018 finish).
-- A's own serial work (HF-001–006, 008, 027, 029–033) is **31 h** for one engineer. This is the bottleneck: move HF-004 and HF-005 off A (see rebalance above).
-
-## Dependency order that fits the README timeline
-
-Times are PST, starting Nov 11 ≈ 01:00. The README's Nov 10 evening block is folded into Wave 1.
-
-| Wave | Target | A money | B brand UI | C shopper & agents | D integrations & demo |
+| Wave | Target (PST) | Target (IST) | Gate | P0 tickets | P1 tickets |
 |---|---|---|---|---|---|
-| 1 Foundations | Nov 11 ~07:00 | HF-001, 002, 003, 006, 008 | HF-007 (after HF-001), HF-005* | stub UI for HF-019 against fixtures | HF-004*, then HF-009 |
-| 2 First hold + Clear | Nov 11 12:00 (A milestone) | HF-027, 029, 030 | HF-010, 011, 022 | HF-014, 016 | HF-043; first Render deploy (part of HF-048) |
-| 3 Console + shopper | Nov 11 18:00 (B/C milestones) | HF-031, 032, 033, 034 | HF-012, 023, 024, 025, 028, 035 | HF-015, 017, 018, 019, 020, 021 | HF-042, 044, 045 |
-| 4 Rounds, agents, demo | Nov 11 22:00 (D milestone: video) | HF-047 | HF-036*, 037, 013, 026 | HF-038, 039, 040, 041 | HF-046, 048, 049, record HF-050 |
-| 5 Buffer | Nov 12 06:00–10:00 | fixes | fixes | fixes | Devpost submit by 10:00 PST (HF-050) |
+| 1 | Nov 11 05:30 | Nov 11 19:00 | schema freeze | HF-001, HF-002, HF-063 | – |
+| 2 | Nov 11 07:30 | Nov 11 21:00 | CP1 06:30 needs HF-003a + HF-063 | HF-003a, HF-004, HF-005, HF-007, HF-048a, HF-050a | – |
+| 3 | Nov 11 09:30 | Nov 11 23:00 |  | HF-003b, HF-006, HF-027, HF-049 | – |
+| 4 | Nov 11 12:00 | Nov 12 01:30 | CP2 | HF-008, HF-009, HF-011a, HF-014a, HF-022, HF-029, HF-036a | – |
+| 5 | Nov 11 14:00 | Nov 12 03:30 |  | HF-012a, HF-014b, HF-016, HF-017a, HF-019, HF-023, HF-030a | – |
+| 6 | Nov 11 16:30 | Nov 12 06:00 | CP3: money spine | HF-012b, HF-017b, HF-018, HF-020, HF-024, HF-031, HF-032, HF-034, HF-037a, HF-042a, HF-043, HF-045 | – |
+| 7 | Nov 11 21:00 | Nov 12 10:30 | CP4 | HF-010, HF-013, HF-025, HF-026, HF-028, HF-030b, HF-033, HF-035, HF-036b, HF-038a, HF-039, HF-042b, HF-044a, HF-046 | HF-051a, HF-053, HF-054a, HF-055, HF-057, HF-059a, HF-059b |
+| 8 | Nov 12 01:00 | Nov 12 14:30 | CP5 | HF-011b, HF-037b, HF-038b, HF-041, HF-044b, HF-047, HF-048b | HF-051b, HF-052, HF-054b, HF-058, HF-060 |
+| 9 | Nov 12 10:00 | Nov 12 23:30 | video after 03:00 freeze; submit | HF-050b | HF-056, HF-061 |
 
-\* = suggested move away from the README's owner to balance load (HF-004 → D, HF-005 → B, HF-036 could go to D). Original owners are kept in the ticket files.
+Rules:
+- Wave 1 is HF-001, HF-002 and HF-063 in parallel. HF-002 codes against the agreed layout and does not wait for HF-001; the schema is frozen by **05:30 PST (19:00 IST)**.
+- Build against fixtures: console, offer page, rounds and settlement-view tickets start on fixture listings, bids and event streams inserted directly in the DB, so nothing waits for the brand sign-in chain (HF-010 → 011b) or the wizard (HF-013).
+- Race tests run on the `FakePayPal` stub (HF-004, `PAYPAL_MODE=stub`) and are acceptance criteria of the ticket that creates the race (HF-014a, 017a, 018, 027, 029, 030a, 031, 033, 036a/036b, 038b, 039, 042a). HF-047 keeps only cross-tenant tests, the secret scan and the security checklist.
+- Tickets marked "(sequencing: after the money spine)" depend on HF-031, HF-032 and HF-034 so that no worker is pulled off the spine before CP3. They are not cut.
+- P1 tickets are dispatched only when no P0 ticket is ready.
+- HF-029 calls `promoteWithin(tx, failedBidId)` inside its terminal-failure transaction but ships before HF-031: it merges with a no-op placeholder `promoteWithin` (records the failure, promotes nobody) that HF-031 replaces.
+- Background jobs (sweeper, settlement kick, payout poll, round tick) run in-process under Postgres advisory locks; Render cron is used only for the daily `demo:refresh` (HF-048b).
 
-Notes:
-- HF-012 (listings) is needed by HF-019 and HF-036; during Waves 1–2 use fixture listings inserted directly in the DB so C and A aren't blocked on B's sign-in chain (HF-010 → 011 → 012).
-- Record the Claude Desktop MCP shot (HF-044) as soon as it works (07 test plan).
-- P1 tickets (HF-051–061) start only after all P0 tickets in that track are done.
+## Critical path
 
-## Spec questions
+**Money spine** (≈ 15.5 worker-hours of serial work; target green at CP3, 16:30 PST):
 
-Collected from the tickets' "Notes & risks". Each ticket states what it does until the question is answered.
+HF-002 schema (3) → HF-003a `landHold` / `lockBids` / `voidKey` / lease (1.5) → HF-027 Clear on fixture bids (3.5) → HF-029 `settleBid` (3, built against the HF-004 stub) → HF-030a in-process coordinator (2.5) → HF-031 `promoteWithin` (2) ∥ HF-032 `payoutBrand` (2) → HF-034 sweeper, `reconcile:holds`, settlement kick, payout poll (3, parallel from Wave 6).
 
-**Pay-your-bid copy contradictions**
-1. 08 §Layout 7 ("Holds above $219 are charged $219") and W07 ("Winners are charged $219") describe uniform pricing. (HF-028)
-2. 13 `won` template ("You got it at $219 (you bid $229). $10 released.") and W18 ("You got it at $219; you bid $229") contradict pay-your-bid; HOLDFAST-SPEC §3.8 says "You won at your bid of $229". (HF-021, HF-054, HF-059)
-3. 18 "Winners pay one fair price" and the 12 payout note "cleared 240 at $219" imply a single price. (HF-057, HF-032)
+HF-001 (scaffold) and HF-005 (`clear()`, `loadClearInput`) run beside HF-002/003a; HF-004 (PayPal client + stub) follows HF-063.
 
-**State machine / timing**
-4. data-model locking rule 2 locks only `status='OPEN'`; 10 uses `IN ('OPEN','ROUNDS')`. (HF-027)
-5. After `window_closes_at` the listing stays OPEN (no transition) until Clear or expiry, so "listing is OPEN" would still accept bids. Should `placeBid` also require `now < window_closes_at`? (HF-014)
-6. During ROUNDS: are brand-new bids accepted or only raises? A raise's new hold needs ROUNDS allowed. (HF-014, HF-018)
-7. Can rounds start before the 48 h window closes? data-model says `rounds_end_at ≤ window_closes_at + 6h`; 19 says `now + 6h`. (HF-036)
-8. Can a brand cancel during ROUNDS? (State table allows CANCELLED only from OPEN.) (HF-012)
-9. `clear_deadline_at` must be recomputed on rounds start/stop; confirm the rule. (HF-034)
+**Bid chain** (longest P0 chain, ≈ 22 worker-hours; target done by CP5, 01:00 PST Nov 12):
 
-**Settlement / promotion**
-10. No `units` table: how are `unitId` and the "max 3 promotions per unit" cap tracked? Proposed: chain root = original winner bid id. (HF-031)
-11. "Flip that VOID settlement to cancelled": settlement statuses lack `CANCELLED`. (HF-031)
-12. Reserve buffer "Q + 10%": confirm the size and rounding and whether there's a minimum. (HF-027)
-13. Retry count: "max 3 attempts" vs three backoff retries (1 s, 4 s, 16 s). (HF-029)
-14. Shopper cancels, price-drop voids and raises happen outside Clear, but the void `PayPal-Request-Id` is defined as `settlement.id`. Insert a VOID settlement row for every void? (HF-016)
-15. Hold age for the 66 h guard: measure from the PayPal authorization time (raised bids have fresh holds; seeded bids have backdated `placed_at`)? (HF-027, HF-045)
+HF-002 → HF-003a → HF-003b → HF-014a `placeBid` + VAULT + `landHold` (3) → HF-019 offer page, test-card button then card fields (4) → HF-020 shopper bid screens (3) → HF-038a buyer raise in ROUNDS (2) → HF-038b auto-raise runner and M07 raise sheet (3).
 
-**Data model gaps**
-16. Missing fields: `nudges` table (19), nudge mute flag (19), mandate "notify on every action" and "payment method needs update" flag (05), brand authorized-retailer allowlist (06), brand `maxDiscount` (09), payout-email snapshot at Clear (12), share-link attribution/UTM on bids (14). (HF-002, HF-009, HF-017, HF-036, HF-051, HF-055)
-17. `bids.replaced_by_bid_id` (data-model) vs `replaces_bid_id` (05): which direction? (HF-002)
-18. Channel3 subscription is per product (06) but stored on `listings` (data-model). (HF-009)
-19. Bids carry `intent_id`, not `mandate_id`: which mandate applies to a bid without an intent? (HF-014)
-20. Admin role: 16 says "role ADMIN", but `brand_users.role` is OWNER/MANAGER/VIEWER. (HF-006)
+Parallel branch of the same length class: HF-014a → HF-017a mandates core (2) → HF-018 raise swap (3.5) → HF-036b full rounds (3) → HF-037b full rounds console (1.5) ≈ 20 h.
 
-**API gaps**
-21. `POST /listings` example uses `windowHours: 72`, contradicting the 48 h max. (HF-012)
-22. No endpoint to change `release_if_cheaper` after placing the bid. (HF-020)
-23. 02 allows raising quantity after publish but api.md has no PATCH /listings. (HF-012)
-24. 07 says four MCP tools; api.md and 07 §Logic 6 add `raise_bid`. (HF-044)
-25. 03: a second bid on the same listing "becomes a raise". What if it's lower than the first? (HF-014)
+**To submission:** money spine → HF-046 demo scripts → HF-048b crons and `demo:refresh` → HF-050b video ≈ 24.5 h, with HF-050b (5 h) after the 03:00 PST freeze.
 
-**Agents**
-26. 09 acceptance "the agent has no tool that changes state" vs `send_nudge(bidId)`. (HF-036, HF-051)
+## Checkpoints (gates)
 
-**Priorities and scope (after the trim)**
-27. With notifications (13) at P1, how do P0 features meet their "notify" requirements (06 acceptance: shopper notification with the cheaper-offer link; 11 promotion message; 19 nudges via push)? Tickets deliver these in-app (timeline, W21, M06/M07) and via MCP `my_bids`. (HF-042, HF-031, HF-036)
-28. Magic-link sign-in needs email delivery, but email is P1: is a console-logged link OK for the demo? And 03's "skip sign-in with PayPal" leaves no shopper identity before the hold. (HF-006)
-29. The nightly PayPal reconcile job has no priority, yet 17's acceptance uses it to check for leftover holds. (HF-058)
-30. The Bryntum Gantt order-status view is "in scope" (README Designs, HOLDFAST docs) but has no feature file or priority. Ticketed P1; is it P0 for the Bryntum sponsor? (HF-060)
-31. M10 brand mobile clear belongs to P0 feature 08 but depends on push (P1). Ticketed P1. (HF-061)
-32. Priority conflicts between `docs/spec/` and `HOLDFAST-SPEC.md` §4: 05 mandates (spec P0 limits / review P1), 09 brand agent (spec P0 nudge text / review P1), 12 tracking (spec P1 / review P0), 14 embed (spec P1, link P0 / review P2). Tickets follow `docs/spec/` plus the trim. 14's "link P0" is covered by the plain `/o/:slug` link (HF-012/HF-019).
+| Checkpoint | PST | IST | Gate | Waves that must be merged |
+|---|---|---|---|---|
+| Start | Nov 11 02:00 | Nov 11 15:30 | §1 decisions approved (done). Same PayPal sandbox credentials; secret kept out of the repo (HF-047 scan). | – |
+| Schema freeze | Nov 11 05:30 | Nov 11 19:00 | HF-002 merged; later schema changes need a migration reviewed against every open ticket. | Wave 1 |
+| **CP1** | Nov 11 06:30 | Nov 11 20:00 | Schema frozen; `landHold` (HF-003a) merged; HF-063 S7 results in (card fields, wallet, replay codes, ≈ $50k payout from captures). | Waves 1–2 |
+| **CP2** | Nov 11 12:00 | Nov 12 01:30 | A sandbox hold placed through the deployed API (HF-048a) lands HELD; Clear works on fixture bids. Devpost draft (HF-050a) by 14:00 PST (03:30 IST). | Waves 1–4 |
+| **CP3** | Nov 11 16:30 | Nov 12 06:00 | **Money spine green in sandbox:** Clear → capture/void → injected decline → inline promotion → payout. Render Workflows 10-bid smoke (HF-030b) attempted by 15:00 PST (04:30 IST). | Waves 1–6 |
+| **CP4** | Nov 11 21:00 | Nov 12 10:30 | Console, offer page, MCP (record the Claude Desktop safety shot) and price-drop replay all work on Render; basic live rounds work end to end; safety recordings done. Auto-deploy off. | Waves 1–7 |
+| **CP5** | Nov 12 01:00 | Nov 12 14:30 | Full dry run on the deployed URL, including full live rounds and `demo:refresh`. | Waves 1–8 |
+| Freeze | Nov 12 03:00 | Nov 12 16:30 | Feature freeze. Record 03:00–05:00 PST (16:30–18:30 IST), upload by 05:30 PST (19:00 IST), README final, Devpost by 08:30 PST (22:00 IST). | – |
+| Submit | Nov 12 10:00 | Nov 12 23:30 | Submitted on Devpost; no edits afterwards. Hard deadline 12:00 PST (Nov 13 01:30 IST). | Wave 9 (HF-050b) |
 
-**Design and demo**
-33. Design source: README names Figma "SO v2"; HOLDFAST-SPEC §9 names a newer "Holdfast — v3" direction (Geist, orange). Which is canonical for app screens? (HF-007, HF-057)
-34. Demo brand: README/17 use Sony (and Bose); HOLDFAST-SPEC §3 uses "Aurel Audio / Aurel A7". Which goes in the seed and video? (HF-045)
+## Circuit breakers
+
+None of these removes a ticket from scope; they change what is demoed and where idle workers go.
+
+- **CP1, card fields fail in S7:** the labelled "Use sandbox test card" button (HF-019 / HF-014b Part 1) is the offer-page path; card fields (Part 2) keep going and replace it when green.
+- **CP1, wallet fails in S7:** the PAYPAL wallet variant moves to the end of HF-014b; the HF-034 cron order poll covers missed returns until HF-033 webhooks land.
+- **CP3 red (money spine):** every worker not on a spine ticket pairs on the spine; non-spine tickets queue (not cut) until CP3 is green.
+- **CP4, full live rounds not green:** record the basic rounds flow (HF-036a/037a/038a) as the safety take; full rounds (036b/037b/038b) continue until freeze and are recorded if green by CP5. The README states which ran.
+- **Render Workflows misbehaves:** the in-process coordinator (HF-030a) stays the default; HF-030b stays behind a flag, and the README says which path settled the demo.
+- **Log in with PayPal fails:** `DEMO_MODE` / `DEMO_LOGIN` (HF-006) stays the brand entry; HF-010 continues.
+- **Live Channel3 webhook (HF-042b) not verified:** the labelled replay (HF-042a) drives the price-drop beat.
+
+## Spec questions: resolved
+
+All 34 questions from the original tickets are answered. "Other" = the "Other answers" paragraph of SUMMARY §1; "override" = the user's no-demotion decision.
+
+| Q# | Topic | Resolved by | Answer in one line |
+|---|---|---|---|
+| 1 | 08 / W07 uniform-price copy | D14 | Each winner is charged their own bid. |
+| 2 | 13 `won` template, W18 copy | D14 | "You won at your bid of $229. Charged $229." |
+| 3 | 18 "one fair price", 12 payout note | D14 | Pay-your-bid copy everywhere. |
+| 4 | Clear locks only `OPEN` | D2 | Lock `WHERE status IN ('OPEN','ROUNDS')`, then `FOR UPDATE` HELD bids. |
+| 5 | Bids after `window_closes_at` | D7 | New bids need `OPEN AND now() < window_closes_at`. |
+| 6 | New bids during ROUNDS | D7 | ROUNDS accepts raises only, until `rounds_end_at`. |
+| 7 | Rounds start before window close | D6 | Yes, once; `rounds_end_at = least(now()+6h, window_closes_at+6h)`. |
+| 8 | Brand cancel during ROUNDS | Other (Q#8), M7 | Allowed; async cancel, 202 + SSE progress (HF-012b). |
+| 9 | `clear_deadline_at` on rounds start/stop | D6 | `least(<recomputed>, window_opens_at+60h)`, DB CHECKs. |
+| 10 | Promotion units and cap | D9, D10 | `unit_root_bid_id`, max 3 promotions per unit. |
+| 11 | Cancelled settlement status | D9, D10 | Add `CANCELLED`. |
+| 12 | Reserve size | D10 | Every loser at or above the floor, with skip rules. |
+| 13 | Retry count | D11 | 4 calls (1 s, 4 s, 16 s); TRANSIENT / TERMINAL / RECONCILE. |
+| 14 | VOID rows outside Clear | D4 | No; void request id `void-<bidId>` on every path. |
+| 15 | Hold age source | D6 | `bids.authorized_at` (PayPal `create_time`). |
+| 16 | Missing fields | D17 + HF-002 column list | Added in the first migration (nudges, flags, allowlist, `max_discount_bps`, payout email snapshot, `utm_source`). |
+| 17 | `replaced_by_bid_id` vs `replaces_bid_id` | D3 | `replaces_bid_id` on the new bid, UNIQUE. |
+| 18 | Channel3 subscription location | D17 | On `products` (per product and variant). |
+| 19 | Which mandate applies | D12 | `bids.mandate_id` set at placement. |
+| 20 | Admin role | D13 | `ADMIN_EMAILS` allowlist. |
+| 21 | `windowHours: 72` | Spec row (24/48 h only) | api.md example fixed. |
+| 22 | Change `release_if_cheaper` later | Other (Q#22) | `releaseIfCheaper` on `POST /bids` + `PATCH /bids/:id`. |
+| 23 | PATCH listing quantity | Override (Other said no PATCH in P0) | Kept: raise quantity while OPEN, in HF-012b. |
+| 24 | Four or five MCP tools | Other (Q#24) | Five tools; four recorded first (HF-044a), `raise_bid` in HF-044b. |
+| 25 | Second, lower bid | D3 | `409 ALREADY_BID`; lowering = cancel + new bid. |
+| 26 | Brand agent writes | Other (Q#26) | Template nudges first; `send_nudge` is the brand agent's only write; Claude phrasing in HF-036b. |
+| 27 | P0 "notify" without notifications | D18 | In-app (timeline, W21, MCP `my_bids`, 5 s polling in ROUNDS); email and push stay in scope at P1 (HF-054b). |
+| 28 | Magic link without email; shopper identity | D13 | Console-logged link locally; anonymous cookie-bound shopper; `DEMO_MODE` sign-in. |
+| 29 | Nightly reconcile priority | D19 | `reconcile:holds` is P0 in HF-034. |
+| 30 | Bryntum priority | Override (Other said narrow to W08) | P1, W08 fan-out first, then the order timeline (HF-060). |
+| 31 | M10 brand mobile clear | Override (Other said P2) | Stays P1 (HF-061). |
+| 32 | Mandates / brand agent / tracking / embed priorities | Other (Q#32) + override | `authorize()` P0 (HF-017a); W17 UI P0 (HF-017b); others keep their priority. |
+| 33 | Design source | D16 | Figma "Holdfast — v3". |
+| 34 | Demo brand | D15 | Fictional Aurel Audio / Aurel A7. |

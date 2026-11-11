@@ -11,12 +11,13 @@ Explain the product in 5 seconds to brands (who pay) and judges. It should look 
    - headline: "Clear overstock into money that's already waiting.";
    - sub-line: "Shoppers' AI agents place bids backed by PayPal holds. You see committed demand and sell privately; no public markdown.";
    - CTAs: "Open a private window" / "Watch the 2-min demo";
-   - hero visual: the brand console (demand curve + KPI "$61k held at ≥ $219") over a landscape.
+   - hero visual: the brand console (demand curve + KPI "$61k held at ≥ $219") over a landscape, using the Figma "Holdfast — v3" direction; WebP/AVIF images.
+   - Until this ships, the `/` demo hub (HF-007) is the entry point.
 3. **How it works:** three steps:
    - Shoppers and agents bid; PayPal holds the money;
    - You see the curve and press Clear;
-   - Winners pay one fair price; you get paid.
-4. **Liquidator vs Holdfast:** a comparison bar: $9.1k vs $47.8k net.
+   - Each winner pays their own bid, never more; you get paid.
+4. **Liquidator vs Holdfast:** a comparison bar: $11.4k vs $49.4k net.
 5. **For agents:** MCP snippet + "Any assistant can place a real, held bid."
 6. **Trust:**
    - verified brands only;

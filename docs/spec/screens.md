@@ -94,14 +94,15 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
 - **Components:**
   - summary (quantity, cutoff, gross revenue, winners, losers);
   - money table (gross, fee, net, vs liquidation);
-  - plain-English line ("Winners are charged $219; everyone else's hold is released");
+  - plain-English line ("Each winner is charged their own bid (lowest $219, average $226). Everyone else's hold is released.");
   - type-to-confirm input `CLEAR 240`;
   - Confirm / Cancel.
 - **States:**
   - default;
   - confirm disabled until typed;
   - submitting;
-  - 409 "Book changed: new price $217" with re-review;
+  - 409 `BOOK_CHANGED` "Book changed: new gross $54.0k" with one-click "Confirm $54.0k"; 409 `NOT_CLEARABLE` read-only message;
+  - during ROUNDS the entry button reads "Stop rounds & clear";
   - success → W08.
 - **Interactions:** type, confirm, cancel.
 
@@ -162,14 +163,15 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
   - "Cheapest public price $279 at 14 stores" anchor (link to offers);
   - countdown;
   - price input + slider with the "likely to clear around $219" band;
-  - payment choice (PayPal / card);
+  - payment choice (PayPal / card fields; a labelled "Use sandbox test card" button in sandbox/`DEMO_MODE`, built first);
   - "Hold $229 with PayPal" primary button;
   - how-it-works 3 steps;
   - FAQ (Am I charged? When? Can I cancel?);
   - footer trust row.
 - **States:**
   - open;
-  - already bid (shows your bid + "Raise or cancel");
+  - already bid (`409 ALREADY_BID`: shows your bid + "Raise or cancel"; lowering = cancel + new bid);
+  - ROUNDS (new bids closed; raises only for existing bidders);
   - window closed (W21);
   - embed mode (no header).
 - **Interactions:** adjust price, choose payment, submit, cancel existing.
@@ -193,7 +195,7 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
 - **Features:** 03, 05, 13
 - **Components:**
   - tabs (Live, Won, Released);
-  - bid cards (product, your bid, status pill, time left, "below likely clearing" hint, source chip);
+  - bid cards (product, your bid, status pill, time left, "below likely clearing" hint, `belowCutoff` only during ROUNDS, "on the reserve list" for LOST bids whose hold is still held, source chip);
   - notifications bell.
 - **States:** empty ("No bids yet"); live; won; released.
 - **Interactions:** raise, cancel, open detail W15.
@@ -202,8 +204,8 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
 - **Features:** 15, 06, 11
 - **Components:**
   - summary card;
-  - vertical timeline (Held → Price checked → Below-clearing signal → Raised → Won at $219 / Released, with times and plain reasons);
-  - money box (held, charged, released);
+  - vertical timeline (Held → Price checked → Below-clearing signal → Nudge → Raised → "Won at your bid of $229. Charged $229." / Released, with times and plain reasons; follows the `replaces_bid_id` chain across raises);
+  - money box (held, charged, released; "releasing" vs "released"; "Your bank may show it as pending for a few days.");
   - actions.
 - **States:** live, won, lost, price-drop released, payment failed.
 - **Interactions:** raise, cancel, view tracking.
@@ -242,7 +244,7 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
 ### W18 Won / receipt + tracking
 - **Features:** 12, 13
 - **Components:**
-  - success hero ("You got it at $219; you bid $229");
+  - success hero ("You won at your bid of $229. Charged $229.");
   - receipt (charged, released, PayPal capture ID);
   - shipping tracker;
   - "Bid on something else".
@@ -277,7 +279,7 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
   - **Window closed:** "This window has closed. Get notified about the next one."
   - **Hold failed:** "PayPal couldn't hold $229." Try another method.
   - **Payment declined at clearing:** "Your card was declined, so this one went to the next bidder. Nothing was charged."
-  - **Price dropped:** "Best Buy is $219 now. We released your $229 hold." Buy there.
+  - **Price dropped:** "A store sells it for $245 now. We released your $249 hold. Your bank may show it as pending for a few days." Buy there (with the affiliate disclosure).
   - **Above mandate:** "That's above the $230 limit you set." Edit limit.
   - **404 listing.**
   - **Session expired.**
@@ -301,7 +303,7 @@ Full-screen chat, bottom input, confirm card as a bottom sheet, tool chips colla
 
 ### M06 Price-drop released notification + sheet
 - Push notification preview.
-- Tapping it opens a bottom sheet: old vs new price, the "Hold released" badge, "Buy at Best Buy $219" (affiliate), and "Bid lower in Sony's book".
+- Tapping it opens a bottom sheet: old vs new price, the "Hold released" badge, "Buy there for $245" (affiliate, with disclosure), and "Bid lower in Aurel Audio's book".
 
 ### M07 Below-clearing signal / raise bid sheet
 - Push "Bids around $219 are likely to clear."

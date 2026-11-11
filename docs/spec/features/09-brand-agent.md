@@ -15,7 +15,7 @@ W06 brand agent panel · W07 (recommendation shown in modal) · M10 brand mobile
 ## Logic
 1. **The recommendation is computed by code:** `core/recommend.ts` scans quantities 1..N with the pure auction. It picks the quantity maximizing `net recovery` subject to:
    - cutoff ≥ floor;
-   - cutoff ≥ (1 − maxDiscount) × public low, a brand setting.
+   - cutoff ≥ (1 − `brands.max_discount_bps`/10000) × public low, a brand setting.
 
    It returns `{ quantity, cutoffCents, grossCents, netCents, liquidationCents, alternatives[2] }`.
 2. **Claude writes the explanation.** It gets only:
@@ -25,7 +25,8 @@ W06 brand agent panel · W07 (recommendation shown in modal) · M10 brand mobile
 
    Read-only tools: `get_book_summary`, `simulate_clear(quantity)`.
 3. "Ask" box: free questions → same read-only tools → answer with numbers from tool results only.
-4. The panel shows the recommendation card with an "Apply to slider" button. This sets the slider; it does not clear.
+4. The panel shows the recommendation card with an "Apply to slider" button. This sets the slider; it does not clear. Build order: the code-only recommendation card first, then the Ask panel (AG Studio Agent Framework).
+5. **Live-round nudges (19):** template text first; Claude phrasing from the numbers is the full version, with the template as the fallback.
 
 ## Edge cases
 - The model says a number not from tools → the UI renders numbers only from the JSON fields; text is commentary.
@@ -34,7 +35,7 @@ W06 brand agent panel · W07 (recommendation shown in modal) · M10 brand mobile
 
 ## Acceptance criteria
 - [ ] The recommendation equals the brute-force optimum in unit tests.
-- [ ] The agent has no tool that changes state.
+- [ ] The agent's only write tool is `send_nudge(bidId)`, called by the round runner with numbers from code; it has no tool that moves money or clears. Recommendations and the Ask panel use read-only tools, from a tool registry separate from the buyer agent's.
 - [ ] "Apply to slider" updates W06 instantly.
 
 ## Test plan
