@@ -173,7 +173,7 @@ export function isNewCondition(condition: unknown): boolean {
   return typeof condition === 'string' && condition.trim().toLowerCase() === 'new';
 }
 
-export interface PublicOffer {
+export interface Channel3PublicOffer {
   domain: string;
   priceCents: number;
   url: string;
@@ -192,9 +192,9 @@ export interface BestOfferOptions {
 export function bestOffer(
   offers: readonly Channel3Offer[] | undefined,
   opts: BestOfferOptions = {},
-): PublicOffer | null {
+): Channel3PublicOffer | null {
   const allow = opts.domains ? new Set(opts.domains.map(normalizeDomain)) : null;
-  let best: PublicOffer | null = null;
+  let best: Channel3PublicOffer | null = null;
   for (const o of offers ?? []) {
     if (!isNewCondition(o.condition)) continue;
     if (o.availability !== 'InStock') continue;

@@ -9,7 +9,7 @@ import {
   isNewCondition,
   parseVariantKey,
   variantKey,
-  type PublicOffer,
+  type Channel3PublicOffer,
 } from './product.js';
 import type { Channel3Product } from './types.js';
 
@@ -160,7 +160,7 @@ export async function ensureProduct(
 
 export interface PublicOfferResult {
   /** Cheapest new, in-stock, allowlisted USD offer; null when none qualifies (or never fetched). */
-  publicOffer: PublicOffer | null;
+  publicOffer: Channel3PublicOffer | null;
   priceUpdatedAt: Date | null;
   /** True when Channel3 was called just now. */
   refreshed: boolean;
@@ -168,7 +168,7 @@ export interface PublicOfferResult {
   stale: boolean;
 }
 
-function offerOfRow(row: ProductRow): PublicOffer | null {
+function offerOfRow(row: ProductRow): Channel3PublicOffer | null {
   return row.bestPublicPriceCents !== null && row.bestPublicOfferUrl && row.bestPublicMerchant
     ? {
         priceCents: row.bestPublicPriceCents,
@@ -201,7 +201,7 @@ export async function refreshPublicOffer(
       stale: false,
     };
   }
-  let offer: PublicOffer | null;
+  let offer: Channel3PublicOffer | null;
   try {
     offer = bestOffer(await client.offers(row.channel3Id), { domains: authorizedDomains });
   } catch (err) {
