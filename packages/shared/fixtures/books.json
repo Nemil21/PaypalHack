@@ -1,0 +1,217 @@
+{
+  "$comment": "HF-005 shared clear() fixtures, run by the shared, web and core (Postgres) suites. Bid defaults: status HELD, a PayPal authorization id. \"auth\": null means no hold. \"seedable\": false marks books the DB cannot hold (two HELD bids per shopper, equal seq).",
+  "books": [
+    {
+      "name": "basic book: top Q win, one below floor",
+      "q": 3,
+      "floorCents": 15000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 22900, "seq": 1 },
+        { "id": "b", "shopperId": "s2", "amountCents": 25000, "seq": 2 },
+        { "id": "c", "shopperId": "s3", "amountCents": 18000, "seq": 3 },
+        { "id": "d", "shopperId": "s4", "amountCents": 20000, "seq": 4 },
+        { "id": "e", "shopperId": "s5", "amountCents": 14999, "seq": 5 }
+      ],
+      "expect": {
+        "winners": ["b", "a", "d"],
+        "cutoffCents": 20000,
+        "grossCents": 67900,
+        "reserve": ["c"],
+        "belowFloor": ["e"],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "tie at the cutoff goes to the earlier seq",
+      "q": 2,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 30000, "seq": 1 },
+        { "id": "b", "shopperId": "s2", "amountCents": 25000, "seq": 5 },
+        { "id": "c", "shopperId": "s3", "amountCents": 25000, "seq": 3 }
+      ],
+      "expect": {
+        "winners": ["a", "c"],
+        "cutoffCents": 25000,
+        "grossCents": 55000,
+        "reserve": ["b"],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "equal amount and seq: ordinal id compare ('B' < 'a'), not localeCompare",
+      "seedable": false,
+      "q": 1,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 20000, "seq": 7 },
+        { "id": "B", "shopperId": "s2", "amountCents": 20000, "seq": 7 }
+      ],
+      "expect": {
+        "winners": ["B"],
+        "cutoffCents": 20000,
+        "grossCents": 20000,
+        "reserve": ["a"],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "fewer eligible than Q: all eligible win",
+      "q": 10,
+      "floorCents": 15000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 16000, "seq": 1 },
+        { "id": "b", "shopperId": "s2", "amountCents": 15000, "seq": 2 },
+        { "id": "c", "shopperId": "s3", "amountCents": 21000, "seq": 3 },
+        { "id": "d", "shopperId": "s4", "amountCents": 9000, "seq": 4 }
+      ],
+      "expect": {
+        "winners": ["c", "a", "b"],
+        "cutoffCents": 15000,
+        "grossCents": 52000,
+        "reserve": [],
+        "belowFloor": ["d"],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "no-hold bid (null authorization) is never a winner or reserve",
+      "q": 1,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 99900, "seq": 1, "auth": null },
+        { "id": "b", "shopperId": "s2", "amountCents": 20000, "seq": 2 },
+        { "id": "c", "shopperId": "s3", "amountCents": 19000, "seq": 3 }
+      ],
+      "expect": {
+        "winners": ["b"],
+        "cutoffCents": 20000,
+        "grossCents": 20000,
+        "reserve": ["c"],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": ["a"]
+      }
+    },
+    {
+      "name": "only HELD bids count",
+      "q": 5,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 40000, "seq": 1, "status": "VOIDING" },
+        {
+          "id": "b",
+          "shopperId": "s2",
+          "amountCents": 39000,
+          "seq": 2,
+          "status": "PENDING_APPROVAL",
+          "auth": null
+        },
+        { "id": "c", "shopperId": "s3", "amountCents": 38000, "seq": 3, "status": "VOIDED" },
+        { "id": "d", "shopperId": "s4", "amountCents": 12000, "seq": 4 }
+      ],
+      "expect": {
+        "winners": ["d"],
+        "cutoffCents": 12000,
+        "grossCents": 12000,
+        "reserve": [],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": ["a", "b", "c"]
+      }
+    },
+    {
+      "name": "one shopper with two HELD bids wins at most once (D3)",
+      "seedable": false,
+      "q": 2,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 30000, "seq": 1 },
+        { "id": "b", "shopperId": "s1", "amountCents": 28000, "seq": 2 },
+        { "id": "c", "shopperId": "s2", "amountCents": 20000, "seq": 3 }
+      ],
+      "expect": {
+        "winners": ["a", "c"],
+        "cutoffCents": 20000,
+        "grossCents": 50000,
+        "reserve": [],
+        "belowFloor": [],
+        "superseded": ["b"],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "a shopper's no-hold bid does not supersede their HELD bid",
+      "seedable": false,
+      "q": 1,
+      "floorCents": 10000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 50000, "seq": 1, "auth": null },
+        { "id": "b", "shopperId": "s1", "amountCents": 20000, "seq": 2 }
+      ],
+      "expect": {
+        "winners": ["b"],
+        "cutoffCents": 20000,
+        "grossCents": 20000,
+        "reserve": [],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": ["a"]
+      }
+    },
+    {
+      "name": "a bid exactly at the floor is eligible",
+      "q": 1,
+      "floorCents": 15000,
+      "bids": [{ "id": "a", "shopperId": "s1", "amountCents": 15000, "seq": 1 }],
+      "expect": {
+        "winners": ["a"],
+        "cutoffCents": 15000,
+        "grossCents": 15000,
+        "reserve": [],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "everything below the floor: no winners, null cutoff",
+      "q": 2,
+      "floorCents": 30000,
+      "bids": [
+        { "id": "a", "shopperId": "s1", "amountCents": 20000, "seq": 1 },
+        { "id": "b", "shopperId": "s2", "amountCents": 29999, "seq": 2 }
+      ],
+      "expect": {
+        "winners": [],
+        "cutoffCents": null,
+        "grossCents": 0,
+        "reserve": [],
+        "belowFloor": ["b", "a"],
+        "superseded": [],
+        "ineligible": []
+      }
+    },
+    {
+      "name": "empty book",
+      "q": 1,
+      "floorCents": 10000,
+      "bids": [],
+      "expect": {
+        "winners": [],
+        "cutoffCents": null,
+        "grossCents": 0,
+        "reserve": [],
+        "belowFloor": [],
+        "superseded": [],
+        "ineligible": []
+      }
+    }
+  ]
+}

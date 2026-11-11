@@ -81,9 +81,13 @@ describe('same-origin SPA (M31)', () => {
     expect(json.statusCode).toBe(404);
   });
 
-  it('keeps API routes working', async () => {
+  it('keeps API routes and the public /healthz working', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/healthz' });
     expect(res.json()).toMatchObject({ status: 'ok' });
+    // HF-048a's Render health check must never be answered by the SPA, even for a browser.
+    const health = await app.inject({ method: 'GET', url: '/healthz', headers: html });
+    expect(health.headers['content-type']).toMatch(/application\/json/);
+    expect(health.body).not.toBe(INDEX);
   });
 
   it('exposes the AG licence and demo flag at runtime, uncached', async () => {

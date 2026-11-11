@@ -72,6 +72,9 @@ const envSchema = z.object({
   PAYPAL_WEBHOOK_ID: optionalString,
   RENDER_API_KEY: optionalString,
   RENDER_WORKFLOWS_SERVICE_ID: optionalString,
+  // Tasks are addressed as `<workflow slug>/<task name>` (HF-048a); the slug is on the task's
+  // page in the Render dashboard and defaults to the Blueprint's workflow name.
+  RENDER_WORKFLOW_SLUG: optionalString.transform((v) => v ?? 'holdfast-workflows'),
   APP_BASE_URL: optionalString.pipe(httpUrl.optional()),
   PAYPAL_BRAND_EMAIL: optionalString,
 
