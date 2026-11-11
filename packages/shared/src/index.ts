@@ -12,3 +12,4 @@ export * from './errors.js';
 export * from './bids.js';
 export * from './book.js';
 export * from './rounds.js';
+export * from './domain.js';

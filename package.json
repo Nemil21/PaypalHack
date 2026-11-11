@@ -28,7 +28,8 @@
     "format:check": "prettier --check .",
     "migrate": "npm run migrate -w @holdfast/db",
     "test:db": "npm test -w @holdfast/db",
-    "workflows:hello": "node apps/api/dist/cli/workflows-hello.js"
+    "workflows:hello": "node apps/api/dist/cli/workflows-hello.js",
+    "admin:verify": "tsx --conditions=source apps/api/src/cli/admin-verify.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

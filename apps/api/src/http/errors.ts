@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import { BrandNotVerifiedError } from '@holdfast/core';
 import { ERROR_STATUS, type ErrorCode, type ErrorEnvelope } from '@holdfast/shared';
 
 /**
@@ -59,6 +60,15 @@ export function parse<S extends z.ZodType>(schema: S, data: unknown, what = 'req
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err: FastifyError | ApiError | z.ZodError | Error, req, reply) => {
     if (err instanceof ApiError) return sendError(reply, err);
+    // The HF-011a publish guard, thrown from core inside a publish transaction.
+    if (err instanceof BrandNotVerifiedError) {
+      return sendError(
+        reply,
+        new ApiError('BRAND_NOT_VERIFIED', err.message, {
+          verificationStatus: err.verificationStatus,
+        }),
+      );
+    }
     if (err instanceof z.ZodError) {
       return sendError(
         reply,
