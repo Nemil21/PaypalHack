@@ -110,6 +110,8 @@ export async function loadRoundsActivity(
     const grossAtStart = new Map<number, number>();
     const extensionAudits: AuditRow[] = [];
     let ended: RoundsActivity['ended'] = null;
+    /** Expected gross when rounds ended (the book is frozen from there); null for older rows. */
+    let endGrossCents: number | null = null;
     for (const a of audits) {
       const startedAt = str(a.data.roundStartedAt);
       if (a.action === 'ROUNDS_STARTED' && !starts.has(1)) {
@@ -144,6 +146,7 @@ export async function loadRoundsActivity(
             reason,
             at: a.at.toISOString(),
           };
+          endGrossCents = num(a.data.grossCents);
         }
       }
     }
@@ -225,7 +228,11 @@ export async function loadRoundsActivity(
     extensions.reverse();
 
     let expectedGrossCents: number | null = null;
-    if (head.status === 'ROUNDS' && head.target_quantity !== null) {
+    // Once rounds ended the book is frozen: the end audit's gross is final, also after Clear,
+    // expiry or cancel move the listing out of ROUNDS.
+    if (ended && endGrossCents !== null) {
+      expectedGrossCents = endGrossCents;
+    } else if (head.status === 'ROUNDS' && head.target_quantity !== null) {
       const input = await loadClearInput(tx, listingId);
       if (input) {
         expectedGrossCents = clear(input.bids, head.target_quantity, input.floorCents).grossCents;

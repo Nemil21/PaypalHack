@@ -384,6 +384,17 @@ export async function advanceRound(
 // --- Stop / end ------------------------------------------------------------------------------
 
 /**
+ * Expected gross now at the rounds' target (`clear().grossCents`). Written on the end audits
+ * (HF-037b): the book is frozen from the end, so this is the final round's closing gross even
+ * after the listing leaves ROUNDS.
+ */
+export async function roundsGross(tx: Queryable, listing: RoundsListing): Promise<number | null> {
+  if (listing.target_quantity === null) return null;
+  const input = await loadClearInput(tx, listing.id);
+  return input ? clear(input.bids, listing.target_quantity, input.floorCents).grossCents : null;
+}
+
+/**
  * `POST /listings/:id/rounds/stop`: `rounds_end_at = now()`,
  * `clear_deadline_at = least(clear_deadline_at, now() + 6h)`. The book is frozen from here
  * (`isRaisable` false, D7); the brand has until `clear_deadline_at` to Clear.
@@ -395,6 +406,7 @@ export function stopRounds(deps: RoundsDeps, input: Base): Promise<RoundsOutcome
     await deps.afterListingUpdate?.(tx);
     await brandAudit(tx, listing, input.actor, 'ROUNDS_STOPPED', {
       round: listing.current_round,
+      grossCents: await roundsGross(tx, listing),
       roundsEndAt: iso(listing.rounds_end_at),
       clearDeadlineAt: iso(listing.clear_deadline_at),
     });
@@ -574,6 +586,7 @@ export async function snapshotRound(
       reason: 'NONE_BELOW_CUTOFF',
       cutoffCents: result.cutoffCents,
       winners: result.winners.length,
+      grossCents: result.grossCents,
       roundsEndAt: iso(ended.rounds_end_at),
       clearDeadlineAt: iso(ended.clear_deadline_at),
     });

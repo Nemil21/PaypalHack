@@ -66,7 +66,10 @@ export const roundsActivitySchema = z.object({
   status: z.enum(LISTING_STATUSES),
   currentRound: z.number().int().nullable(),
   targetQuantity: z.number().int().nullable(),
-  /** Expected gross now at the target quantity; null before rounds start. */
+  /**
+   * Expected gross at the target quantity: live during rounds, the end audit's figure once they
+   * ended (the book is frozen, so it stays after Clear / expiry). Null before rounds start.
+   */
   expectedGrossCents: z.number().int().nullable(),
   /** Oldest first. */
   rounds: z.array(roundsActivityRoundSchema),

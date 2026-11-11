@@ -246,7 +246,11 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-037b rounds activity (Postgres + FakePay
     expect(await stepListing(deps(), l.id)).toMatchObject({ kind: 'ADVANCED', round: 3 });
     await roundEndsIn(l.id, -1);
     expect(await stepListing(deps(), l.id)).toMatchObject({ kind: 'ENDED', reason: 'NO_RAISES' });
-    expect((await activity(l)).ended).toMatchObject({ round: 3, reason: 'NO_RAISES' });
+    const done = await activity(l);
+    expect(done.ended).toMatchObject({ round: 3, reason: 'NO_RAISES' });
+    // The final round keeps its Δ: round 3 started at $320 + $310 and nobody raised.
+    expect(done.expectedGrossCents).toBe(63_000);
+    expect(done.rounds.at(-1)).toMatchObject({ round: 3, grossDeltaCents: 0 });
   });
 
   it('brand stop → BRAND_STOPPED; nobody below the cutoff → NONE_BELOW_CUTOFF', async () => {
@@ -258,6 +262,13 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-037b rounds activity (Postgres + FakePay
     });
     expect(stopped.ok).toBe(true);
     expect((await activity(l)).ended).toMatchObject({ round: 1, reason: 'BRAND_STOPPED' });
+    // After the listing leaves ROUNDS (here: expiry) the last round still shows its Δ, from the
+    // gross recorded at the end; the live book no longer counts.
+    await db.pool.query(`UPDATE listings SET status = 'EXPIRED' WHERE id = $1`, [l.id]);
+    await db.pool.query(`UPDATE bids SET status = 'VOIDED' WHERE listing_id = $1`, [l.id]);
+    const after = await activity(l);
+    expect(after.expectedGrossCents).toBe(50_000);
+    expect(after.rounds[0]).toMatchObject({ grossAtStartCents: 50_000, grossDeltaCents: 0 });
 
     const l2 = await listing();
     await land(l2, 30_000, await shopper());
@@ -268,6 +279,8 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-037b rounds activity (Postgres + FakePay
       targetQuantity: 2,
     });
     expect(started.ok && started.state.endedReason).toBe('NONE_BELOW_CUTOFF');
-    expect((await activity(l2)).ended).toMatchObject({ round: 1, reason: 'NONE_BELOW_CUTOFF' });
+    const none = await activity(l2);
+    expect(none.ended).toMatchObject({ round: 1, reason: 'NONE_BELOW_CUTOFF' });
+    expect(none.rounds[0]).toMatchObject({ grossAtStartCents: 30_000, grossDeltaCents: 0 });
   });
 });

@@ -132,6 +132,10 @@ test('live: a raise reaches the feed, summary and grid within 2 s; stop shows th
     { timeout: 2_000 },
   );
   await expect(panel.getByTestId('feed-ended')).toContainText('stopped');
+  // The final round keeps its expected gross Δ after the end.
+  await expect(panel.getByTestId('round-summary-1')).toContainText(
+    `raised 1, expected gross ${usd(delta)}`,
+  );
 });
 
 test('replay: late raise extends the timer with a note; the end shows its reason', async ({

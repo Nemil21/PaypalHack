@@ -8,6 +8,7 @@ import {
   brandAudit,
   endRounds,
   phrasingFacts,
+  roundsGross,
   snapshotRound,
   type RoundsActor,
   type RoundsDeps,
@@ -340,6 +341,7 @@ async function endBy(
   await brandAudit(tx, ended, TICK_ACTOR, 'ROUNDS_ENDED', {
     round: ended.current_round,
     reason,
+    grossCents: await roundsGross(tx, ended),
     roundsEndAt: ended.rounds_end_at?.toISOString() ?? null,
     clearDeadlineAt: ended.clear_deadline_at?.toISOString() ?? null,
   });
