@@ -1,8 +1,8 @@
 import type { BidStatus } from './status.js';
 
 /**
- * Contracts for the pay-your-bid auction (features/10, D8). Types only: `clear()`, the default
- * eligibility predicate and `loadClearInput` are implemented in HF-005. `/book`, `/simulate`, the
+ * Contracts for the pay-your-bid auction (features/10, D8). `clear()` is in auction.ts, the default
+ * predicate in eligibility.ts and `loadClearInput` in @holdfast/core (HF-005). `/book`, `/simulate`, the
  * console slider, the rounds runner and Clear all consume exactly this shape so numbers never drift.
  */
 
@@ -54,6 +54,8 @@ export interface ClearResult {
   belowFloor: ClearBid[];
   /** Lower bids from a shopper who already has a higher one (D3). */
   superseded: ClearBid[];
+  /** Bids the eligibility predicate rejected (e.g. no hold, D8). Never winners or reserve. */
+  ineligible: ClearBid[];
   /** 1-based rank of every ranked eligible bid, by bid id. */
   rank: Record<string, number>;
 }
