@@ -184,51 +184,58 @@ pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool erro
 // HF-034: one in-process scheduler; each job runs under its own Postgres advisory lock, so
 // several instances never double-call PayPal. The settlement kick re-kicks runs whose kick was
 // lost or whose coordinator died (B6); HF-032's payout poll, expiry and the hold sweeper.
-const crons = startCrons({
+const cronJobs = holdfastCronJobs({
   db: sql,
-  jobs: holdfastCronJobs({
-    db: sql,
-    paypal,
-    audit: auditHook,
-    appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
-    allowTestCard: testCardAllowed(config),
-    kickSettlement: settlement.kick,
-    pollPayouts: () => pollPayouts(payouts),
-    reprocessPayPalWebhooks: () => reprocessPayPalWebhooks(paypalWebhooks),
-    reprocessPriceEvents: () => reprocessPriceEvents(priceWatch),
-    // HF-042b: the Channel3 heartbeat behind the "Public price check paused" banner, and the
-    // nightly detail-endpoint poll that catches price changes no webhook delivered.
-    probeChannel3: () => probeChannel3(priceWatch),
-    pollPublicPrices: () => pollPublicPrices(priceWatch),
-    // HF-052: the intent move rule, as merchant-initiated vault holds under ACTIVE mandates.
-    runIntents: () =>
-      runOpenIntents(
-        {
-          db: sql,
-          paypal,
-          audit: auditHook,
-          appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
-          allowTestCard: testCardAllowed(config),
-        },
-        {
-          onError: (err, intentId) =>
-            app.log.warn({ err: (err as Error).message, intentId }, 'intent move rule failed'),
-        },
-      ),
-    // HF-054a: notify() as an audit subscriber (after commit) plus the 12 h / 6 h window scan.
-    notify: createNotifyJob(sql, {
-      onError: (err, ev) =>
-        app.log.warn(
-          { err: (err as Error).message, auditId: ev.id, action: ev.action },
-          'notify failed',
-        ),
-    }),
-    onError: (err, ctx) =>
+  paypal,
+  audit: auditHook,
+  appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+  allowTestCard: testCardAllowed(config),
+  kickSettlement: settlement.kick,
+  pollPayouts: () => pollPayouts(payouts),
+  reprocessPayPalWebhooks: () => reprocessPayPalWebhooks(paypalWebhooks),
+  reprocessPriceEvents: () => reprocessPriceEvents(priceWatch),
+  // HF-042b: the Channel3 heartbeat behind the "Public price check paused" banner, and the
+  // nightly detail-endpoint poll that catches price changes no webhook delivered.
+  probeChannel3: () => probeChannel3(priceWatch),
+  pollPublicPrices: () => pollPublicPrices(priceWatch),
+  // HF-052: the intent move rule, as merchant-initiated vault holds under ACTIVE mandates.
+  runIntents: () =>
+    runOpenIntents(
+      {
+        db: sql,
+        paypal,
+        audit: auditHook,
+        appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+        allowTestCard: testCardAllowed(config),
+      },
+      {
+        onError: (err, intentId) =>
+          app.log.warn({ err: (err as Error).message, intentId }, 'intent move rule failed'),
+      },
+    ),
+  // HF-054a: notify() as an audit subscriber (after commit) plus the 12 h / 6 h window scan.
+  notify: createNotifyJob(sql, {
+    onError: (err, ev) =>
       app.log.warn(
-        { err: (err as Error).message, job: ctx.job, detail: ctx.detail },
-        'cron step failed',
+        { err: (err as Error).message, auditId: ev.id, action: ev.action },
+        'notify failed',
       ),
   }),
+  onError: (err, ctx) =>
+    app.log.warn(
+      { err: (err as Error).message, job: ctx.job, detail: ctx.detail },
+      'cron step failed',
+    ),
+});
+// Each running job holds one connection for its session advisory lock while its work uses the app
+// pool. With the lock connections in the app pool, every job firing at boot took a connection
+// and then waited for another: 11 jobs on 10 connections deadlocked the pool (healthz 503, SSE
+// and the console stalled; HF-048b). The locks get their own pool, one connection per job.
+const cronLockPool = createPool(config, cronJobs.length + 1);
+cronLockPool.on('error', (err) => app.log.warn({ err: err.message }, 'cron lock pool error'));
+const crons = startCrons({
+  db: createDb(cronLockPool),
+  jobs: cronJobs,
   onError: (err, job) => app.log.warn({ err: (err as Error).message, job }, 'cron job failed'),
 });
 // Listings published while Channel3 was down get their price-watch subscription later (HF-012a).
@@ -266,6 +273,7 @@ app.addHook('onClose', async () => {
   await crons.stop();
   priceWatchRetrier.stop();
   await events.close();
+  await cronLockPool.end();
   await pool.end();
 });
 // Failures retry in the background; /healthz still reports the database.

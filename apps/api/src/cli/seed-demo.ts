@@ -25,7 +25,7 @@ import {
 import { formatUsd, type SimulateResponse } from '@holdfast/shared';
 import { DEMO_ACCOUNTS } from '../auth/store.js';
 import { FIXTURE_LABEL, PRICE_DROP_FIXTURE } from '../demo/aurel-fixture.js';
-import { DEFAULT_SEED, DEMO_QUANTITY } from '../demo/bid-table.js';
+import { DEFAULT_SEED } from '../demo/bid-table.js';
 import { DemoResetRefusedError, DemoResetVerifyError, demoReset } from '../demo/reset.js';
 import {
   DemoDataExistsError,
@@ -204,7 +204,7 @@ function print(r: SeedDemoResult, ms: number) {
   printStats(r.stats);
   console.log('');
   console.log(
-    `Video numbers (Aurel A7, simulate(${DEMO_QUANTITY}); SIM bids only, before foreground bids):`,
+    `Video numbers (Aurel A7, simulate(${r.book.quantity}); SIM bids only, before foreground bids):`,
   );
   console.log(line('now', r.numbers.current));
   console.log(

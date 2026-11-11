@@ -1,6 +1,6 @@
 # Deploying Holdfast on Render (HF-048a)
 
-Everything Render needs is in [`render.yaml`](../../render.yaml) (a Blueprint). This page is the runbook: what it creates, the one-time manual steps, and how to check a deploy. Crons, `demo:refresh`, the judge book and the full smoke are HF-048b.
+Everything Render needs is in [`render.yaml`](../../render.yaml) (a Blueprint). This page is the runbook: what it creates, the one-time manual steps, and how to check a deploy. Crons, `demo:refresh`, the judge book and the full smoke are HF-048b ([below](#hf-048b-crons-demorefresh-judge-book-smoke)).
 
 ## What the Blueprint creates
 
@@ -9,6 +9,7 @@ Everything Render needs is in [`render.yaml`](../../render.yaml) (a Blueprint). 
 | Web service | `holdfast` | Starter (paid), **1 instance** | Fastify serves the API (`/api/*`), `/mcp`, `/healthz` and the built SPA from one origin (M31). In-process jobs and rate limits assume one instance. |
 | Workflow | `holdfast-workflows` | per task (set in code) | Render Workflows: the `hello` task (HF-048a) and the settlement tasks `settleListing` / `settleBid` (HF-030b). |
 | Postgres 16 | `holdfast-db` | `basic-256mb` (paid), 1 GB disk | Free Postgres expires ~30 days after creation, before judging ends Dec 21. Private network only (`ipAllowList: []`). |
+| Cron job | `holdfast-demo-refresh` | Starter, `0 8 * * *` (08:00 UTC) | HF-048b: `npm run demo:refresh` daily; resets the market and reseeds the judge book. |
 | Env group | `holdfast-config` | | Non-secret flags only: `NODE_VERSION=22`, `NODE_ENV=production`, sandbox PayPal base/mode, `SETTLEMENT_RUNNER=inprocess`, `DEMO_MODE=true`, `RENDER_WORKFLOW_SLUG`. |
 
 Deploy pipeline for the web service:
@@ -74,6 +75,64 @@ Smoke (from the `holdfast` Shell, after the steps above):
 3. 50 bids with one decline (`demo_decline_rank` set before Clear): same command; expect 1 promotion at the promoted bidder's own bid and the same counts as the in-process run.
 4. Kill and resume: start a 50-bid run, cancel it in `holdfast-workflows` → Runs mid-way; within about a minute the outbox kick starts run 2 (`<listingId>:2`). Each charged authorization has exactly one capture id; one payout.
 5. If any step misbehaves, set `SETTLEMENT_RUNNER=inprocess` again (the default) and say so in the README.
+
+## HF-048b: crons, `demo:refresh`, judge book, smoke
+
+### Background jobs: in-process, not Render crons
+
+The sweeper (every 5 min), settlement kick and payout poll (every minute), listing expiry, webhook / price-event replays, Channel3 probe, nightly price poll, intent move rule and notify run **in the web process** (`startCrons`, HF-034). Each job runs under its own Postgres advisory lock, so a second instance would never double-call PayPal. The HF-036b round tick also runs in-process (every 5 s, locked per listing). Render cron is used only for `demo:refresh` (tickets/INDEX.md, background jobs).
+
+The job locks have their own small pool (one connection per job). With the locks in the app pool, 11 jobs firing at boot on a 10-connection pool deadlocked the API: `/healthz` returned 503 and SSE stalled. Fixed in `apps/api/src/main.ts`.
+
+### Daily `demo:refresh` (08:00 UTC, through Dec 21)
+
+`npm run demo:refresh` (`apps/api/src/cli/demo-refresh.ts`) keeps the hosted demo alive without anyone editing it after the deadline:
+
+1. One refresh at a time (advisory lock). A second run while one is going prints `skipped` and exits 0.
+2. `demo:reset` (HF-046): close live listings → sweep → `reconcile:holds` → GET **every** authorization id in the database and refuse if any is still `CREATED` → truncate (keeps brands, products, the `is_demo_foreground` shopper, their vault, mandates and MCP tokens).
+3. Reseed the **judge book** (`JUDGE_BOOK` in `apps/api/src/demo/bid-table.ts`): Aurel Audio (demo), 60 real sandbox holds over the five test cards (44 at $219–$249, 8 at $189–$217, 4 vaulted round agents with mandates, 4 on the A5). The A7 listing has 50 units, so a judge's Clear has winners **and** voided losers; `simulate(44)` reads cutoff $219. The window stays open **30 h**, so one missed run still leaves the market open, and holds are never older than ~2 days (well under the 66 h aged-hold pass).
+4. Check: the new A7 listing is `OPEN` with its window still open, and **no bid is left on any listing from an earlier book**. The output states how many authorizations were GET-checked.
+
+If a judge's Clear is still settling at 08:00, or another reset or sweeper holds a lock, the refresh waits 2 min and retries (6 attempts). A failed verify (a hold still `CREATED`, or GETs failing) stops at once, deletes nothing, and exits 1. Render shows the failed run, and the previous book stays up. Rerun it by hand once PayPal answers.
+
+The cron's `DEMO_ADMIN_DATABASE_URL` is the database connection string: the Blueprint's database user ran the migrations, so it owns the schema and can truncate the append-only audit log.
+
+### Judge access
+
+- `DEMO_MODE=true` (env group) enables **Sign in as demo shopper / demo brand** (HF-006), one click and no account needed. The demo brand is Aurel Audio's OWNER. The demo shopper is the `is_demo_foreground` shopper the refresh keeps.
+- For the README / Devpost testing instructions (HF-049, HF-050a): the labelled **Use sandbox test card** button on the offer page (`/o/aurel-a7`), and a sandbox **personal** buyer account for Pay with PayPal. Its email and password go in the Devpost testing-instructions field only, never in the repo.
+
+### SSE behind Render's proxy
+
+`GET /api/listings/:id/events` (brand console) and `/api/bids/:id/events` send `Cache-Control: no-cache, no-transform`, `X-Accel-Buffering: no`, a `: connected` comment at once and a `: ping` comment every 15 s (HF-008). The smoke checks all four on the deployed URL.
+
+### Workflows service (HF-030b)
+
+`holdfast-workflows` is in the Blueprint with the same config as the web service (see [Settlement on Workflows](#settlement-on-workflows-hf-030b)). `SETTLEMENT_RUNNER` stays `inprocess` until its smoke is green. Switching means setting `SETTLEMENT_RUNNER=workflows` and `ALLOW_MOCK_DECLINE=true` (for the decline beat) on the web service, then a **manual** deploy.
+
+### Auto-deploy off
+
+Every service in `render.yaml` has `autoDeployTrigger: 'off'` (from 21:00 PST Nov 11 through recording, and permanently after submission; the rules forbid edits after the deadline). A push to `main` deploys nothing. Deploys are **Manual Deploy → Deploy latest commit** only. The Blueprint applies the setting on its next sync. Check each service's Settings → Build & Deploy → Auto-Deploy reads **Off**.
+
+### Manual steps (in order, before 10:00 PST Nov 12 / 23:30 IST)
+
+1. **Blueprint sync**: Dashboard → Blueprints → `holdfast` → *Sync* (or *Manual sync*). It creates `holdfast-demo-refresh` and turns auto-deploy off. Fill its prompted secrets: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_BRAND_EMAIL` (the sandbox **business** receiver), optionally `CHANNEL3_API_KEY`. Paste them straight from `.env` into the dashboard.
+2. **Deploy the web service by hand** (Manual Deploy → latest commit) so the cron-pool fix is live. `/healthz` → `{"status":"ok","db":"ok"}`.
+3. **Run the refresh by hand twice**: `holdfast-demo-refresh` → *Trigger Run*, wait for it to finish, then trigger it again. Each log ends with `demo:refresh done … none CREATED; 0 leftover bid(s)` and `judge listing /o/aurel-a7 … OPEN until …`. The second run's GET-check count covers the first book's 60 holds.
+4. **Smoke** from a laptop (secrets from the environment, never printed):
+   ```sh
+   node scripts/smoke-deploy.mjs https://<host> --sse-minutes 10          # console live 10 min
+   HOLDFAST_MCP_TOKEN=<W19 token> CHANNEL3_WEBHOOK_SECRET=… \
+     node scripts/smoke-deploy.mjs https://<host>                          # + MCP + Channel3 event
+   # Full money path (ends the judge listing): in the holdfast Shell `npm run demo:decline`, then
+   node scripts/smoke-deploy.mjs https://<host> --clear --settle-timeout 600
+   # …and trigger holdfast-demo-refresh once more so judges get a fresh OPEN listing.
+   ```
+   Then add `https://<host>/mcp` in Claude Desktop with the W19 token and call `get_book` (the smoke proves the server; this proves the client).
+5. **Check the schedule**: `holdfast-demo-refresh` → Settings shows `0 8 * * *` and the next run time. Nothing ends it on Dec 21: it keeps running until someone deletes the cron after judging.
+6. **Auto-deploy**: confirm **Off** on `holdfast`, `holdfast-workflows` and `holdfast-demo-refresh`.
+
+Result: _not run yet_ (record the date, the two refresh logs' last lines and the smoke summary here).
 
 ## Checking a deploy
 

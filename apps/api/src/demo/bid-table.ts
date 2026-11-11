@@ -39,6 +39,51 @@ export const TEST_CARD_COUNT = 5;
  */
 export const VAULTABLE_TEST_CARD_COUNT = 4;
 
+/**
+ * The shape of one seeded book. `FULL_BOOK` is the recording book above; `JUDGE_BOOK` is the
+ * smaller book the daily `demo:refresh` cron reseeds for judges (HF-048b): 60 real sandbox holds,
+ * the same price shape (cutoff $219), a few round agents, and an A7 listing small enough that a
+ * judge's Clear has winners and losers.
+ */
+export interface BookSpec {
+  name: 'full' | 'judge';
+  /** Units on the A7 listing. */
+  a7ListingQuantity: number;
+  /** The quantity the printed numbers simulate. */
+  quantity: number;
+  /** A7 card bids at $219–$249 (the first ten at exactly $219). */
+  highCards: number;
+  /** A7 card bids at $189–$217. */
+  lowCards: number;
+  /** Vaulted round agents with ACTIVE mandates. */
+  agents: number;
+  a5Bids: number;
+}
+
+export const FULL_BOOK: BookSpec = {
+  name: 'full',
+  a7ListingQuantity: AUREL_A7.quantity,
+  quantity: DEMO_QUANTITY,
+  highCards: DEMO_QUANTITY,
+  lowCards: A7_CARD_BIDS - DEMO_QUANTITY,
+  agents: ROUND_AGENTS,
+  a5Bids: A5_BIDS,
+};
+
+export const JUDGE_BOOK: BookSpec = {
+  name: 'judge',
+  a7ListingQuantity: 50,
+  quantity: 44,
+  highCards: 44,
+  lowCards: 8,
+  agents: 4,
+  a5Bids: 4,
+};
+
+export function bookSize(book: BookSpec): number {
+  return book.highCards + book.lowCards + book.agents + book.a5Bids;
+}
+
 export interface TableBid {
   /** 1-based, stable across runs: also the shopper's display number and idempotency key. */
   n: number;
@@ -86,13 +131,13 @@ function shuffle<T>(items: T[], random: () => number): T[] {
   return items;
 }
 
-export function buildBidTable(seed: number = DEFAULT_SEED): TableBid[] {
+export function buildBidTable(seed: number = DEFAULT_SEED, book: BookSpec = FULL_BOOK): TableBid[] {
   const random = seededRandom(seed);
   const dropTo = PRICE_DROP_FIXTURE.toCents;
   type Draft = Omit<TableBid, 'n' | 'card' | 'placedAt' | 'releaseIfCheaper'>;
   const a7: Draft[] = [];
 
-  for (let i = 0; i < DEMO_QUANTITY; i++) {
+  for (let i = 0; i < book.highCards; i++) {
     let d: number;
     if (i < 10) d = 219;
     else {
@@ -106,7 +151,7 @@ export function buildBidTable(seed: number = DEFAULT_SEED): TableBid[] {
     }
     a7.push({ listing: 'A7', kind: 'CARD', amountCents: dollars(d), mandateMaxCents: null });
   }
-  for (let i = DEMO_QUANTITY; i < A7_CARD_BIDS; i++) {
+  for (let i = 0; i < book.lowCards; i++) {
     a7.push({
       listing: 'A7',
       kind: 'CARD',
@@ -114,7 +159,7 @@ export function buildBidTable(seed: number = DEFAULT_SEED): TableBid[] {
       mandateMaxCents: null,
     });
   }
-  for (let i = 0; i < ROUND_AGENTS; i++) {
+  for (let i = 0; i < book.agents; i++) {
     const amountCents = lowAmount(random, 205, 217);
     const mandateMaxCents =
       i % 2 === 0
@@ -124,7 +169,7 @@ export function buildBidTable(seed: number = DEFAULT_SEED): TableBid[] {
   }
 
   const a5: Draft[] = [];
-  for (let i = 0; i < A5_BIDS; i++) {
+  for (let i = 0; i < book.a5Bids; i++) {
     a5.push({
       listing: 'A5',
       kind: 'CARD',
@@ -146,7 +191,11 @@ export function buildBidTable(seed: number = DEFAULT_SEED): TableBid[] {
 }
 
 /** The table as a Clear input (synthetic ids `t-<n>`), for the expected numbers. */
-export function tableClearInput(table: readonly TableBid[], listing: 'A7' | 'A5'): ClearInput {
+export function tableClearInput(
+  table: readonly TableBid[],
+  listing: 'A7' | 'A5',
+  book: BookSpec = FULL_BOOK,
+): ClearInput {
   const fixture = listing === 'A7' ? AUREL_A7 : AUREL_A5;
   const bids: ClearBid[] = table
     .filter((b) => b.listing === listing)
@@ -164,7 +213,7 @@ export function tableClearInput(table: readonly TableBid[], listing: 'A7' | 'A5'
   return {
     listingId: `table-${listing}`,
     floorCents: fixture.floorCents,
-    quantity: fixture.quantity,
+    quantity: listing === 'A7' ? book.a7ListingQuantity : fixture.quantity,
     bids,
     bookVersion: 'table',
     oldestHoldAuthorizedAt: null,
@@ -254,8 +303,11 @@ export function projectDemoNumbers(
 }
 
 /** Expected numbers straight from the table (no database, no PayPal). */
-export function expectedTableNumbers(seed: number = DEFAULT_SEED): DemoNumbers {
-  const table = buildBidTable(seed);
+export function expectedTableNumbers(
+  seed: number = DEFAULT_SEED,
+  book: BookSpec = FULL_BOOK,
+): DemoNumbers {
+  const table = buildBidTable(seed, book);
   const meta = new Map(
     table
       .filter((b) => b.listing === 'A7')
@@ -264,8 +316,8 @@ export function expectedTableNumbers(seed: number = DEFAULT_SEED): DemoNumbers {
         { releaseIfCheaper: b.releaseIfCheaper, mandateMaxCents: b.mandateMaxCents },
       ]),
   );
-  return projectDemoNumbers(tableClearInput(table, 'A7'), meta, {
-    quantity: DEMO_QUANTITY,
+  return projectDemoNumbers(tableClearInput(table, 'A7', book), meta, {
+    quantity: book.quantity,
     dropToCents: PRICE_DROP_FIXTURE.toCents,
     feeBps: AUREL_BRAND_FEE_BPS,
     liquidationQuoteCents: AUREL_A7.liquidationQuoteCents,

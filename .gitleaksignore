@@ -17,3 +17,9 @@ bd4e7d4ba354ccde7135b255921d1c6edf32626e:apps/api/src/http/plumbing.test.ts:gene
 5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-js-sdk-v6-setup.md:generic-api-key:103
 5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-sandbox-getting-started.md:curl-auth-user:142
 5a05075d66b3dffb741b359d2dc563814c45e791:docs/_sources/paypal-sandbox-getting-started.md:curl-auth-header:186
+# HF-054b test fixtures (branch ao/paypalhack-76/hf-054b-notify-email-push): placeholder Web Push
+# subscription keys (`p256dh` public key + `auth`) for fake devices on random-UUID endpoints.
+# Browser-side subscription values, not server credentials; none matches a value in .env
+# (checked 2026-11-12). The scan covers every ref, so these fail CI on every PR.
+eabf484409623559052d6f9e2e39cac601ae9aa8:apps/api/src/routes/notifications-push.test.ts:generic-api-key:40
+eabf484409623559052d6f9e2e39cac601ae9aa8:packages/core/src/notifications/fanout.test.ts:generic-api-key:70
