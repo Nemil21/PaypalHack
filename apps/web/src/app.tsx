@@ -42,6 +42,7 @@ const CreateListingWizard = screen(
   'CreateListingWizard',
 );
 const EmbedPage = screen(() => import('./routes/brand/EmbedPage'), 'EmbedPage');
+const PayoutsPage = screen(() => import('./routes/brand/PayoutsPage'), 'PayoutsPage');
 const ListingConsole = screen(() => import('./routes/brand/ListingConsole'), 'ListingConsole');
 const SettlementFixture = screen(
   () => import('./routes/brand/SettlementFixture'),
@@ -102,6 +103,8 @@ const router = createBrowserRouter([
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },
           // W08 settlement live view (HF-035).
           { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
+          // W09 payouts, statements and tracking upload (HF-059b).
+          { path: 'brand/payouts', element: <PayoutsPage /> },
           // W10 embed widget & share links (HF-055).
           { path: 'brand/embed', element: <EmbedPage /> },
           // W11 brand settings (HF-056): team, payout, verification, retailers, notifications.
