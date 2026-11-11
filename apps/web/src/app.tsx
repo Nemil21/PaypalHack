@@ -7,7 +7,7 @@ import { MyBidsPage } from './routes/bids/MyBidsPage';
 import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
-import { BrandIndex } from './routes/brand/BrandIndex';
+import { BrandOverview } from './routes/brand/BrandOverview';
 import { BrandSignIn } from './routes/brand/BrandSignIn';
 import { CreateListingWizard } from './routes/brand/CreateListingWizard';
 import { ListingConsole } from './routes/brand/ListingConsole';
@@ -44,10 +44,10 @@ const router = createBrowserRouter([
         element: <ScreenPlaceholder screen="Brand verification (W03)" ticket="HF-011b" />,
       },
       {
-        // HF-023: brand session + listings; `/brand` opens the newest console until W04 (HF-026).
+        // HF-023: brand session + listings. `/brand` is the W04 overview (HF-026).
         element: <BrandGate />,
         children: [
-          { path: 'brand', element: <BrandIndex /> },
+          { path: 'brand', element: <BrandOverview /> },
           // W05 create listing wizard (HF-013); before `:listingId` so "new" is not an id.
           { path: 'brand/listings/new', element: <CreateListingWizard /> },
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },

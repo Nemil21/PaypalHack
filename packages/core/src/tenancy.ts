@@ -67,6 +67,8 @@ export interface BrandScope {
   auditEvents(opts?: {
     listingId?: string;
     entityId?: string;
+    /** Only these actions (the W04 feed's allowlist); omitted = every action. */
+    actions?: readonly string[];
     limit?: number;
   }): Promise<AuditEventRow[]>;
 }
@@ -157,8 +159,15 @@ export function forBrand(q: Queryable, brandId: string): BrandScope {
           WHERE brand_id = $1
             AND ($2::uuid IS NULL OR listing_id = $2)
             AND ($3::uuid IS NULL OR entity_id = $3)
+            AND ($5::text[] IS NULL OR action = ANY($5::text[]))
           ORDER BY at DESC, id DESC LIMIT $4`,
-        [brandId, opts.listingId ?? null, opts.entityId ?? null, opts.limit ?? 200],
+        [
+          brandId,
+          opts.listingId ?? null,
+          opts.entityId ?? null,
+          opts.limit ?? 200,
+          opts.actions ?? null,
+        ],
       );
     },
   };

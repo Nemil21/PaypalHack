@@ -61,8 +61,8 @@ jobs:
         run: npx vitest run packages/core/src/bids.test.ts apps/api/src/routes/bids.test.ts
       - name: SSE event bus integration tests (HF-008, incl. a second API process)
         run: npx vitest run apps/api/src/events
-      - name: Admin brand verification + publish guard integration tests (HF-011a)
-        run: npx vitest run packages/core/src/brands apps/api/src/routes/admin-brands.test.ts
+      - name: Admin brand verification + publish guard, brand overview integration tests (HF-011a, HF-026)
+        run: npx vitest run packages/core/src/brands apps/api/src/routes/admin-brands.test.ts apps/api/src/routes/brand-overview.test.ts
       - name: Channel3 products repo + search proxy on Postgres (HF-009, fixtures)
         run: npx vitest run packages/core/src/channel3 apps/api/src/routes/products.test.ts
       - name: Settlement + promotion integration and race tests on the FakePayPal stub (HF-029, HF-030a, HF-031)

@@ -29,6 +29,7 @@ export * from './bid-raise.js';
 export * from './bid-views.js';
 export * from './mandates.js';
 export * from './brands/verify.js';
+export * from './brands/overview.js';
 export * from './offers/index.js';
 export * from './channel3/index.js';
 export * from './mandate-settings.js';
