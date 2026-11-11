@@ -4,9 +4,12 @@ import {
   cancelBidResponse,
   getBidDetail,
   listMyBids,
+  setReleaseIfCheaper,
+  setReleaseIfCheaperResponse,
   type MoneyDeps,
 } from '@holdfast/core';
-import { ApiError } from '../http/errors.js';
+import { patchBidRequestSchema } from '@holdfast/shared';
+import { ApiError, parse } from '../http/errors.js';
 
 export interface MyBidRoutesDeps {
   /** Database, PayPal client (void) and audit hook; the same deps the bid service uses. */
@@ -24,7 +27,8 @@ function bidIdOf(params: unknown): string {
 
 /**
  * HF-016 shopper bid routes (api.md): `POST /api/bids/:id/cancel`, `GET /api/bids/mine` and
- * `GET /api/bids/:id`. Shopper session required; everything is owner-scoped.
+ * `GET /api/bids/:id`, plus HF-020's `PATCH /api/bids/:id {releaseIfCheaper}`. Shopper session
+ * required; everything is owner-scoped.
  *
  * Cancel is naturally idempotent (a second cancel returns the current state) and still runs inside
  * HF-003b's `idempotent()` store like every mutating route.
@@ -38,6 +42,27 @@ export function registerMyBidRoutes(app: FastifyInstance, deps: MyBidRoutesDeps)
       if (!UUID.test(id)) return cancelBidResponse({ ok: false, error: { code: 'NOT_FOUND' } });
       const shopperId = req.auth.shopper!.id;
       return cancelBidResponse(await cancelBid(deps.money, { bidId: id, shopperId }));
+    }),
+  );
+
+  // HF-020: switching "Release if cheaper" on releases the hold at once if a store is already
+  // cheaper (PRICE_DROP); see core/bid-price-watch.ts.
+  app.patch(
+    '/api/bids/:id',
+    { onRequest: app.guards.requireShopper },
+    app.idempotent(async (req) => {
+      const id = (req.params as { id?: string }).id ?? '';
+      const body = parse(patchBidRequestSchema, req.body, 'bid update');
+      if (!UUID.test(id)) {
+        return setReleaseIfCheaperResponse({ ok: false, error: { code: 'NOT_FOUND' } });
+      }
+      return setReleaseIfCheaperResponse(
+        await setReleaseIfCheaper(deps.money, {
+          bidId: id,
+          shopperId: req.auth.shopper!.id,
+          releaseIfCheaper: body.releaseIfCheaper,
+        }),
+      );
     }),
   );
 

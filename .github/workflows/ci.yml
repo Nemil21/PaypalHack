@@ -65,3 +65,5 @@ jobs:
         run: npx vitest run packages/core/src/channel3 apps/api/src/routes/products.test.ts
       - name: Settlement + promotion integration and race tests on the FakePayPal stub (HF-029, HF-030a, HF-031)
         run: npx vitest run --maxWorkers=2 packages/core/src/settlement
+      - name: My bids, cancel and release-if-cheaper integration + race tests (HF-016, HF-020)
+        run: npx vitest run packages/core/src/bid-cancel.test.ts packages/core/src/bid-price-watch.test.ts apps/api/src/routes/my-bids.test.ts

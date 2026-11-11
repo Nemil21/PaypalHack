@@ -1,6 +1,9 @@
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
 import { ToastProvider } from './components/ui';
+import { BidDetailPage } from './routes/bids/BidDetailPage';
+import { ErrorStatesFixture } from './routes/bids/ErrorStatesFixture';
+import { MyBidsPage } from './routes/bids/MyBidsPage';
 import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { OfferPage } from './routes/offer/OfferPage';
@@ -18,6 +21,8 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <DemoHub /> },
       { path: 'dev/components', element: <DevComponents /> },
+      // W21 error states from a query-string fixture (HF-020): /dev/states?code=PRICE_DROP
+      { path: 'dev/states', element: <ErrorStatesFixture /> },
       // AG suppresses its licence watermark on localhost; any path containing "forceWatermark"
       // shows it as production would: /dev/components/forceWatermark is the local licence check.
       { path: 'dev/components/*', element: <DevComponents /> },
@@ -57,12 +62,9 @@ const router = createBrowserRouter([
         path: 'o/:slug',
         element: <OfferPage />,
       },
-      { path: 'bids', element: <ScreenPlaceholder screen="My bids (W14 / M03)" ticket="HF-020" /> },
-      {
-        path: 'bids/:bidId',
-        element: <ScreenPlaceholder screen="Bid timeline (W15 / M04)" ticket="HF-020" />,
-      },
-      { path: 'bids/*', element: <ScreenPlaceholder screen="My bids" ticket="HF-020" /> },
+      // W14 / M03 my bids; W15 / M04 timeline, also W13 / M02 (?held=1) and W21 (?error=CODE).
+      { path: 'bids', element: <MyBidsPage /> },
+      { path: 'bids/:bidId', element: <BidDetailPage /> },
       {
         path: 'agent',
         element: <ScreenPlaceholder screen="Buyer agent (W16 / M05)" ticket="HF-041" />,
