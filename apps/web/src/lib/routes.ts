@@ -17,6 +17,8 @@ export const paths = {
   listingSettlement: (id: string) => `/brand/listings/${encodeURIComponent(id)}/settlement`,
   offer: (slug: string) => `/o/${encodeURIComponent(slug)}`,
   bids: '/bids',
+  /** W18 / M08 won page (HF-059a). */
+  bidWon: (bidId: string) => `/bids/${encodeURIComponent(bidId)}/won`,
   agent: '/agent',
   mandates: '/mandates',
   /** W17 / M09 new mandate; W13 "Let my agent manage this" (HF-020) prefills the product and price. */

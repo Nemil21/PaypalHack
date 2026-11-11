@@ -5,6 +5,7 @@ import { ToastProvider } from './components/ui';
 import { BidDetailPage } from './routes/bids/BidDetailPage';
 import { ErrorStatesFixture } from './routes/bids/ErrorStatesFixture';
 import { MyBidsPage } from './routes/bids/MyBidsPage';
+import { WonPage } from './routes/bids/WonPage';
 import { DemoHub } from './routes/DemoHub';
 import { DeveloperPage } from './routes/Developer';
 import { DevComponents } from './routes/DevComponents';
@@ -78,6 +79,8 @@ const router = createBrowserRouter([
       // W14 / M03 my bids; W15 / M04 timeline, also W13 / M02 (?held=1) and W21 (?error=CODE).
       { path: 'bids', element: <MyBidsPage /> },
       { path: 'bids/:bidId', element: <BidDetailPage /> },
+      // W18 / M08 won page: receipt and shipping progress (HF-059a).
+      { path: 'bids/:bidId/won', element: <WonPage /> },
       // W16 / M05 buyer agent chat (HF-041); `?fixture=1` replays a recorded turn.
       { path: 'agent', element: <AgentChatPage /> },
       { path: 'mandates', element: <MandatesPage /> },

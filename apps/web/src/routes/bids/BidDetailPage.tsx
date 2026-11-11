@@ -33,7 +33,9 @@ import {
   type RowTone,
 } from '../../lib/bids';
 import { cn } from '../../lib/cn';
+import { paths } from '../../lib/routes';
 import { useApiAction } from '../../lib/use-api-action';
+import { hasWonPage } from '../../lib/won';
 import { ErrorState } from './ErrorState';
 import { formatWhen } from './format';
 import { HoldConfirmation } from './HoldConfirmation';
@@ -217,6 +219,11 @@ function Summary({
         {chip && <Badge tone="neutral">{chip}</Badge>}
       </div>
       <p className="text-[15px] text-ink">{moneyCopy(bid.status, bid.amountCents)}</p>
+      {hasWonPage(bid.status) && (
+        <ButtonLink to={paths.bidWon(bid.bidId)} variant="secondary" className="self-start">
+          View receipt &amp; tracking
+        </ButtonLink>
+      )}
       {reason && bid.status !== 'CAPTURE_FAILED' && (
         <p className="text-[14px] text-body">{reason}</p>
       )}
