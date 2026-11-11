@@ -7,8 +7,8 @@ import { DEMO_OFFER_SLUG, paths } from '../lib/routes';
 const README_TEST_ACCOUNTS = 'https://github.com/Nemil21/PaypalHack#test-accounts';
 
 /**
- * `/` demo hub (HF-007). Reachable without login. HF-057's landing page replaces it later; until
- * then it points judges at the three ways in.
+ * `/demo` demo hub (HF-007). Reachable without login; points judges at the three ways in. The W01
+ * landing page (HF-057) took over `/` and links here from its footer and hero.
  */
 export function DemoHub() {
   const { demoMode } = clientConfig();

@@ -12,7 +12,7 @@ export function ScreenPlaceholder({ screen, ticket }: { screen: string; ticket: 
       <EmptyState
         message={`This screen arrives with ${ticket}.`}
         action={
-          <ButtonLink to={paths.home} variant="outline">
+          <ButtonLink to={paths.demo} variant="outline">
             Back to demo hub
           </ButtonLink>
         }
@@ -28,7 +28,7 @@ export function NotFound() {
       <EmptyState
         message="The link may be old, or the listing may have ended."
         action={
-          <ButtonLink to={paths.home} variant="outline">
+          <ButtonLink to={paths.demo} variant="outline">
             Back to demo hub
           </ButtonLink>
         }

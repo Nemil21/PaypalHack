@@ -3,6 +3,8 @@ export const DEMO_OFFER_SLUG = 'aurel-a7'; // HF-045 seeds the Aurel Audio listi
 
 export const paths = {
   home: '/',
+  /** HF-007 demo hub: three ways in for judges; the W01 landing (HF-057) took over `/`. */
+  demo: '/demo',
   brandSignIn: '/brand/sign-in',
   brandOnboarding: '/brand/onboarding',
   brand: '/brand',
