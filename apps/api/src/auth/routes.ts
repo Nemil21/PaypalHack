@@ -33,8 +33,10 @@ import { randomBytes } from 'node:crypto';
  *   POST /api/auth/demo/brand                 { role?: 'OWNER' | 'VIEWER' }   DEMO_MODE only
  *   POST /api/auth/demo/shopper               { email? }                      DEMO_MODE only
  *   GET  /api/auth/paypal/start               ?next=/path → 302 to PayPal consent (HF-010)
+ *                                             &purpose=payout: W11 payout re-login (HF-056)
  *   GET  /api/auth/paypal/callback            ?code&state | ?error → 302 /brand, /brand/onboarding
  *                                             or /brand/sign-in?error=cancelled|state|failed|unverified
+ *                                             (payout re-login: /brand/settings?tab=payout&reauth=…)
  * With `DEMO_MODE=false` the demo routes are not registered at all, so they answer 404.
  */
 
@@ -56,6 +58,12 @@ export interface AuthRouteDeps {
 
 /** W02 error states the sign-in screen reads from `?error=` (HF-010). */
 export type LippError = 'cancelled' | 'state' | 'failed' | 'unverified';
+
+/** W11 payout tab `?reauth=` outcomes of a payout re-login (HF-056). */
+export type PayoutReauthResult = 'ok' | 'cancelled' | 'failed' | 'unverified' | 'forbidden';
+const PAYOUT_TAB = '/brand/settings?tab=payout';
+/** The invite join page (HF-056): a new user signing in from it comes back to it. */
+const JOIN_PATH = '/brand/join';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 
@@ -188,9 +196,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
   };
 
   app.get('/api/auth/paypal/start', async (req, reply) => {
-    const q = parse(z.object({ next: nextPath }), req.query ?? {}, 'query');
+    const q = parse(
+      z.object({ next: nextPath, purpose: z.enum(['payout']).optional() }),
+      req.query ?? {},
+      'query',
+    );
     const state = randomBytes(24).toString('base64url');
-    sessions.setLippState(req, reply, state, q.next);
+    sessions.setLippState(req, reply, state, q.next, q.purpose);
     reply.header('Cache-Control', 'no-store');
     return reply.redirect(paypal.authorizeUrl({ state, redirectUri: callbackUrl(req) }), 302);
   });
@@ -209,12 +221,20 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     // One attempt per state: the cookie goes whatever the outcome.
     sessions.clear(req, reply, 'lipp-state');
 
+    // W11 payout re-login (HF-056): errors land back on the payout tab, not on W02.
+    const payout = expected?.ext?.purpose === 'payout';
+    const payoutResult = (result: PayoutReauthResult) => {
+      reply.header('Cache-Control', 'no-store');
+      return reply.redirect(`${PAYOUT_TAB}&reauth=${result}`, 302);
+    };
+    if (q.error && payout)
+      return payoutResult(q.error === 'access_denied' ? 'cancelled' : 'failed');
     if (q.error) return signInError(reply, q.error === 'access_denied' ? 'cancelled' : 'failed');
     if (!expected || !q.state || !sameState(q.state, expected.sub)) {
       req.log.warn({ lipp: { reason: expected ? 'STATE_MISMATCH' : 'NO_STATE_COOKIE' } }, 'lipp');
       return signInError(reply, 'state');
     }
-    if (!q.code) return signInError(reply, 'failed');
+    if (!q.code) return payout ? payoutResult('failed') : signInError(reply, 'failed');
 
     let identity;
     try {
@@ -222,7 +242,21 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     } catch (err) {
       if (!(err instanceof PayPalLoginError)) throw err;
       req.log.warn({ lipp: { stage: err.stage, http: err.http, code: err.code } }, 'lipp');
-      return signInError(reply, 'failed');
+      return payout ? payoutResult('failed') : signInError(reply, 'failed');
+    }
+    if (payout) {
+      if (!identity.emailVerified) return payoutResult('unverified');
+      // Only the signed-in OWNER who started it; the brand session itself is left untouched.
+      const claims = sessions.brandClaims(req);
+      const owner =
+        claims && isUuid(claims.sub) ? await loadBrandUser(db().pool, claims.sub) : null;
+      if (!owner || owner.role !== 'OWNER') return payoutResult('forbidden');
+      sessions.setPayoutReauth(req, reply, {
+        brandUserId: owner.id,
+        email: identity.email.toLowerCase(),
+        payerId: identity.payerId,
+      });
+      return payoutResult('ok');
     }
     if (!identity.emailVerified) return signInError(reply, 'unverified');
 
@@ -235,14 +269,15 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
         return reply.redirect('/brand/onboarding', 302);
       return reply.redirect(expected.ext?.next ?? '/brand', 302);
     }
-    // Unknown email: identity in the session only; HF-011b creates the brand and OWNER row.
+    // Unknown email: identity in the session only; HF-011b creates the brand and OWNER row, or
+    // an invite link (HF-056, `/brand/join`) adds the user to an existing brand.
     sessions.clear(req, reply, 'brand');
     sessions.setPendingBrand(req, reply, {
       email: identity.email,
       payerId: identity.payerId,
       name: identity.name,
     });
-    return reply.redirect('/brand/onboarding', 302);
+    return reply.redirect(expected.ext?.next === JOIN_PATH ? JOIN_PATH : '/brand/onboarding', 302);
   });
 
   if (!config.DEMO_MODE) return;

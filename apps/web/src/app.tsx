@@ -9,6 +9,8 @@ import { DemoHub } from './routes/DemoHub';
 import { DeveloperPage } from './routes/Developer';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
+import { BrandJoin } from './routes/brand/BrandJoin';
+import { BrandSettings } from './routes/brand/BrandSettings';
 import { BrandOverview } from './routes/brand/BrandOverview';
 import { BrandOnboarding } from './routes/brand/BrandOnboarding';
 import { BrandSignIn } from './routes/brand/BrandSignIn';
@@ -45,6 +47,8 @@ const router = createBrowserRouter([
       { path: 'brand/sign-in', element: <BrandSignIn /> },
       // W03 (HF-011b): company, domain, payout; works from a pending PayPal identity.
       { path: 'brand/onboarding', element: <BrandOnboarding /> },
+      // Invite link landing (HF-056): sign in with PayPal, then join the brand.
+      { path: 'brand/join', element: <BrandJoin /> },
       {
         // HF-023: brand session + listings. `/brand` is the W04 overview (HF-026).
         element: <BrandGate />,
@@ -57,6 +61,8 @@ const router = createBrowserRouter([
           { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
           // W10 embed widget & share links (HF-055).
           { path: 'brand/embed', element: <EmbedPage /> },
+          // W11 brand settings (HF-056): team, payout, verification, retailers, notifications.
+          { path: 'brand/settings', element: <BrandSettings /> },
         ],
       },
       {

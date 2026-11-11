@@ -11,7 +11,14 @@ import {
   type BrandUserRow,
   type ShopperRow,
 } from './store.js';
-import { openPending, sealPending, type PendingBrandIdentity } from './paypal-login.js';
+import {
+  openPayoutReauth,
+  openPending,
+  sealPayoutReauth,
+  sealPending,
+  type PayoutReauthIdentity,
+  type PendingBrandIdentity,
+} from './paypal-login.js';
 import {
   parseCookies,
   serializeCookie,
@@ -42,6 +49,9 @@ export const LIPP_STATE_COOKIE = 'hf_lipp_state';
 export const BRAND_PENDING_COOKIE = 'hf_brand_pending';
 export const LIPP_STATE_SEC = 10 * 60;
 export const BRAND_PENDING_SEC = BRAND_SESSION_SEC;
+/** W11 payout account change (HF-056): the fresh PayPal re-login, valid 10 minutes. */
+export const PAYOUT_REAUTH_COOKIE = 'hf_payout_reauth';
+export const PAYOUT_REAUTH_SEC = 10 * 60;
 
 export interface McpPrincipal {
   clientId: string;
@@ -188,12 +198,46 @@ export class Sessions {
     );
   }
 
-  /** LIPP `state` (and the same-origin `next` path) for one sign-in attempt, 10 minutes. */
-  setLippState(req: FastifyRequest, reply: FastifyReply, state: string, next?: string): void {
+  /** The OWNER's fresh PayPal re-login for a payout account change (HF-056). */
+  payoutReauth(req: FastifyRequest): PayoutReauthIdentity | null {
+    const c = parseCookies(req.headers.cookie)[PAYOUT_REAUTH_COOKIE];
+    return openPayoutReauth(this.config.SESSION_SECRET, c);
+  }
+
+  setPayoutReauth(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    identity: Omit<PayoutReauthIdentity, 'exp'>,
+  ): void {
+    const sealed = sealPayoutReauth(this.config.SESSION_SECRET, {
+      ...identity,
+      exp: Date.now() + PAYOUT_REAUTH_SEC * 1000,
+    });
+    appendCookie(
+      reply,
+      serializeCookie(PAYOUT_REAUTH_COOKIE, sealed, {
+        maxAgeSec: PAYOUT_REAUTH_SEC,
+        secure: cookieSecure(this.config, req),
+      }),
+    );
+  }
+
+  /**
+   * LIPP `state` (and the same-origin `next` path) for one sign-in attempt, 10 minutes.
+   * `purpose: 'payout'` marks a W11 payout re-login (HF-056) instead of a sign-in.
+   */
+  setLippState(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    state: string,
+    next?: string,
+    purpose?: 'payout',
+  ): void {
+    const ext = { ...(next ? { next } : {}), ...(purpose ? { purpose } : {}) };
     const token = signToken(this.config.SESSION_SECRET, 'paypal-state', {
       sub: state,
       exp: Date.now() + LIPP_STATE_SEC * 1000,
-      ...(next ? { ext: { next } } : {}),
+      ...(Object.keys(ext).length ? { ext } : {}),
     });
     appendCookie(
       reply,
@@ -212,13 +256,14 @@ export class Sessions {
   clear(
     req: FastifyRequest,
     reply: FastifyReply,
-    which: 'brand' | 'shopper' | 'brand-pending' | 'lipp-state',
+    which: 'brand' | 'shopper' | 'brand-pending' | 'lipp-state' | 'payout-reauth',
   ): void {
     const name = {
       brand: BRAND_COOKIE,
       shopper: SHOPPER_COOKIE,
       'brand-pending': BRAND_PENDING_COOKIE,
       'lipp-state': LIPP_STATE_COOKIE,
+      'payout-reauth': PAYOUT_REAUTH_COOKIE,
     }[which];
     appendCookie(
       reply,
