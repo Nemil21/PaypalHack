@@ -73,6 +73,8 @@ Final-submit check: re-read this table, update each tick against the merged PRs 
 
 - [ ] `node scripts/check-devpost-draft.mjs --final` passes: no `[[verify]]` / `[[fill]]` markers left
 - [ ] Each `[[verify: HF-xxx]]` line was kept only if that ticket shipped and works on the deployed URL; otherwise it was reworded to match the README's honest limits
+- [ ] The elevator pitch and "Inspiration" (which have no room for markers) still describe only what shipped
+- [ ] Built with: every tag is backed by a dependency or call in the deployed build. Today `apps/web` depends only on Vite, so check `react`, `tailwindcss`, `ag-grid`, `ag-charts`, `ag-studio`, `server-sent-events`, `render-workflows`, `paypal-vault` and `paypal-webhooks` especially, and drop any that didn't ship
 - [ ] Description, Built with and sponsor ticks agree with the README (HF-049)
 - [ ] Video link public, under 3:00, Aurel Audio only, no real retailer names or logos, no unlicensed music
 - [ ] Repo public, MIT LICENSE detected in the About section, HF-047 secret scan clean, `docs/_sources/` and strategy docs removed

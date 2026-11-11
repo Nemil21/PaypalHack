@@ -6,7 +6,7 @@
 //   node scripts/check-devpost-draft.mjs FILE       lint another file (e.g. text copied back from Devpost)
 //
 // Only the text between <!-- paste:start --> and <!-- paste:end --> is what judges see, so only that is linted.
-// Values from .env are compared against the draft but never printed.
+// Values from .env (or $DEVPOST_CHECK_ENV) are compared against the draft but never printed.
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const final = args.includes('--final');
 const file = resolve(args.find((a) => !a.startsWith('--')) ?? resolve(root, 'docs/devpost/DRAFT.md'));
+const envFile = resolve(process.env.DEVPOST_CHECK_ENV ?? resolve(root, '.env'));
 
 const source = readFileSync(file, 'utf8');
 const blocks = [...source.matchAll(/<!-- paste:start -->\n([\s\S]*?)<!-- paste:end -->/g)].map((m) => m[1]);
@@ -30,6 +31,8 @@ if (blocks.length) {
   if (!pitch) fail('missing the "Elevator pitch" paste block');
   else if (pitch[1].trim().length > 200) fail(`elevator pitch is ${pitch[1].trim().length} chars (Devpost limit 200)`);
   else notes.push(`elevator pitch: ${pitch[1].trim().length}/200 chars`);
+} else {
+  notes.push('no paste markers: linting the whole file; elevator pitch length not checked');
 }
 const requiredHeadings = [
   'Inspiration',
@@ -69,18 +72,20 @@ for (const re of uniformPrice) if (re.test(text)) fail(`uniform-price copy (D14)
 
 // D15: fictional brand only; no real brands, retailers or competitors in the text.
 const trademarks = [
-  'Sony', 'Bose', 'Sennheiser', 'Apple', 'AirPods', 'Beats', 'JBL', 'Samsung', 'Patagonia', 'North Face',
-  'Best Buy', 'Amazon', 'Walmart', 'Costco', 'eBay', 'Shopify', 'B-Stock', 'Greentoe', 'Priceline', 'WebHouse',
+  'Sony', 'Bose', 'Sennheiser', 'AirPods', 'JBL', 'Samsung', 'Patagonia', 'North Face', 'Best Buy',
+  'Walmart', 'Costco', 'eBay', 'Shopify', 'B-Stock', 'Greentoe', 'Priceline', 'WebHouse',
 ];
+// Brands that are also ordinary words ("beats the liquidator", "an apple") match case-sensitively only.
+const commonWordTrademarks = ['Apple', 'Beats', 'Amazon', 'Target'];
 for (const tm of trademarks) if (new RegExp(`\\b${tm}\\b`, 'i').test(text)) fail(`third-party trademark (D15): ${tm}`);
+for (const tm of commonWordTrademarks) if (new RegExp(`\\b${tm}\\b`).test(text)) fail(`third-party trademark (D15): ${tm}`);
 
 // Secrets: nothing from .env, no PayPal/Anthropic-looking keys, no card numbers, no sandbox account emails.
-const envFile = resolve(root, '.env');
 if (existsSync(envFile)) {
-  for (const line of readFileSync(envFile, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+  for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*(?:export\s+)?([A-Za-z0-9_]+)\s*=(.*)$/);
     if (!m) continue;
-    const value = m[2].replace(/^['"]|['"]$/g, '');
+    const value = envValue(m[2]);
     // Only compare values that could be secrets; short or generic values (e.g. "true", a port) would false-positive.
     if (value.length >= 12 && !/^https?:\/\/[^/]*(sandbox\.paypal\.com|localhost)/.test(value) && text.includes(value)) {
       fail(`draft contains the value of .env ${m[1]} (value not printed)`);
@@ -94,6 +99,15 @@ const secretShapes = {
   'sandbox account email': /@(personal|business)\.example\.com/i,
 };
 for (const [label, re] of Object.entries(secretShapes)) if (re.test(text)) fail(`possible secret in draft: ${label}`);
+
+// Parses the right-hand side of a dotenv line: quoted values keep everything inside the quotes;
+// unquoted values drop a trailing ` # comment`. Surrounding whitespace is trimmed either way.
+function envValue(raw) {
+  const v = raw.trim();
+  const quoted = v.match(/^(['"])(.*?)\1(?:\s+#.*)?$/);
+  if (quoted) return quoted[2];
+  return v.replace(/\s+#.*$/, '').trim();
+}
 
 // Open markers: fine in a draft, fatal at final submit.
 const verify = [...text.matchAll(/\[\[verify: ([^\]]+)\]\]/g)].map((m) => m[1]);

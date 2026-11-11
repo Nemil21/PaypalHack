@@ -5,6 +5,7 @@ Paste-ready text for the Devpost submission form at https://paypalaihackathon.de
 Markers we must clear before the final submit (HF-050b); `node scripts/check-devpost-draft.mjs --final` fails while any remain:
 
 - `[[verify: HF-xxx]]`: the claim depends on that ticket. Keep the line if the ticket shipped and works in the deployed demo. Otherwise reword it as partial or remove it (README "honest limits" is the source of truth, HF-049).
+- Every product claim carries a `[[verify]]` marker. Unmarked lines are design rationale, day-one spike results (labelled as such), lessons or roadmap.
 - `[[fill: …]]`: a value we don't have yet (URL, model id, seed numbers, sandbox login).
 
 Copy rules (checked by the script):
@@ -42,54 +43,54 @@ Two things are new. **AI agents make bidding effortless for shoppers**, and **Pa
 
 Holdfast is a private, held-bid book for brand overstock. Pitch line: **agents negotiate by bidding; code clears; PayPal settles.**
 
-1. **The shopper's agent bids with real money.** A shopper tells our buyer agent (Claude) "I'd buy the Aurel A7 if it hit $229." The agent looks the product up on **Channel3** (canonical product, live offers, cheapest public price), suggests a ceiling, and the shopper approves once. **PayPal places an AUTHORIZE hold for $229: held, not charged.**
+1. **The shopper's agent bids with real money.** A shopper tells our buyer agent (Claude) "I'd buy the Aurel A7 if it hit $229." The agent looks the product up on **Channel3** (canonical product, live offers, cheapest public price), suggests a ceiling, and the shopper approves once. **PayPal places an AUTHORIZE hold for $229: held, not charged.** [[verify: HF-039, HF-009, HF-014a, HF-014b]]
 2. **The agent protects its owner.** We subscribe to Channel3 price changes for the product. If an authorized retailer drops below the bid and the shopper left "Release if cheaper elsewhere" on, the hold is **voided automatically** and the shopper gets a link to the cheaper offer. [[verify: HF-042a, HF-042b]]
 3. **Any agent can bid.** Our **MCP server** (`get_book`, `place_bid`, `cancel_bid`, `my_bids`, `raise_bid`) lets outside agents such as Claude Desktop place held bids into the same book under the shopper's mandate. [[verify: HF-044a, HF-044b]]
 4. **The brand sees a private book.** The brand console, built on **AG Grid** and **AG Studio**, shows the held-demand curve, a live bids grid and a quantity slider that compares recovery against the liquidation quote. A **brand agent** explains the trade-off, for example "Clear 240 units, cutoff $219: $54.2k recovered vs $11.4k from the liquidator, with no public price change." [[verify: HF-023, HF-024, HF-025, HF-051a]] [[fill: final numbers printed by `npm run seed:demo` (HF-045)]]
 5. **Live rounds.** Optionally, the brand runs live rounds of up to 6 hours. New bids stop, bidders below the cutoff are told the real cutoff, and their agents may raise within their mandate. [[verify: HF-036a, HF-036b, HF-038a, HF-038b]]
-6. **Code clears.** Clearing is a deterministic pay-your-bid call auction. The top N bids win and **each winner pays exactly their own final bid**, never more than they approved. The cutoff is just the lowest winning bid. Agents advise; code decides who wins and what is charged.
+6. **Code clears.** Clearing is a deterministic pay-your-bid call auction. The top N bids win and **each winner pays exactly their own final bid**, never more than they approved. The cutoff is just the lowest winning bid. Agents advise; code decides who wins and what is charged. [[verify: HF-005, HF-027]]
 7. **PayPal settles.** A settlement coordinator captures each winner's hold at their own bid (`final_capture`), voids every loser, and, if a capture is declined, **promotes the next reserve bidder at their own bid** inside the same transaction (at most 3 tries per unit). It then sends a **PayPal Payout** to the brand from the captured money, net of our fee. Settlement runs on **Render Workflows**, with an in-process coordinator as the fallback. [[verify: HF-030a, HF-030b, HF-031, HF-032]]
-8. **The shopper sees the truth.** "You won at your bid of $229. Charged $229." Losers see "Released. Your bank may show it as pending for a few days."
+8. **The shopper sees the truth.** "You won at your bid of $229. Charged $229." Losers see "Released. Your bank may show it as pending for a few days." [[verify: HF-020, HF-059a]]
 
-Every money action writes an audit row with its PayPal IDs. Simulated bidders are labelled **SIM** everywhere.
+Every money action writes an audit row with its PayPal IDs. Simulated bidders are labelled **SIM** everywhere. [[verify: HF-003b, HF-045]]
 
 ## How we built it
 
-- **Backend:** Node 20, TypeScript, Fastify and Zod, on Postgres. A single `landHold` path is the only way a bid becomes HELD. It re-checks the listing and the mandate under row locks, so a late hold can never dangle after Clear, Cancel or Expire.
+- **Backend:** Node 20, TypeScript, Fastify and Zod, on Postgres. A single `landHold` path is the only way a bid becomes HELD. It re-checks the listing and the mandate under row locks, so a late hold can never dangle after Clear, Cancel or Expire. [[verify: HF-003a]]
 - **PayPal (direct REST, sandbox).** We call the REST APIs directly because the Agent Toolkit doesn't cover authorize, capture, void or Payouts:
-  - Orders v2 `intent=AUTHORIZE`, via the PayPal wallet or card fields
-  - Authorize, capture (`final_capture`), void, and authorization lookup for reconciliation
-  - Vault and merchant-initiated stored-credential holds, so agents can place and raise bids without the shopper present
-  - Payouts to the brand, with batch status polling
+  - Orders v2 `intent=AUTHORIZE`, via the PayPal wallet or card fields [[verify: HF-004, HF-014a, HF-014b]]
+  - Authorize, capture (`final_capture`), void, and authorization lookup for reconciliation [[verify: HF-004, HF-029, HF-016, HF-034]]
+  - Vault and merchant-initiated stored-credential holds, so agents can place and raise bids without the shopper present [[verify: HF-014b, HF-017a, HF-018]]
+  - Payouts to the brand, with batch status polling [[verify: HF-032, HF-034]]
   - Webhook signature verification and reconciliation [[verify: HF-033]]
   - Order shipment tracking [[verify: HF-059b]]
   - Log in with PayPal for brands [[verify: HF-010]]
-  - A fixed `PayPal-Request-Id` per call type, so every retry is idempotent
-  - Negative testing (`PayPal-Mock-Response: INSTRUMENT_DECLINED`) to inject the decline that shows promotion
+  - A fixed `PayPal-Request-Id` per call type, so every retry is idempotent [[verify: HF-004]]
+  - Negative testing (`PayPal-Mock-Response: INSTRUMENT_DECLINED`) to inject the decline that shows promotion [[verify: HF-046, HF-031]]
 - **AI:**
-  - **Claude** (Anthropic API, model `[[fill: ANTHROPIC_MODEL value]]`) with tool use runs the **buyer agent**. It searches Channel3, proposes a ceiling, and places, raises and cancels held bids. The server enforces the mandate (max price, total hold cap, allowed products, expiry), so the model can't exceed it.
+  - **Claude** (Anthropic API, model `[[fill: ANTHROPIC_MODEL value]]`) with tool use runs the **buyer agent**. It searches Channel3, proposes a ceiling, and places, raises and cancels held bids. The server enforces the mandate (max price, total hold cap, allowed products, expiry), so the model can't exceed it. [[verify: HF-039, HF-017a]]
   - The **brand agent** explains the clearing recommendation and phrases live-round nudges. [[verify: HF-051a, HF-036b]]
-  - **Claude Desktop** bids from outside our app through our **MCP server** (`@modelcontextprotocol/sdk`).
+  - **Claude Desktop** bids from outside our app through our **MCP server** (`@modelcontextprotocol/sdk`). [[verify: HF-044a]]
   - Agents choose what to bid. Only plain code decides who wins and what is charged, and only the backend calls PayPal.
-- **Channel3:** product search, a two-stage exact-match gate when a brand creates a listing, live offers for price anchoring, and price-change webhooks for auto-void.
-- **AG Grid Enterprise, AG Charts and AG Studio:** the brand console (book, demand curve, bids grid, KPI row, clearing simulation).
-- **Render:** web service, Postgres, cron jobs (sweeper, reconcile holds, settlement kick, payout poll) and **Render Workflows** for the settlement fan-out.
-- **Realtime:** server-sent events push new bids, raises and settlement progress to the console.
+- **Channel3:** product search, a two-stage exact-match gate when a brand creates a listing, live offers for price anchoring, and price-change webhooks for auto-void. [[verify: HF-009, HF-042a, HF-042b]]
+- **AG Grid Enterprise, AG Charts and AG Studio:** the brand console (book, demand curve, bids grid, KPI row, clearing simulation). [[verify: HF-007, HF-023, HF-024, HF-025]]
+- **Render:** web service, Postgres, cron jobs (sweeper, reconcile holds, settlement kick, payout poll) and **Render Workflows** for the settlement fan-out. [[verify: HF-048a, HF-048b, HF-034, HF-030b]]
+- **Realtime:** server-sent events push new bids, raises and settlement progress to the console. [[verify: HF-008, HF-035]]
 
 ## Challenges we ran into
 
-- **Holds vs. time.** PayPal guarantees card holds for 3 days, so the timeline is absolute: a bidding window of up to 48 h, live rounds of up to 6 h, then Clear within 6 h. Clear is refused if any hold is older than 66 h.
-- **Races around money.** A raise racing Clear could have charged a shopper twice. We fixed it with one lock order (listing, then mandate, then bids), a single `landHold` path, one live bid per shopper per listing (a partial unique index) and conditional state transitions. Any 0-row update rolls back.
-- **Idempotency everywhere.** Each PayPal call type has a fixed request id (`authz-<bidId>`, `void-<bidId>`, the settlement id for a capture, the payout attempt id for a payout). Replays return the same result instead of moving money twice.
-- **Failure in the middle of settlement.** Declined captures promote the next reserve bidder inline. The payout runs exactly once after every capture is final.
-- **Sandbox quirks.** Card holds and Payouts need a US sandbox business account. We proved many holds per buyer, partial `final_capture`, vault plus merchant-initiated holds, and Payouts in day-one spikes before writing product code.
+- **Holds vs. time.** PayPal guarantees card holds for 3 days, so the timeline is absolute: a bidding window of up to 48 h, live rounds of up to 6 h, then Clear within 6 h. Clear is refused if any hold is older than 66 h. [[verify: HF-002, HF-027, HF-034]]
+- **Races around money.** A raise racing Clear could have charged a shopper twice. We fixed it with one lock order (listing, then mandate, then bids), a single `landHold` path, one live bid per shopper per listing (a partial unique index) and conditional state transitions. Any 0-row update rolls back. [[verify: HF-003a, HF-018, HF-027]]
+- **Idempotency everywhere.** Each PayPal call type has a fixed request id (`authz-<bidId>`, `void-<bidId>`, the settlement id for a capture, the payout attempt id for a payout). Replaying a capture with the same request id returned the same capture id in our day-one spikes. [[verify: HF-004, HF-029, HF-032]]
+- **Failure in the middle of settlement.** Declined captures promote the next reserve bidder inline. The payout runs exactly once after every capture is final. [[verify: HF-030a, HF-031, HF-032]]
+- **Sandbox quirks.** Card holds and Payouts need a US sandbox business account. Proven in day-one spikes, before any product code: 10 holds on one buyer, partial `final_capture`, a vaulted card plus a merchant-initiated hold, 50 parallel holds with an injected decline, and a payout to the brand.
 
 ## Accomplishments that we're proud of
 
-- An agentic-commerce loop where agents **actually move money**: real PayPal sandbox holds, captures, voids and a payout to the brand, not a mocked checkout.
-- A clearing rule that is simple, fair and auditable. Each winner pays their own bid, and nobody pays more than they approved.
-- Outside agents (Claude Desktop over MCP) and our own buyer agent trade in the same book under the same guardrails.
-- An honest demo: simulated bidders are labelled SIM, replayed price events are labelled, and the README lists what is real and what is simulated.
+- An agentic-commerce loop where agents **actually move money**: real PayPal sandbox holds, captures, voids and a payout to the brand, not a mocked checkout. [[verify: HF-029, HF-030a, HF-032]]
+- A clearing rule that is simple, fair and auditable. Each winner pays their own bid, and nobody pays more than they approved. [[verify: HF-005, HF-027]]
+- Outside agents (Claude Desktop over MCP) and our own buyer agent trade in the same book under the same guardrails. [[verify: HF-039, HF-044a]]
+- An honest demo: simulated bidders are labelled SIM, replayed price events are labelled, and the README lists what is real and what is simulated. [[verify: HF-045, HF-042a, HF-049]]
 
 ## What we learned
 
@@ -107,16 +108,16 @@ Every money action writes an audit row with its PayPal IDs. Simulated bidders ar
 
 - **Live demo:** [[fill: deployed Render URL (HF-048a)]]. Click **Sign in as demo shopper** or **Sign in as demo brand**; no account is needed (`DEMO_MODE`). The demo book is refreshed daily through Dec 21 (`demo:refresh`). [[verify: HF-006, HF-048b]]
 - **Pay with PayPal (sandbox):** sandbox buyer `[[fill: sandbox buyer email]]`, password `[[fill: sandbox buyer password; type it into the Devpost form only]]`.
-- **Pay by card (sandbox):** use the labelled **Use sandbox test card** button, or a test card from PayPal's sandbox card generator: `[[fill: test card or "generate one in the PayPal developer dashboard"]]`.
+- **Pay by card (sandbox):** use the labelled **Use sandbox test card** button [[verify: HF-014b]], or a test card from PayPal's sandbox card generator: `[[fill: test card or "generate one in the PayPal developer dashboard"]]`.
 - **Claude Desktop over MCP:** sign in as the demo shopper, open **Developer → Connect an agent**, create a token and paste the generated config into Claude Desktop. [[verify: HF-043]]
-- **Run it locally:** see the README. Clone, `cp .env.example .env`, set `PAYPAL_MODE=stub` and `CHANNEL3_MODE=fixtures` for a run with no keys, then `npm install`, `npm run migrate`, `npm run seed:demo`, `npm run dev`.
+- **Run it locally:** see the README. Clone, `cp .env.example .env`, set `PAYPAL_MODE=stub` and `CHANNEL3_MODE=fixtures` for a run with no keys, then `npm install`, `npm run migrate`, `npm run seed:demo`, `npm run dev`. [[verify: HF-004, HF-009, HF-045, HF-049]]
 
 ## What's real and what's simulated
 
-- **Real:** PayPal sandbox holds, captures, voids and the brand payout; Channel3 API calls; Claude agent tool calls; the MCP bid from Claude Desktop.
-- **Simulated, labelled SIM:** the volume bidders that fill the book. Their holds are real sandbox card holds placed by our seed script, not by real people.
+- **Real:** PayPal sandbox holds, captures, voids and the brand payout; Channel3 API calls; Claude agent tool calls; the MCP bid from Claude Desktop. [[verify: HF-029, HF-032, HF-009, HF-039, HF-044a]]
+- **Simulated, labelled SIM:** the volume bidders that fill the book. Their holds are real sandbox card holds placed by our seed script, not by real people. [[verify: HF-045]]
 - **Replayed, labelled:** a price-drop event, if Channel3 doesn't fire a live price change during the recording. [[verify: HF-042b]]
-- **Demo decline:** injected through PayPal negative testing to show promotion. It only works in `DEMO_MODE`.
+- **Demo decline:** injected through PayPal negative testing to show promotion. It only works in `DEMO_MODE`. [[verify: HF-046]]
 
 ## Honest limits
 
