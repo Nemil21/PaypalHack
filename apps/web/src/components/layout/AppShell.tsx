@@ -100,17 +100,20 @@ export function AppShell() {
           </ul>
         </nav>
       )}
-      <main className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-24 sm:px-8 lg:px-18">
+      <main className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8 lg:px-18">
         <Outlet />
       </main>
-      <footer className="relative z-10 mx-auto hidden w-full max-w-[1440px] px-8 pb-8 lg:block lg:px-18">
+      {/* Shown at every width: the listener is active everywhere (hardware keyboards on tablets,
+          narrow or zoomed windows), so the opt-out and the key names must be too (WCAG 2.1.4). */}
+      <footer className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-8 sm:px-8 lg:px-18">
         <button
           type="button"
           onClick={toggleShortcuts}
           aria-pressed={shortcuts}
           className="label text-[11px] text-muted hover:text-ink"
         >
-          Keyboard shortcuts {shortcuts ? 'on' : 'off'} · turn {shortcuts ? 'off' : 'on'}
+          Keyboard shortcuts (B brands, P place a bid) {shortcuts ? 'on' : 'off'} · turn{' '}
+          {shortcuts ? 'off' : 'on'}
         </button>
       </footer>
     </div>
