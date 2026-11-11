@@ -4,7 +4,7 @@ import { settlementGantt } from '../../lib/settlement/gantt';
 import { Skeleton } from '../ui';
 import { useWide } from './OrderTimeline';
 
-const BryntumGantt = lazy(() => import('./BryntumGantt'));
+const BryntumGantt = lazy(() => import('./BryntumGantt').then((m) => m.loadBryntumGantt()));
 
 /** Running bars grow to "now"; a 2 s tick is smooth enough without re-laying out every frame. */
 const TICK_MS = 2_000;

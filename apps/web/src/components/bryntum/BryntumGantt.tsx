@@ -1,5 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { Gantt, StringHelper, TaskModel } from '@bryntum/gantt';
+import { useEffect, useRef, type ComponentType } from 'react';
+import type * as BryntumModule from '@bryntum/gantt';
+import type { Gantt, TaskModel } from '@bryntum/gantt';
+// `?url`: the trial's prebuilt ES module is copied to dist as an asset, never parsed or rendered
+// by Rollup (4.7 MB unminified; bundling it ran CI's `vite build` out of heap). It is fetched at
+// runtime by the dynamic import() below, only when a Gantt screen mounts.
+import bryntumUrl from '@bryntum/gantt/gantt.module.js?url';
 import '@bryntum/gantt/gantt.css';
 import '@bryntum/gantt/svalbard-light.css';
 import '@bryntum/gantt/fontawesome/css/fontawesome.css';
@@ -8,18 +13,42 @@ import './gantt.css';
 import type { GanttData, GanttTask } from '../../lib/gantt';
 
 /**
- * Read-only Bryntum Gantt (HF-060), the only module that imports `@bryntum/gantt`: screens load it
- * with `React.lazy`, so the trial bundle and its CSS stay in their own chunk, off every first
- * paint. Data comes in as plain `GanttData` (lib/gantt.ts); every task is manually scheduled so
- * the engine never moves a database timestamp. No editing (out of scope): drag, resize, menus and
- * the task editor are off.
+ * Read-only Bryntum Gantt (HF-060), the only module that touches `@bryntum/gantt`: screens load it
+ * with `React.lazy(loadBryntumGantt)`, which also fetches the Bryntum module itself, so neither the
+ * trial bundle nor its CSS is on any first paint. Data comes in as plain `GanttData`
+ * (lib/gantt.ts); every task is manually scheduled so the engine never moves a database timestamp.
+ * No editing (out of scope): drag, resize, menus and the task editor are off.
  */
 
-class HfTask extends TaskModel {
-  static override fields = [
-    { name: 'amount', type: 'string' },
-    { name: 'detail', type: 'string' },
-  ];
+type Bryntum = typeof BryntumModule;
+let bryntum: Promise<Bryntum> | null = null;
+
+function loadBryntum(): Promise<Bryntum> {
+  bryntum ??= import(/* @vite-ignore */ bryntumUrl) as Promise<Bryntum>;
+  return bryntum;
+}
+
+type Loaded = { default: ComponentType<BryntumGanttProps> };
+let loaded: Promise<Loaded> | null = null;
+
+/** `React.lazy` factory: resolves once Bryntum itself has loaded (shared by every screen). */
+export function loadBryntumGantt(): Promise<Loaded> {
+  loaded ??= bind();
+  return loaded;
+}
+
+async function bind(): Promise<Loaded> {
+  const b = await loadBryntum();
+  class HfTask extends b.TaskModel {
+    static override fields = [
+      { name: 'amount', type: 'string' },
+      { name: 'detail', type: 'string' },
+    ];
+  }
+  const Bound = (props: BryntumGanttProps) => (
+    <BryntumGantt {...props} bryntum={b} taskModelClass={HfTask} />
+  );
+  return { default: Bound };
 }
 
 export interface BryntumGanttProps {
@@ -49,8 +78,6 @@ function toRecord(t: GanttTask): Record<string, unknown> {
   };
 }
 
-const enc = (s: unknown) => StringHelper.encodeHtml(String(s ?? ''));
-
 function fmt(d: Date | null | undefined): string {
   return d
     ? d.toLocaleString('en-US', {
@@ -63,20 +90,24 @@ function fmt(d: Date | null | undefined): string {
     : '–';
 }
 
-export default function BryntumGantt(props: BryntumGanttProps) {
+function BryntumGantt(
+  props: BryntumGanttProps & { bryntum: Bryntum; taskModelClass: typeof TaskModel },
+) {
   const host = useRef<HTMLDivElement>(null);
   const gantt = useRef<Gantt | null>(null);
   const { data, nameHeader, nameWidth = 240, showAmount = false, height, ariaLabel } = props;
+  const { bryntum: b, taskModelClass } = props;
 
   useEffect(() => {
-    const g = new Gantt({
+    const enc = (s: unknown) => b.StringHelper.encodeHtml(String(s ?? ''));
+    const g = new b.Gantt({
       appendTo: host.current!,
       height: '100%',
       readOnly: true,
       rowHeight: 34,
       barMargin: 8,
       ariaLabel,
-      project: { taskModelClass: HfTask },
+      project: { taskModelClass },
       columns: [
         { type: 'name', text: nameHeader, width: nameWidth, sortable: false },
         ...(showAmount
@@ -95,8 +126,8 @@ export default function BryntumGantt(props: BryntumGanttProps) {
       features: {
         timeRanges: { showCurrentTimeLine: false, showHeaderElements: true },
         taskTooltip: {
-          template: ({ taskRecord }: { taskRecord: HfTask }) => {
-            const t = taskRecord as HfTask & { amount?: string; detail?: string };
+          template: ({ taskRecord }: { taskRecord: TaskModel }) => {
+            const t = taskRecord as TaskModel & { amount?: string; detail?: string };
             const when = t.isMilestone
               ? fmt(t.startDate as Date)
               : `${fmt(t.startDate as Date)} → ${fmt(t.endDate as Date)}`;

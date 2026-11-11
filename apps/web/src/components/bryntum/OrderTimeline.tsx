@@ -11,7 +11,7 @@ import {
 } from '../../lib/order-timeline';
 import { ErrorBanner, Skeleton } from '../ui';
 
-const BryntumGantt = lazy(() => import('./BryntumGantt'));
+const BryntumGantt = lazy(() => import('./BryntumGantt').then((m) => m.loadBryntumGantt()));
 
 /** The Now marker moves on this tick; facts are re-read on the slower one. */
 const CLOCK_MS = 30_000;
