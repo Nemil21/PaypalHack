@@ -214,3 +214,24 @@ export const LISTING_EVENT_TYPES = listingEventSchema.options.map(
 export function parseListingEvent(input: unknown): ListingEvent {
   return listingEventSchema.parse(input);
 }
+
+/**
+ * What actually travels: `emit` publishes this over `pg_notify` (8,000-byte cap) and the SSE
+ * streams forward it as-is. Ids only (bid, replaced bid, settlement, payout); never PII. Clients
+ * re-fetch details on each notice and on every reconnect (HF-008).
+ */
+export const listingEventNoticeSchema = z
+  .object({
+    listingId: id,
+    type: z.enum(LISTING_EVENT_TYPES as [ListingEventType, ...ListingEventType[]]),
+    ids: z.record(z.string(), z.string()),
+  })
+  .strict();
+
+export type ListingEventNotice = z.infer<typeof listingEventNoticeSchema>;
+
+/**
+ * SSE frame telling clients the server may have missed notices (its LISTEN connection dropped and
+ * came back): re-fetch everything, exactly as after an EventSource reconnect.
+ */
+export const LISTING_EVENTS_RESYNC = 'resync';

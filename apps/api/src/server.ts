@@ -9,9 +9,11 @@ import { registerIdempotency } from './http/idempotency.js';
 import { isCsrfAndKeyExempt, isMutating, isRestLimited, pathOf } from './http/paths.js';
 import { applyRateDecision, RateLimiter } from './http/rate-limit.js';
 import { loggerOptions } from './http/redact.js';
+import type { ListingEventBus } from './events/bus.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
+import { registerEventRoutes } from './routes/events.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
@@ -38,6 +40,10 @@ export interface ServerDeps {
   mcpTokens?: McpTokenVerifier;
   /** Magic-link delivery (default: printed locally; email in HF-054b). */
   sendMagicLink?: MagicLinkSender;
+  /** Listing event bus (HF-008): mounts the SSE streams when `sql` is set too. */
+  events?: ListingEventBus;
+  /** SSE heartbeat interval (default 15 s); tests shorten it. */
+  sseHeartbeatMs?: number;
 }
 
 /**
@@ -96,6 +102,9 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   }
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
+  if (deps.events && deps.sql) {
+    registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });
+  }
 
   registerAuthRoutes(app, {
     config,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { ListingEvent } from '@holdfast/shared';
+import type { ListingEventNotice } from '@holdfast/shared';
 import {
+  bidEventsUrl,
   listingEventsUrl,
+  subscribeBidEvents,
   subscribeListingEvents,
   type EventSourceLike,
   type ListingEventsStatus,
@@ -37,21 +39,11 @@ class FakeSource implements EventSourceLike {
   }
 }
 
-const held = {
-  type: 'bid.held',
-  listingId: 'lst_1',
-  at: '2026-11-11T10:00:00Z',
-  bidId: 'bid_1',
-  shopperLabel: 'Shopper #241',
-  amountCents: 22_900,
-  source: 'SIM',
-  isSimulated: true,
-  placedAt: '2026-11-11T10:00:00Z',
-};
+const held = { listingId: 'lst_1', type: 'bid.held', ids: { bidId: 'bid_1' } };
 
 function setup() {
   let source!: FakeSource;
-  const events: ListingEvent[] = [];
+  const events: ListingEventNotice[] = [];
   const statuses: ListingEventsStatus[] = [];
   let reconnects = 0;
   const stop = subscribeListingEvents(
@@ -72,20 +64,29 @@ describe('subscribeListingEvents', () => {
     expect(listingEventsUrl('a/b')).toBe('/api/listings/a%2Fb/events');
   });
 
-  it('delivers typed events from default and named frames', () => {
+  it('delivers notices from default and named frames', () => {
     const { source, events } = setup();
     source.open();
     source.emit('message', held);
-    source.emit('bid.held', { ...held, bidId: 'bid_2' });
-    expect(events.map((e) => e.type === 'bid.held' && e.bidId)).toEqual(['bid_1', 'bid_2']);
+    source.emit('bid.held', { ...held, ids: { bidId: 'bid_2' } });
+    expect(events.map((e) => e.type === 'bid.held' && e.ids.bidId)).toEqual(['bid_1', 'bid_2']);
   });
 
-  it('drops malformed frames and other listings', () => {
+  it('drops malformed frames, unknown types, extra fields and other listings', () => {
     const { source, events } = setup();
     source.emit('message', 'not json');
-    source.emit('message', { ...held, amountCents: 'lots' });
+    source.emit('message', { ...held, type: 'bid.unknown' });
+    source.emit('message', { ...held, ids: { bidId: 7 } });
+    source.emit('message', { ...held, email: 'sam@example.com' });
     source.emit('message', { ...held, listingId: 'lst_other' });
     expect(events).toEqual([]);
+  });
+
+  it('treats a server resync frame like a reconnect', () => {
+    const { source, reconnects } = setup();
+    source.open();
+    source.emit('resync', { listingId: 'lst_1' });
+    expect(reconnects()).toBe(1);
   });
 
   it('reports reconnects so the caller can re-fetch', () => {
@@ -109,5 +110,21 @@ describe('subscribeListingEvents', () => {
     source.emit('message', held);
     expect(source.closed).toBe(true);
     expect(events).toEqual([]);
+  });
+});
+
+describe('subscribeBidEvents', () => {
+  it("connects to the bid's own stream and delivers its notices", () => {
+    let source!: FakeSource;
+    const events: ListingEventNotice[] = [];
+    subscribeBidEvents(
+      'bid_1',
+      { onEvent: (e) => events.push(e) },
+      (url) => (source = new FakeSource(url)),
+    );
+    expect(source.url).toBe('/api/bids/bid_1/events');
+    expect(bidEventsUrl('a/b')).toBe('/api/bids/a%2Fb/events');
+    source.emit('round.started', { listingId: 'lst_9', type: 'round.started', ids: {} });
+    expect(events.map((e) => e.type)).toEqual(['round.started']);
   });
 });

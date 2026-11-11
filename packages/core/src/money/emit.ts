@@ -1,18 +1,15 @@
-import { listingEventSchema, type ListingEvent, type ListingEventType } from '@holdfast/shared';
+import { listingEventSchema, type ListingEvent, type ListingEventNotice } from '@holdfast/shared';
 import type { Queryable } from '../db.js';
 
 /** The `LISTEN` channel HF-008 subscribes to. */
 export const LISTING_EVENTS_CHANNEL = 'listing_events';
 
 /**
- * What goes over `pg_notify`: small, ids only (NOTIFY caps payloads at 8,000 bytes). SSE clients
- * re-fetch details. Never PII.
+ * What goes over `pg_notify`: `{listingId, type, ids}` (`listingEventNoticeSchema` in
+ * `@holdfast/shared`). Small, ids only (NOTIFY caps payloads at 8,000 bytes); SSE clients re-fetch
+ * details. Never PII.
  */
-export interface ListingEventNotice {
-  listingId: string;
-  type: ListingEventType;
-  ids: Record<string, string>;
-}
+export type { ListingEventNotice };
 
 /** Pull the entity ids out of an event: bid, replaced bid, settlement, payout. */
 export function noticeFor(event: ListingEvent): ListingEventNotice {

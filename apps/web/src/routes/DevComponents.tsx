@@ -256,7 +256,7 @@ function LiveEvents() {
       <p className="text-[15px] text-body">
         Stream <code className="font-mono text-[13px]">/api/listings/demo/events</code>:{' '}
         <Badge tone={status === 'open' ? 'success' : 'neutral'}>{status}</Badge> · {count} events.
-        The stream itself ships with HF-008; until then it reports closed.
+        Notices are ids only; a real listing id is needed (a missing one reports closed).
       </p>
     </Section>
   );
