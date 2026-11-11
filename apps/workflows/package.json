@@ -3,13 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Render Workflows adapter over packages/core settlement tasks (HF-030b). Placeholder until then.",
+  "description": "Render Workflows service: the HF-048a hello-world task now; the settlement adapter over packages/core (HF-030b) next.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@holdfast/core": "0.0.0"
+    "@holdfast/core": "0.0.0",
+    "@renderinc/sdk": "^1.8.0"
   }
 }
