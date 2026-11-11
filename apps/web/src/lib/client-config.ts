@@ -22,15 +22,28 @@ const FALLBACK: ClientConfig = {
 };
 
 let current: ClientConfig = FALLBACK;
+let ready: Promise<ClientConfig> | null = null;
 
-export async function loadClientConfig(): Promise<ClientConfig> {
-  try {
-    const res = await fetch('/api/client-config', { credentials: 'same-origin' });
-    if (res.ok) current = { ...FALLBACK, ...((await res.json()) as Partial<ClientConfig>) };
-  } catch {
-    // Keep the fallback; the dev components page shows the licence as missing.
-  }
-  return current;
+export function loadClientConfig(): Promise<ClientConfig> {
+  ready ??= (async () => {
+    try {
+      const res = await fetch('/api/client-config', { credentials: 'same-origin' });
+      if (res.ok) current = { ...FALLBACK, ...((await res.json()) as Partial<ClientConfig>) };
+    } catch {
+      // Keep the fallback; the dev components page shows the licence as missing.
+    }
+    return current;
+  })();
+  return ready;
+}
+
+/**
+ * Resolves once the config has loaded (or failed). `/` paints without it (HF-057), so every lazy
+ * screen waits on this before its module evaluates: AG registers its licence at import time and
+ * screens read `clientConfig()` once at render.
+ */
+export function configReady(): Promise<ClientConfig> {
+  return loadClientConfig();
 }
 
 export function clientConfig(): ClientConfig {
