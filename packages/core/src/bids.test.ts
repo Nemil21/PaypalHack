@@ -30,7 +30,8 @@ import type { PayPalClient } from './paypal/types.js';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
+// Races wait on DB state, not wall-clock sleeps, and get a generous timeout on a loaded machine.
+describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', { timeout: 30_000 }, () => {
   let t: TestDatabase;
   let db: Db;
   let fx: Fixtures;
@@ -43,7 +44,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
     t = await createTestDatabase();
     db = t.db;
     fx = new Fixtures(db);
-  });
+  }, 60_000);
   afterAll(async () => {
     await t?.close();
   });
@@ -102,6 +103,18 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
   }
 
   const bidRow = (id: string) => fx.bid(id);
+  /** Wait until the placement committed its PENDING_APPROVAL row (the PayPal call is in flight). */
+  async function pendingOn(listingId: string): Promise<string> {
+    for (let i = 0; i < 500; i++) {
+      const res = await db.pool.query(
+        `SELECT id FROM bids WHERE listing_id = $1 AND status = 'PENDING_APPROVAL'`,
+        [listingId],
+      );
+      if (res.rowCount) return res.rows[0].id as string;
+      await sleep(10);
+    }
+    throw new Error(`no PENDING_APPROVAL bid on ${listingId}`);
+  }
   const orderCreates = (bidId?: string) =>
     fake.calls
       .slice(mark)
@@ -253,6 +266,13 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
       await placeBid(deps(), i);
       const r = await placeBid(deps(), { ...i, amountCents: 30_000 });
       expect(r).toMatchObject({ ok: false, error: { code: 'IDEMPOTENCY_MISMATCH' } });
+      const m = await fx.mandate(s);
+      for (const changed of [{ mandateId: m.id }, { releaseIfCheaper: false }]) {
+        expect(await placeBid(deps(), { ...i, ...changed })).toMatchObject({
+          ok: false,
+          error: { code: 'IDEMPOTENCY_MISMATCH' },
+        });
+      }
     });
   });
 
@@ -285,9 +305,9 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
     it('window closes during the PayPal call → hold voided, bid VOIDED(WINDOW_CLOSED), "released" copy', async () => {
       const l = await fx.listing();
       const s = await vaultedShopper();
-      fake.latencyMs = 300;
+      fake.latencyMs = 1_500;
       const pending = placeBid(deps(), input(l.id, s));
-      await sleep(100);
+      await pendingOn(l.id);
       await db.pool.query(
         `UPDATE listings SET window_closes_at = now() - interval '1 second' WHERE id = $1`,
         [l.id],
@@ -350,13 +370,23 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
     it('one_held_bid holds when another bid lands during the PayPal call; the late hold is voided', async () => {
       const l = await fx.listing();
       const s = await vaultedShopper();
-      fake.latencyMs = 300;
+      fake.latencyMs = 1_500;
       const placing = placeBid(deps(), input(l.id, s, { amountCents: 23_900 }));
-      await sleep(100);
+      await pendingOn(l.id);
       // Another path (a raise, a roll) landed a HELD bid for this shopper meanwhile.
       const other = await fx.heldBid(l.id, s, { amountCents: 22_900 });
       const r = await placing;
       expect(r).toMatchObject({ ok: false, error: { code: 'ALREADY_BID', bidId: other.id } });
+      // A same-key replay (MCP / agent callers skip the HTTP store) gives the same answer.
+      const again = await placeBid(deps(), {
+        ...input(l.id, s, { amountCents: 23_900 }),
+        idempotencyKey: r.bid!.idempotency_key as string,
+      });
+      expect(again).toMatchObject({
+        ok: false,
+        replayed: true,
+        error: { code: 'ALREADY_BID', bidId: other.id },
+      });
       const row = await bidRow(r.bid!.id);
       expect(row.status).toBe('VOIDED');
       expect(fake.authorization(row.paypal_authorization_id as string)?.status).toBe('VOIDED');
@@ -375,7 +405,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
 
       fake.latencyMs = 2_000;
       const placing = placeBid(deps(), input(l.id, s));
-      await sleep(300); // the bid is PENDING_APPROVAL, PayPal is "thinking"
+      await pendingOn(l.id); // the bid is PENDING_APPROVAL, PayPal is "thinking"
       const cleared = await clearListing(
         { db, paypal: client, voidBackoffMs: [0, 0, 0], audit: auditHook },
         {
@@ -508,9 +538,9 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-014a placeBid', () => {
       const l = await fx.listing();
       const s = await vaultedShopper();
       const m = await fx.mandate(s);
-      fake.latencyMs = 300;
+      fake.latencyMs = 1_500;
       const placing = placeBid(deps(), input(l.id, s, { mandateId: m.id }));
-      await sleep(100);
+      await pendingOn(l.id);
       await db.pool.query(`UPDATE mandates SET status = 'PAUSED' WHERE id = $1`, [m.id]);
       const r = await placing;
       expect(r).toMatchObject({ ok: false, error: { code: 'MANDATE_PAUSED', released: true } });

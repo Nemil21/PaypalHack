@@ -427,18 +427,26 @@ async function landingError(
     case 'MANDATE_PAUSED':
       return mandateError(landed.reason, bid.id, released);
     case 'ALREADY_BID': {
-      const held = await deps.db.pool.query(
-        `SELECT id, amount_cents FROM bids
-          WHERE listing_id = $1 AND shopper_id = $2 AND status = 'HELD' LIMIT 1`,
-        [bid.listing_id, bid.shopper_id],
-      );
-      const row = held.rows[0] as { id: string; amount_cents: number } | undefined;
-      if (row) return { code: 'ALREADY_BID', bidId: row.id, amountCents: row.amount_cents };
+      const held = await heldBidOf(deps, bid);
+      if (held) return { code: 'ALREADY_BID', bidId: held.id, amountCents: held.amount_cents };
       return { code: 'STATE_CONFLICT', bidId: bid.id, reason: landed.reason, released };
     }
     default:
       return { code: 'STATE_CONFLICT', bidId: bid.id, reason: landed.reason, released };
   }
+}
+
+/** The shopper's HELD bid on the same listing (the one that won `one_held_bid`). */
+async function heldBidOf(
+  deps: PlaceBidDeps,
+  bid: Pick<BidRow, 'listing_id' | 'shopper_id'>,
+): Promise<{ id: string; amount_cents: number } | null> {
+  const res = await deps.db.pool.query(
+    `SELECT id, amount_cents FROM bids
+      WHERE listing_id = $1 AND shopper_id = $2 AND status = 'HELD' LIMIT 1`,
+    [bid.listing_id, bid.shopper_id],
+  );
+  return (res.rows[0] as { id: string; amount_cents: number } | undefined) ?? null;
 }
 
 async function markHoldFailed(
@@ -520,7 +528,10 @@ async function replay(
   if (
     bid.listing_id !== input.listingId ||
     bid.amount_cents !== input.amountCents ||
-    bid.payment_method !== input.paymentMethod
+    bid.payment_method !== input.paymentMethod ||
+    (bid.mandate_id ?? null) !== (input.mandateId ?? null) ||
+    (bid.intent_id ?? null) !== (input.intentId ?? null) ||
+    bid.release_if_cheaper !== (input.releaseIfCheaper ?? true)
   ) {
     return fail({ code: 'IDEMPOTENCY_MISMATCH' });
   }
@@ -548,13 +559,13 @@ async function replay(
       return fail({ code: 'HOLD_FAILED', bidId: bid.id, paypalCode: bid.error_code ?? 'DECLINED' });
     case 'VOIDING':
     case 'VOIDED':
-      return fail(refusalFromVoid(bid));
+      return fail(await refusalFromVoid(deps, bid));
     default:
       return fail({ code: 'STATE_CONFLICT', bidId: bid.id, reason: bid.status, released: false });
   }
 }
 
-function refusalFromVoid(bid: BidRow): PlaceBidError {
+async function refusalFromVoid(deps: PlaceBidDeps, bid: BidRow): Promise<PlaceBidError> {
   const released = bid.status === 'VOIDED';
   const reason: VoidReason | null = bid.void_reason;
   if (reason === 'WINDOW_CLOSED') {
@@ -567,6 +578,11 @@ function refusalFromVoid(bid: BidRow): PlaceBidError {
       bid.id,
       released,
     );
+  }
+  if (bid.error_code === 'ALREADY_BID') {
+    // Same answer as the first call: point at the bid that holds the slot now.
+    const held = await heldBidOf(deps, bid);
+    if (held) return { code: 'ALREADY_BID', bidId: held.id, amountCents: held.amount_cents };
   }
   return {
     code: 'STATE_CONFLICT',

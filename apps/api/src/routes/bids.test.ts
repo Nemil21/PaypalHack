@@ -37,7 +37,7 @@ const ENV = {
   DEMO_MODE: 'true',
 };
 
-describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a)', () => {
+describe.skipIf(!TEST_DATABASE_URL)('POST /api/bids (HF-014a)', { timeout: 30_000 }, () => {
   let tdb: TestDatabase;
   let fx: Fixtures;
   let fake: FakePayPal;
