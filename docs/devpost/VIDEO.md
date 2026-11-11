@@ -130,7 +130,7 @@ The test plan. Run the whole of §2 once, end to end, on the deployed URL at 01:
 
 1. In the `holdfast` Shell, check the audit trail for the dry run's listing against PayPal (HF-046 audit completeness, sandbox mode: every `*_SUCCEEDED` capture, void and payout row checked by GET):
    ```sh
-   npm run demo:audit-check -- --listing <A7 id>
+   npm run demo:audit-check -- --listing aurel-a7
    ```
    Every row must match, and every `*_REQUESTED` row has an outcome.
 2. `node scripts/smoke-deploy.mjs https://<host>` from a laptop passes.

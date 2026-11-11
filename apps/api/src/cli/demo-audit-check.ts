@@ -5,7 +5,11 @@
  * outcome. See `../demo/audit-check.ts`.
  *
  *   npm run demo:audit-check                     # every listing
- *   npm run demo:audit-check -- --listing <uuid> # one listing (the rehearsal's A7)
+ *   npm run demo:audit-check -- --listing aurel-a7   # one listing by slug or id (the rehearsal's A7)
+ *
+ * Exits 1 on any mismatch, on an unknown `--listing`, and when no SUCCEEDED row was found: after
+ * a demo Clear there are always captures and voids to check, so zero means the wrong listing or
+ * database, not a pass.
  *
  * Sandbox only: in stub mode a new process's FakePayPal has none of the holds, so it refuses (the
  * stub check runs inside the HF-046 integration test against that process's call log). Needs
@@ -21,6 +25,7 @@ import {
   loadDotenv,
 } from '@holdfast/core';
 import { checkAuditAgainstPayPal } from '../demo/audit-check.js';
+import { findDemoListing } from '../demo/listing.js';
 
 loadDotenv();
 
@@ -48,8 +53,17 @@ if (config.PAYPAL_MODE === 'stub') {
 const pool = createPool(config, 2);
 let exitCode = 1;
 try {
+  let listingIds: string[] | undefined;
+  if (values.listing) {
+    const listing = await findDemoListing(pool, values.listing);
+    if (!listing) throw new Error(`listing not found: ${values.listing}`);
+    listingIds = [listing.id];
+    console.log(
+      `demo:audit-check: listing ${listing.slug ?? listing.id} (${listing.id}, ${listing.status})`,
+    );
+  }
   const result = await checkAuditAgainstPayPal(createDb(pool), createPayPalClient(config), {
-    listingIds: values.listing ? [values.listing] : undefined,
+    listingIds,
   });
   console.log(
     `demo:audit-check: ${result.succeeded} SUCCEEDED row(s) checked at PayPal, ` +
@@ -60,12 +74,19 @@ try {
       `  ${m.action} ${m.auditId ?? '-'} (${m.requestId ?? 'no request id'}): ${m.problem}`,
     );
   }
-  console.log(
-    result.ok
-      ? 'OK: every audit row matches PayPal'
-      : `FAIL: ${result.mismatches.length} mismatch(es)`,
-  );
-  exitCode = result.ok ? 0 : 1;
+  if (result.succeeded === 0) {
+    console.error(
+      'FAIL: no CAPTURE / VOID / PAYOUT SUCCEEDED rows found; a cleared demo listing always has ' +
+        'some. Check --listing and DATABASE_URL.',
+    );
+  } else {
+    console.log(
+      result.ok
+        ? 'OK: every audit row matches PayPal'
+        : `FAIL: ${result.mismatches.length} mismatch(es)`,
+    );
+  }
+  exitCode = result.ok && result.succeeded > 0 ? 0 : 1;
 } catch (err) {
   console.error(`demo:audit-check failed: ${(err as Error).message}`);
 } finally {
