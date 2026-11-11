@@ -5,12 +5,14 @@ import {
   findBidByOrderId,
   placeBid,
   placeBidResponse,
+  raiseBid,
+  raiseBidResponse,
   recordApprovalCancelled,
   type AuthorizeBidResult,
   type IdempotentResponse,
   type PlaceBidDeps,
 } from '@holdfast/core';
-import { placeBidRequestSchema } from '@holdfast/shared';
+import { placeBidRequestSchema, raiseBidRequestSchema } from '@holdfast/shared';
 import { parse } from '../http/errors.js';
 
 export interface BidRoutesDeps {
@@ -64,6 +66,29 @@ export function registerBidRoutes(app: FastifyInstance, deps: BidRoutesDeps): vo
         via: 'AUTHORIZE',
       });
       return authorizeResponse(result);
+    }),
+  );
+
+  /**
+   * `POST /api/bids/:id/raise` (HF-018; api.md, features/05 §Logic 4). The shopper is present, so
+   * a vaulted raise is a customer-initiated hold and is not agent-capped (M11). A wallet-only
+   * shopper gets `201 PENDING_APPROVAL` + `approveUrl`; the swap completes on return.
+   */
+  app.post(
+    '/api/bids/:id/raise',
+    { onRequest: app.guards.requireShopper },
+    app.idempotent(async (req) => {
+      const { id } = req.params as { id: string };
+      const body = parse(raiseBidRequestSchema, req.body, 'raise');
+      const result = await raiseBid(deps.money, {
+        bidId: id,
+        amountCents: body.amountCents,
+        shopperId: req.auth.shopper!.id,
+        idempotencyKey: req.idempotencyKey!,
+        agentInitiated: false,
+        initiator: 'CUSTOMER',
+      });
+      return raiseBidResponse(result);
     }),
   );
 

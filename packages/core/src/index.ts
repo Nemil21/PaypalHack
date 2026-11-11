@@ -22,6 +22,7 @@ export * from './settlement/settle-listing.js';
 export * from './settlement/retry.js';
 export * from './rounds/index.js';
 export * from './bid-cancel.js';
+export * from './bid-raise.js';
 export * from './bid-views.js';
 export * from './mandates.js';
 export * from './brands/verify.js';

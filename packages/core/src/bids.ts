@@ -197,7 +197,8 @@ const biddable = (
     now,
   );
 
-function actorFor(input: PlaceBidInput): Actor {
+/** @internal Shared with `raiseBid`. */
+export function actorFor(input: PlaceBidInput): Actor {
   if (input.actor) return input.actor;
   if (input.source === 'BUYER_AGENT') return { type: 'BUYER_AGENT', id: input.shopperId };
   if (input.source === 'MCP') return { type: 'MCP_CLIENT', id: input.shopperId };
@@ -343,7 +344,8 @@ async function hold(
  * CARD / PAYPAL: the order exists and waits for the buyer. The bid stays PENDING_APPROVAL with
  * `paypal_order_id` (how `GET /bids/return?token=` finds it); `authorizeAndLand` takes it from here.
  */
-async function awaitApproval(
+/** @internal Shared with `raiseBid`. */
+export async function awaitApproval(
   deps: PlaceBidDeps,
   bid: BidRow,
   result: Extract<HoldResult, { kind: 'needs_approval' }>,
@@ -524,8 +526,8 @@ async function insertPending(
   return { kind: 'placed', bid };
 }
 
-/** A placement-time `mandates.authorize` denial (no bid row, no PayPal call). */
-function denialError(denial: MandateDenial, maxPriceCents: number): PlaceBidError {
+/** A placement-time `mandates.authorize` denial (no bid row, no PayPal call). @internal */
+export function denialError(denial: MandateDenial, maxPriceCents: number): PlaceBidError {
   switch (denial) {
     case 'MANDATE_NOT_FOUND':
       return { code: 'VALIDATION_ERROR', field: 'mandateId', message: 'Unknown mandate.' };
@@ -733,8 +735,11 @@ export function refusalFromVoid(bid: BidRow): PlaceBidError {
   };
 }
 
-/** Build the PayPal payment source. Raw card data comes only from server config, never input. */
-async function paymentSourceFor(
+/**
+ * Build the PayPal payment source. Raw card data comes only from server config, never input.
+ * @internal Shared with `raiseBid`.
+ */
+export async function paymentSourceFor(
   deps: PlaceBidDeps,
   input: PlaceBidInput,
 ): Promise<{ paymentSource: PaymentSource } | { error: PlaceBidError }> {
@@ -832,7 +837,8 @@ function maybeRefreshPublicOffer(deps: PlaceBidDeps, l: ListingSnapshot): void {
   void deps.refreshPublicOffer(l.product_id).catch(() => undefined);
 }
 
-async function findByKey(
+/** @internal Shared with `raiseBid`. */
+export async function findByKey(
   q: Pick<Tx, 'query'>,
   shopperId: string,
   key: string,

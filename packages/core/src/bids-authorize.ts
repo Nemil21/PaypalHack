@@ -9,11 +9,12 @@ import {
   type PlaceBidError,
 } from './bids.js';
 import type { Queryable } from './db.js';
+import { finishSwap } from './bid-raise.js';
 import { landHold } from './money/land-hold.js';
 import type { Actor, AuditEntry } from './money/deps.js';
 import type { BidRow } from './money/rows.js';
 import { transition } from './money/transition.js';
-import { callVoid, loadBid, markVoided, voidBid, voidKey } from './money/void.js';
+import { callVoid, loadBid, markVoided, voidKey } from './money/void.js';
 import { authorizeRequestId } from './paypal/ids.js';
 import type { HoldResult } from './paypal/types.js';
 
@@ -223,10 +224,10 @@ async function land(
 
   let replaced: BidRow | null = null;
   if (landed.replaced) {
-    // The old hold went HELD → VOIDING (REPLACED) inside landHold; release it now. On a PayPal
-    // failure it stays VOIDING for the sweeper (HF-034).
-    const v = await voidBid(deps, landed.replaced.id, 'REPLACED', actor, { from: ['VOIDING'] });
-    replaced = v.bid;
+    // The old hold went HELD → VOIDING (REPLACED) inside landHold; release it now (HF-018's
+    // `finishSwap`: void + `BID_RAISED`). On a PayPal failure it stays VOIDING for the sweeper.
+    const done = await finishSwap(deps, landed.bid, landed.replaced, landed.replaced.id, actor);
+    replaced = done.oldBid;
   }
   return { ok: true, bid: landed.bid, alreadyHeld: landed.alreadyHeld, replaced };
 }
