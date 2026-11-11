@@ -7,6 +7,7 @@ export * from './auction.js';
 export * from './eligibility.js';
 export * from './events.js';
 export * from './settlement.js';
+export * from './brand-bid.js';
 export * from './copy.js';
 export * from './errors.js';
 export * from './bids.js';

@@ -117,3 +117,8 @@
     }
   }
 }
+
+/* W08 settlement log (HF-035): a decline and its promotion stand out in the AG Grid log. */
+.ag-row.hf-row-promotion {
+  background-color: var(--color-orange-tint);
+}
