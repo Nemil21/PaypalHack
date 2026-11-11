@@ -16,6 +16,7 @@ import { recommendationClearNote } from '../../lib/console/recommendation';
 import { useSlider } from '../../lib/console/slider-store';
 import { useClear } from '../../lib/console/use-clear';
 import { Button, ErrorBanner, Skeleton } from '../ui';
+import { SlideToConfirm } from '../ui/SlideToConfirm';
 
 /** Phases in which the brand can clear (the server accepts OPEN and ROUNDS). */
 export const CLEARABLE: ReadonlySet<ListingPhaseName> = new Set([
@@ -110,24 +111,34 @@ export function ClearAction({
   );
 }
 
-function ClearBody({
+/**
+ * The W07 body for every step of the Clear flow. `confirm: 'type'` (W07) asks for `CLEAR 240`;
+ * `'slide'` (HF-061's M10 sheet) shows the same numbers with a slide-to-confirm. Both keep the
+ * one-click "Confirm $X" after a 409 BOOK_CHANGED.
+ */
+export function ClearBody({
   clear,
-  typed,
-  setTyped,
+  typed = '',
+  setTyped = () => {},
   inputId,
   recommendation,
   onClose,
+  confirm = 'type',
 }: {
   clear: ReturnType<typeof useClear>;
-  typed: string;
-  setTyped(v: string): void;
+  typed?: string;
+  setTyped?(v: string): void;
   inputId: string;
   recommendation?: Recommendation;
   onClose(): void;
+  confirm?: 'type' | 'slide';
 }) {
   const { step, summary, quantity, error } = clear;
   const titleId = `${inputId}-title`;
-  const typedOk = quantity !== null && isConfirmTyped(typed, quantity);
+  const slide = confirm === 'slide';
+  // After a 409 BOOK_CHANGED the confirm is one click on the new gross, in both modes.
+  const oneClick = !slide || clear.previousGrossCents !== null;
+  const typedOk = quantity !== null && (slide || isConfirmTyped(typed, quantity));
   const submitting = step === 'submitting';
   const agentNote = quantity === null ? null : recommendationClearNote(recommendation, quantity);
 
@@ -203,7 +214,7 @@ function ClearBody({
 
       {step === 'cleared' && (
         <p className="text-[15px] text-body" role="status">
-          Cleared. Opening settlement…
+          {slide ? 'Cleared. Charging winners…' : 'Cleared. Opening settlement…'}
         </p>
       )}
 
@@ -255,23 +266,38 @@ function ClearBody({
                   {shortfallNote(quantity, summary.winners)}
                 </p>
               )}
-              <label htmlFor={inputId} className="text-[14px] text-body">
-                Type <span className="font-mono text-ink">{confirmPhrase(quantity)}</span> to
-                confirm
-              </label>
-              <input
-                id={inputId}
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-                disabled={submitting}
-                placeholder={confirmPhrase(quantity)}
-                className="h-10 rounded-sm border border-border px-3 font-mono text-[14px] text-ink"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && typedOk && !submitting) void clear.confirm();
-                }}
-              />
+              {slide ? (
+                !oneClick && (
+                  <SlideToConfirm
+                    label={`Slide to clear ${quantity.toLocaleString('en-US')}`}
+                    busyLabel="Clearing…"
+                    busy={submitting}
+                    disabled={summary.winners < 1}
+                    onConfirm={() => void clear.confirm()}
+                    testId="clear-slide"
+                  />
+                )
+              ) : (
+                <>
+                  <label htmlFor={inputId} className="text-[14px] text-body">
+                    Type <span className="font-mono text-ink">{confirmPhrase(quantity)}</span> to
+                    confirm
+                  </label>
+                  <input
+                    id={inputId}
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value)}
+                    autoComplete="off"
+                    spellCheck={false}
+                    disabled={submitting}
+                    placeholder={confirmPhrase(quantity)}
+                    className="h-10 rounded-sm border border-border px-3 font-mono text-[14px] text-ink"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && typedOk && !submitting) void clear.confirm();
+                    }}
+                  />
+                </>
+              )}
             </div>
             {step === 'error' && error && (
               <ErrorBanner
@@ -287,18 +313,20 @@ function ClearBody({
               <Button variant="outline" onClick={onClose} disabled={submitting}>
                 Cancel
               </Button>
-              <Button
-                variant="primary"
-                onClick={() => void clear.confirm()}
-                disabled={!typedOk || submitting || summary.winners < 1}
-                data-testid="clear-confirm"
-              >
-                {submitting
-                  ? 'Clearing…'
-                  : step === 'book_changed'
-                    ? `Confirm ${formatGrossShort(summary.grossCents)}`
-                    : 'Confirm'}
-              </Button>
+              {oneClick && (
+                <Button
+                  variant="primary"
+                  onClick={() => void clear.confirm()}
+                  disabled={!typedOk || submitting || summary.winners < 1}
+                  data-testid="clear-confirm"
+                >
+                  {submitting
+                    ? 'Clearing…'
+                    : step === 'book_changed'
+                      ? `Confirm ${formatGrossShort(summary.grossCents)}`
+                      : 'Confirm'}
+                </Button>
+              )}
             </Footer>
           </>
         )}
@@ -321,7 +349,10 @@ function Summary({ sim }: { sim: SimulateResponse }) {
   return (
     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-5">
       {items.map(([k, v]) => (
-        <div key={k} className="flex flex-col gap-1 bg-white px-3 py-2">
+        <div
+          key={k}
+          className="flex flex-col gap-1 bg-white px-3 py-2 last:odd:col-span-2 sm:last:odd:col-span-1"
+        >
           <dt className="label text-[10px] text-muted">{k}</dt>
           <dd className="font-mono text-[15px] text-ink tabular-nums">{v}</dd>
         </div>

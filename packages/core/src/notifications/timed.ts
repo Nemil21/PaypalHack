@@ -95,6 +95,7 @@ async function draftsForClosingListing(
         quantity: l.quantity,
         lowestWinningCents: top.length >= l.quantity ? top[l.quantity - 1]! : null,
         heldBids: top.length,
+        heldCents: amounts.reduce((sum, a) => sum + a, 0),
       },
     });
   }
