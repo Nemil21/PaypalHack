@@ -43,7 +43,8 @@
     "smoke:deploy": "node scripts/smoke-deploy.mjs",
     "eval:agent": "tsx --conditions=source scripts/agent-eval.ts",
     "security:secrets": "bash scripts/secret-scan.sh",
-    "security:audit": "npm audit --audit-level=high"
+    "security:audit": "npm audit --audit-level=high",
+    "vapid:keys": "node scripts/vapid-keys.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

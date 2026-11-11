@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { NotificationReadResponse, NotificationsResponse } from '@holdfast/shared';
 import { ApiAction, ApiError, api } from '../lib/api';
 import { cn } from '../lib/cn';
+import { boardPath } from '../lib/notification-board';
 import {
   badgeText,
   bellLabel,
@@ -132,15 +133,25 @@ export function NotificationBell({
             <p className="label text-[11px] text-muted">
               Notifications{unread > 0 ? ` · ${unread} unread` : ''}
             </p>
-            {unread > 0 && (
-              <button
-                type="button"
-                onClick={() => void markAll()}
+            <div className="flex items-center gap-3">
+              {unread > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void markAll()}
+                  className="font-mono text-[12px] text-body hover:text-ink"
+                >
+                  Mark all read
+                </button>
+              )}
+              {/* HF-054b: the M11 board and the phone alerts switch. */}
+              <Link
+                to={boardPath(audience)}
+                onClick={() => setOpen(false)}
                 className="font-mono text-[12px] text-body hover:text-ink"
               >
-                Mark all read
-              </button>
-            )}
+                See all
+              </Link>
+            </div>
           </div>
           {views.length === 0 ? (
             <p className="px-4 py-6 text-[14px] text-muted">

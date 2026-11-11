@@ -31,9 +31,12 @@ export function RoundsRaise({
   bid,
   onRaised,
   onRefresh,
+  initialSheetOpen = false,
   className,
 }: {
   bid: MyBid;
+  /** Opened from a `round_nudge` push (HF-054b `?sheet=raise`): start with the M07 sheet open. */
+  initialSheetOpen?: boolean;
   /** The raise landed (or is waiting for approval): reload, or follow the new bid. */
   onRaised(res: RaiseResponse): void;
   /** A refusal that changes what the page should show (e.g. rounds just ended). */
@@ -43,7 +46,7 @@ export function RoundsRaise({
   const toast = useToast();
   const raise = useApiAction<RaiseResponse>();
   const action = roundsAction(bid);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(initialSheetOpen);
   useEffect(() => {
     if (action?.kind === 'nudge' && shouldAutoOpenSheet(action)) {
       markSheetAutoOpened(action.nudgeId);

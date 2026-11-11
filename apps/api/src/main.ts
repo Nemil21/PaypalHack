@@ -10,6 +10,9 @@ import {
   createPool,
   holdfastCronJobs,
   createNotifyJob,
+  createFanout,
+  emailSenderFromConfig,
+  pushSenderFromConfig,
   inProcessSettlementRunner,
   loadConfig,
   loadDotenv,
@@ -28,6 +31,7 @@ import {
   startPriceWatchRetrier,
   testCardAllowed,
 } from '@holdfast/core';
+import { escapeHtml } from '@holdfast/shared';
 import { ListingEventBus } from './events/bus.js';
 import { buildServer } from './server.js';
 import { createWorkflowsSettlement } from './settlement-workflows.js';
@@ -140,9 +144,29 @@ const rounds = {
 const agentModel = config.ANTHROPIC_API_KEY
   ? createClaudeAgentModel({ apiKey: config.ANTHROPIC_API_KEY, model: config.ANTHROPIC_MODEL })
   : null;
+// HF-054b: email (Resend, or the console without RESEND_API_KEY) and web push (VAPID keys).
+// Both log through `app`, which exists by the time anything is sent.
+const emailSender = emailSenderFromConfig(config, {
+  info: (obj, msg) => app.log.info(obj, msg),
+});
+const pushSender = pushSenderFromConfig(config);
 const app = buildServer(config, {
   db: pool,
   sql,
+  notifications: { push: pushSender },
+  // With Resend configured the magic sign-in link goes by email; otherwise the local default.
+  ...(emailSender.kind === 'resend'
+    ? {
+        sendMagicLink: (to: string, url: string) =>
+          emailSender.send({
+            to,
+            subject: 'Your Holdfast sign-in link',
+            text: `Sign in to Holdfast (valid 15 minutes):\n${url}\n\nIf you didn't ask for this, ignore this email.`,
+            html: `<p>Sign in to Holdfast (valid 15 minutes):</p><p><a href="${escapeHtml(url)}">Sign in</a></p><p>If you didn't ask for this, ignore this email.</p>`,
+            idempotencyKey: `magic:${url.slice(-32)}`,
+          }),
+      }
+    : {}),
   events,
   channel3,
   settlement: {
@@ -184,6 +208,16 @@ pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool erro
 // HF-034: one in-process scheduler; each job runs under its own Postgres advisory lock, so
 // several instances never double-call PayPal. The settlement kick re-kicks runs whose kick was
 // lost or whose coordinator died (B6); HF-032's payout poll, expiry and the hold sweeper.
+const fanout = createFanout(
+  { db: sql, email: emailSender, push: pushSender, baseUrl: config.APP_BASE_URL ?? null },
+  {
+    onError: (err, ctx) =>
+      app.log.warn(
+        { err: (err as Error).message, notificationId: ctx.notificationId, channel: ctx.channel },
+        'notification delivery failed',
+      ),
+  },
+);
 const cronJobs = holdfastCronJobs({
   db: sql,
   paypal,
@@ -221,6 +255,8 @@ const cronJobs = holdfastCronJobs({
         'notify failed',
       ),
   }),
+  // HF-054b: fan new in-app notifications out to email and web push.
+  notifyFanout: () => fanout.run(),
   onError: (err, ctx) =>
     app.log.warn(
       { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

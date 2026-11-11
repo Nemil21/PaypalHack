@@ -38,6 +38,8 @@ export interface ClientConfig {
   paypalSandbox: boolean;
   /** The labelled "Use sandbox test card" button: core `testCardAllowed` (HF-014b Part 1). */
   testCardEnabled: boolean;
+  /** VAPID public key for web push (HF-054b; public by design). Null: push is off. */
+  vapidPublicKey: string | null;
 }
 
 function isApiPath(url: string): boolean {
@@ -64,6 +66,9 @@ export function registerWebApp(
       paypalClientId: config.PAYPAL_MODE === 'stub' ? null : config.PAYPAL_CLIENT_ID,
       paypalSandbox: config.paypalIsSandbox,
       testCardEnabled: testCardAllowed(config),
+      // Only with the private key too: a public key alone would offer a toggle that can't send.
+      vapidPublicKey:
+        config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY ? config.VAPID_PUBLIC_KEY : null,
     };
   });
 

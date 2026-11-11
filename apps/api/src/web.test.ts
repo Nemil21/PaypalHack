@@ -105,6 +105,7 @@ describe('same-origin SPA (M31)', () => {
       paypalClientId: 'test-client-id',
       paypalSandbox: true,
       testCardEnabled: true,
+      vapidPublicKey: null,
     });
   });
 });
@@ -129,7 +130,25 @@ describe('without a web build', () => {
       paypalClientId: 'test-client-id',
       paypalSandbox: true,
       testCardEnabled: false,
+      vapidPublicKey: null,
     });
+  });
+
+  it('exposes the VAPID public key only when push can send (HF-054b)', async () => {
+    const half = buildServer(loadConfig({ ...REQUIRED, VAPID_PUBLIC_KEY: 'BPub' }), {
+      webDistDir: null,
+    });
+    const both = buildServer(
+      loadConfig({ ...REQUIRED, VAPID_PUBLIC_KEY: 'BPub', VAPID_PRIVATE_KEY: 'secret' }),
+      { webDistDir: null },
+    );
+    const a = await half.inject({ method: 'GET', url: '/api/client-config' });
+    const b = await both.inject({ method: 'GET', url: '/api/client-config' });
+    expect(a.json()).toMatchObject({ vapidPublicKey: null });
+    expect(b.json()).toMatchObject({ vapidPublicKey: 'BPub' });
+    expect(b.body).not.toContain('secret');
+    await half.close();
+    await both.close();
   });
 
   it('has no SDK client id with the FakePayPal stub', async () => {

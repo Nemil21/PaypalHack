@@ -42,7 +42,7 @@ import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerSettlementRoutes, type RetryPayout } from './routes/settlement.js';
 import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
-import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerNotificationRoutes, type NotificationRouteDeps } from './routes/notifications.js';
 import { registerOfferRoutes } from './routes/offers.js';
 import { registerShareRoutes } from './routes/share.js';
 import {
@@ -91,7 +91,9 @@ export interface ServerDeps {
    * (`mcp/server.ts`); tests may pass their own `handler`.
    */
   mcp?: McpRouteDeps;
-  /** Magic-link delivery (default: printed locally; email in HF-054b). */
+  /** HF-054b web push (the VAPID sender; null / unset = push off). */
+  notifications?: NotificationRouteDeps;
+  /** Magic-link delivery (default: printed locally; Resend email when configured, HF-054b). */
   sendMagicLink?: MagicLinkSender;
   /** Log in with PayPal (HF-010). Default: from `PAYPAL_MODE` (stub or sandbox REST). */
   paypalIdentity?: PayPalIdentity;
@@ -185,7 +187,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerBrandAgentRoutes(app, { model: null, ...deps.brandAgent, db: deps.sql });
   if (deps.sql) registerBrandOverviewRoutes(app, deps.sql);
-  if (deps.sql) registerNotificationRoutes(app, deps.sql);
+  if (deps.sql) registerNotificationRoutes(app, deps.sql, deps.notifications);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
   if (deps.events && deps.sql) {
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });

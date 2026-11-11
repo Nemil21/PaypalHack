@@ -33,6 +33,7 @@ import {
   type RowTone,
 } from '../../lib/bids';
 import { cn } from '../../lib/cn';
+import { parseAroundCents } from '../../lib/push';
 import { paths } from '../../lib/routes';
 import { useApiAction } from '../../lib/use-api-action';
 import { hasWonPage } from '../../lib/won';
@@ -41,6 +42,7 @@ import { formatWhen } from './format';
 import { HoldConfirmation } from './HoldConfirmation';
 import { useNow, usePolling } from './hooks';
 import { PriceDropSheet } from './PriceDropSheet';
+import { PushRaiseSheet } from './PushRaiseSheet';
 import { ReleaseToggle } from './ReleaseToggle';
 import { RoundsRaise } from './RoundsRaise';
 
@@ -65,8 +67,11 @@ export function BidDetailPage() {
   const justHeld = params.get('held') === '1';
   const errorParam = params.get('error');
   const cancelledParam = params.get('cancelled') === '1';
+  // HF-054b push entry points: `?sheet=drop` opens M06, `?sheet=raise` the M07 raise sheet.
+  const sheetParam = params.get('sheet');
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [dropFromPush, setDropFromPush] = useState(sheetParam === 'drop');
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -92,6 +97,13 @@ export function BidDetailPage() {
   }, [fetchDetail]);
 
   const detail = load.state === 'ready' ? load.detail : null;
+  // Opened from the price-drop push: show M06 once the drop is loaded (once per visit).
+  useEffect(() => {
+    if (dropFromPush && detail?.priceDrop) {
+      setDropFromPush(false);
+      setSheetOpen(true);
+    }
+  }, [dropFromPush, detail]);
   const settling =
     !!detail &&
     (detail.chain.some((c) => c.status === 'VOIDING' || c.status === 'WON') ||
@@ -151,6 +163,7 @@ export function BidDetailPage() {
       <Summary
         detail={load.detail}
         showToggle={!showConfirmation}
+        openRaiseSheet={sheetParam === 'raise'}
         onChanged={() => void fetchDetail()}
       />
       <Timeline detail={load.detail} onOpenDrop={() => setSheetOpen(true)} />
@@ -171,11 +184,14 @@ export function BidDetailPage() {
 function Summary({
   detail,
   showToggle,
+  openRaiseSheet,
   onChanged,
 }: {
   detail: BidDetail;
   /** The W13 confirmation above carries the toggle while it is shown. */
   showToggle: boolean;
+  /** Opened from a raise push (HF-054b `?sheet=raise`): start with M07 open. */
+  openRaiseSheet: boolean;
   onChanged(): void;
 }) {
   const { bid } = detail;
@@ -188,6 +204,8 @@ function Summary({
   const reason = releaseReason(bid);
   const navigate = useNavigate();
   const live = bid.status === 'HELD' || bid.status === 'PENDING_APPROVAL';
+  const [params] = useSearchParams();
+  const around = parseAroundCents(params.get('around'));
 
   return (
     <section
@@ -240,7 +258,20 @@ function Summary({
           res.bidId === bid.bidId ? onChanged() : navigate(`/bids/${res.bidId}`, { replace: true })
         }
         onRefresh={onChanged}
+        initialSheetOpen={openRaiseSheet}
       />
+      {openRaiseSheet && !rounds && canRaise(bid) && around !== null && (
+        <PushRaiseSheet
+          bid={bid}
+          aroundCents={around}
+          onRaised={(res) =>
+            res.bidId === bid.bidId
+              ? onChanged()
+              : navigate(`/bids/${res.bidId}`, { replace: true })
+          }
+          onClose={() => {}}
+        />
+      )}
       {live && showToggle && <ReleaseToggle bid={bid} onChanged={onChanged} />}
     </section>
   );

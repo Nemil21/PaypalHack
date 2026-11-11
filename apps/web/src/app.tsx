@@ -51,6 +51,15 @@ const SettlementPage = screen(() => import('./routes/brand/SettlementPage'), 'Se
 const OfferPage = screen(() => import('./routes/offer/OfferPage'), 'OfferPage');
 const MandateEditorPage = screen(() => import('./routes/Mandates'), 'MandateEditorPage');
 const MandatesPage = screen(() => import('./routes/Mandates'), 'MandatesPage');
+// M11 push / email set (HF-054b), one prop-less screen per audience.
+const ShopperNotificationsBoard = screen(
+  () => import('./routes/NotificationsBoard'),
+  'ShopperNotificationsBoard',
+);
+const BrandNotificationsBoard = screen(
+  () => import('./routes/NotificationsBoard'),
+  'BrandNotificationsBoard',
+);
 
 /**
  * Route map (HF-007). Screens are filled in by later tickets; each placeholder names its ticket.
@@ -97,6 +106,8 @@ const router = createBrowserRouter([
           { path: 'brand/embed', element: <EmbedPage /> },
           // W11 brand settings (HF-056): team, payout, verification, retailers, notifications.
           { path: 'brand/settings', element: <BrandSettings /> },
+          // M11 push / email set for brand users (HF-054b).
+          { path: 'brand/notifications', element: <BrandNotificationsBoard /> },
         ],
       },
       {
@@ -116,6 +127,8 @@ const router = createBrowserRouter([
       { path: 'bids/:bidId/won', element: <WonPage /> },
       // W16 / M05 buyer agent chat (HF-041); `?fixture=1` replays a recorded turn.
       { path: 'agent', element: <AgentChatPage /> },
+      // M11 push / email notification set + phone alerts switch (HF-054b).
+      { path: 'notifications', element: <ShopperNotificationsBoard /> },
       { path: 'mandates', element: <MandatesPage /> },
       { path: 'mandates/new', element: <MandateEditorPage /> },
       { path: 'mandates/:mandateId', element: <MandateEditorPage /> },
