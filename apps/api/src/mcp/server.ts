@@ -6,6 +6,7 @@ import {
   mcpGetBook,
   mcpMyBids,
   mcpPlaceBid,
+  mcpRaiseBid,
   type McpCaller,
   type McpToolOutcome,
   type PlaceBidDeps,
@@ -16,7 +17,7 @@ import { z } from 'zod';
 import { placeholderMcpHandler, type McpHandler } from './route.js';
 
 /**
- * The Holdfast MCP server (HF-044a; features/07 §Logic 2–6, api.md §MCP server). `route.ts`
+ * The Holdfast MCP server (HF-044a, `raise_bid` HF-044b; features/07 §Logic 2–6, api.md §MCP server). `route.ts`
  * (HF-043) has already authenticated the bearer token, applied the 30/min limit and refused
  * money tools to `read`-only tokens before this handler runs.
  *
@@ -37,12 +38,13 @@ export interface McpServerDeps {
   appBaseUrl?: string;
 }
 
-const SERVER_INFO = { name: 'holdfast', version: '0.2.0' };
+const SERVER_INFO = { name: 'holdfast', version: '0.3.0' };
 
 const INSTRUCTIONS =
   'Holdfast lets you bid on brand overstock with a real PayPal hold. Use get_book to read a ' +
   "listing's public book, place_bid to bid (amounts are integer US cents), my_bids to see your " +
-  'bids and cancel_bid to release a hold. You hold one live bid per listing.';
+  'bids, raise_bid to raise one (during live rounds my_bids shows the cutoff to beat) and ' +
+  'cancel_bid to release a hold. You hold one live bid per listing.';
 
 /** Tool descriptions; `place_bid` carries the plain-money sentence from api.md verbatim. */
 export const MCP_TOOL_DESCRIPTIONS = {
@@ -62,6 +64,14 @@ export const MCP_TOOL_DESCRIPTIONS = {
   my_bids:
     'Lists your Holdfast bids with their status and amounts. During live rounds each bid shows ' +
     'belowCutoff and cutoffCents (the price you need to beat); otherwise both are null.',
+  raise_bid:
+    'Raises your bid to amountCents (the new total, not the increment) with a new real PayPal ' +
+    "hold; the old hold is released. If you win, you're charged exactly amountCents; otherwise " +
+    "it's released. The new hold goes on your saved payment method when the bid's agent mandate " +
+    'covers the new amount. Otherwise nothing new is held and you get a link (bidUrl, or PayPal ' +
+    'approveUrl for wallet bids) for the shopper to approve the raise. The minimum raise is $1 ' +
+    'or 1%; raise_bid never lowers a bid (cancel_bid and place_bid again instead). Raises are ' +
+    'accepted while bidding is open and during live rounds until they end (WINDOW_CLOSED after).',
 } as const;
 
 const listingSlug = z
@@ -106,7 +116,7 @@ export function toCallToolResult(outcome: McpToolOutcome): CallToolResult {
   };
 }
 
-/** The four HF-044a tools for one caller. `raise_bid` follows in HF-044b. */
+/** The five tools for one caller: the four from HF-044a and `raise_bid` (HF-044b). */
 export function createMcpServer(
   deps: McpServerDeps,
   caller: McpCaller,
@@ -173,6 +183,30 @@ export function createMcpServer(
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     () => run('my_bids', () => mcpMyBids(pool, caller))(),
+  );
+  server.registerTool(
+    'raise_bid',
+    {
+      title: 'Raise a bid (new real PayPal hold)',
+      description: MCP_TOOL_DESCRIPTIONS.raise_bid,
+      inputSchema: {
+        bidId: z
+          .string()
+          .trim()
+          .min(1)
+          .max(100)
+          .describe('The bidId of your live bid, from place_bid or my_bids.'),
+        amountCents: amountCents.describe(
+          `The new total bid in integer US cents, e.g. 24100 = $241.00 (from ${MIN_AMOUNT_CENTS} to ${MAX_AMOUNT_CENTS}). Must be above your current bid.`,
+        ),
+        idempotencyKey: idempotencyKey.describe(
+          'A unique key you choose for this raise, e.g. a UUID. Retrying with the same key never ' +
+            'places a second hold; reusing it with a different amount fails with DUPLICATE.',
+        ),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    },
+    (args) => run('raise_bid', () => mcpRaiseBid(placeDeps, caller, args))(),
   );
   return server;
 }
