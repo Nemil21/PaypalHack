@@ -5,7 +5,7 @@ import { registerAuthRoutes, type MagicLinkSender } from './auth/routes.js';
 import { registerHealthz, type Pingable } from './healthz.js';
 import { assertSameOrigin } from './http/csrf.js';
 import { registerErrorHandler } from './http/errors.js';
-import { registerIdempotency, type IdempotencyLayer } from './http/idempotency.js';
+import { registerIdempotency } from './http/idempotency.js';
 import { isCsrfAndKeyExempt, isMutating, isRestLimited, pathOf } from './http/paths.js';
 import { applyRateDecision, RateLimiter } from './http/rate-limit.js';
 import { loggerOptions } from './http/redact.js';
@@ -25,8 +25,6 @@ export interface ServerDeps {
   limiter?: RateLimiter;
   /** MCP token lookup (HF-043). Without it every MCP call is 401. */
   mcpTokens?: McpTokenVerifier;
-  /** HF-003b's idempotency store. Without it the key is required but nothing is stored. */
-  idempotency?: IdempotencyLayer;
   /** Magic-link delivery (default: printed locally; email in HF-054b). */
   sendMagicLink?: MagicLinkSender;
 }
@@ -38,7 +36,7 @@ export interface ServerDeps {
  * Request plumbing (HF-006), in order, for every request:
  *   onRequest  auth reset → REST rate limit (60/min/user) → CSRF Origin check (mutating) →
  *              Idempotency-Key required (mutating) → the route's guard (`app.guards.*`)
- *   preHandler idempotency store (HF-003b), then the handler; errors → api.md envelope.
+ *   handler    `app.idempotent(…)` (HF-003b's store) on routes that opt in; errors → api.md envelope.
  */
 export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInstance {
   const app = Fastify({
@@ -68,7 +66,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     }
     if (isMutating(req.method) && !isCsrfAndKeyExempt(path)) assertSameOrigin(config, req);
   });
-  registerIdempotency(app, deps.idempotency);
+  registerIdempotency(app, deps.sql);
 
   app.get('/api/healthz', async () => ({
     status: 'ok',

@@ -12,7 +12,6 @@ import {
   TEST_DATABASE_URL,
   type TestDatabase,
 } from '../../../../packages/core/src/money/test-harness.js';
-import type { IdempotencyContext, IdempotencyLayer } from '../http/idempotency.js';
 import { RateLimiter } from '../http/rate-limit.js';
 import { buildServer, type ServerDeps } from '../server.js';
 import { BRAND_COOKIE, SHOPPER_COOKIE } from './guards.js';
@@ -59,15 +58,8 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
   });
 
   const links: { email: string; url: string }[] = [];
-  const stored: IdempotencyContext[] = [];
-  const layer: IdempotencyLayer = {
-    async preHandler(_req, _reply, ctx) {
-      stored.push(ctx);
-    },
-    async onSend(_req, _reply, payload) {
-      return payload;
-    },
-  };
+  /** Handler runs of the idempotent test route, by shopper. */
+  const runs: string[] = [];
 
   function server(env: Record<string, string> = {}, deps: ServerDeps = {}) {
     const app = buildServer(loadConfig({ ...BASE_ENV, ...env }), {
@@ -75,7 +67,6 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
       sql: tdb.db,
       db: tdb.db.pool,
       limiter: new RateLimiter(),
-      idempotency: layer,
       sendMagicLink: (email, url) => {
         links.push({ email, url });
       },
@@ -98,6 +89,14 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
     app.get('/api/test/offer', { onRequest: g.ensureShopper }, async (req) => ({
       shopperId: req.auth.shopper!.id,
     }));
+    app.post(
+      '/api/test/hold',
+      { onRequest: g.requireShopper },
+      app.idempotent(async (req) => {
+        runs.push(req.auth.shopper!.id);
+        return { status: 201, body: { holdNo: runs.length, body: req.body } };
+      }),
+    );
     app.post(
       '/api/test/agent',
       { onRequest: [g.requireShopper, g.rateLimit('agent')] },
@@ -126,7 +125,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
 
   beforeEach(() => {
     links.length = 0;
-    stored.length = 0;
+    runs.length = 0;
   });
 
   describe('route guard matrix', () => {
@@ -500,7 +499,10 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
       expect(again.json().shopper.id).toBe(shopper.json().shopper.id);
 
       // Logins need no principal, so nothing is stored under their keys.
-      expect(stored).toHaveLength(0);
+      const keys = await tdb.db.pool.query(
+        `SELECT 1 FROM idempotency_keys WHERE route LIKE '%/api/auth/%'`,
+      );
+      expect(keys.rowCount).toBe(0);
       await app.close();
     });
 
@@ -550,33 +552,59 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
   });
 
   describe('idempotency wiring and per-user limits', () => {
-    it('the store sees the principal the guard authenticated, scoped per route', async () => {
+    it("app.idempotent: HF-003b's store, scoped to the guard's principal", async () => {
       const app = server();
-      const visit = await app.inject({ method: 'GET', url: '/api/test/offer' });
-      const cookie = cookiesFrom(visit)[SHOPPER_COOKIE]!;
-      await app.inject({
+      const a = cookiesFrom(await app.inject({ method: 'GET', url: '/api/test/offer' }))[
+        SHOPPER_COOKIE
+      ]!;
+      const b = cookiesFrom(await app.inject({ method: 'GET', url: '/api/test/offer' }))[
+        SHOPPER_COOKIE
+      ]!;
+      const hold = (c: string, key: string, payload: unknown) =>
+        app.inject({
+          method: 'POST',
+          url: '/api/test/hold',
+          headers: { ...cookieHeader(SHOPPER_COOKIE, c), 'idempotency-key': key },
+          payload: payload as object,
+        });
+
+      const first = await hold(a, 'same-key', { amountCents: 22900 });
+      expect(first.statusCode).toBe(201);
+      const replay = await hold(a, 'same-key', { amountCents: 22900 });
+      expect(replay.statusCode).toBe(201);
+      expect(replay.headers['idempotent-replayed']).toBe('true');
+      expect(replay.json()).toEqual(first.json());
+      expect(runs).toHaveLength(1);
+
+      // Same key, different body → 422; another shopper's identical key → a fresh run.
+      const mismatch = await hold(a, 'same-key', { amountCents: 23900 });
+      expect(mismatch.statusCode).toBe(422);
+      expect(mismatch.json().error.code).toBe('IDEMPOTENCY_MISMATCH');
+      const other = await hold(b, 'same-key', { amountCents: 22900 });
+      expect(other.statusCode).toBe(201);
+      expect(other.json().holdNo).toBe(2);
+      expect(new Set(runs).size).toBe(2);
+
+      // Concurrent duplicates: exactly one run; the rest replay or get 409 IN_PROGRESS.
+      const burst = await Promise.all(
+        Array.from({ length: 10 }, () => hold(a, 'burst-key', { amountCents: 25000 })),
+      );
+      expect(runs.filter((id) => id === runs[0]).length).toBe(2);
+      for (const r of burst) {
+        expect([201, 409]).toContain(r.statusCode);
+        if (r.statusCode === 409) expect(r.json().error.code).toBe('IN_PROGRESS');
+      }
+
+      // No key → 400 before the guard or the store runs.
+      const noKey = await app.inject({
         method: 'POST',
-        url: '/api/test/shopper',
-        headers: { ...cookieHeader(SHOPPER_COOKIE, cookie), 'idempotency-key': 'abc' },
+        url: '/api/test/hold',
+        headers: cookieHeader(SHOPPER_COOKIE, a),
+        payload: {},
       });
-      const owner = (await demoBrand(app, 'OWNER')).cookie;
-      await app.inject({
-        method: 'POST',
-        url: '/api/test/manage',
-        headers: { ...cookieHeader(BRAND_COOKIE, owner), 'idempotency-key': 'abc' },
-      });
-      expect(stored).toEqual([
-        {
-          key: 'abc',
-          principal: { type: 'SHOPPER', id: visit.json().shopperId },
-          route: 'POST /api/test/shopper',
-        },
-        {
-          key: 'abc',
-          principal: { type: 'BRAND_USER', id: expect.any(String) },
-          route: 'POST /api/test/manage',
-        },
-      ]);
+      expect(noKey.statusCode).toBe(400);
+      expect(noKey.json().error.code).toBe('VALIDATION_ERROR');
+      expect(runs).toHaveLength(3);
       await app.close();
     });
 

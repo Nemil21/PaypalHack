@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { isAdminEmail, type Config, type Db } from '@holdfast/core';
+import { isAdminEmail, type Config, type Db, type Principal } from '@holdfast/core';
 import { ApiError } from '../http/errors.js';
-import type { IdempotencyPrincipal } from '../http/idempotency.js';
 import { applyRateDecision, type RateBucket, type RateLimiter } from '../http/rate-limit.js';
 import {
   createProvisionalShopper,
@@ -23,7 +22,7 @@ import {
 
 /**
  * Who is calling (HF-006). Guards are Fastify hooks; use them as a route's `onRequest` so they
- * run before body parsing and before the global idempotency store (which needs the principal):
+ * run before body parsing and before `app.idempotent` (HF-003b's store, scoped by the principal):
  *
  *   app.post('/api/listings/:id/clear', { onRequest: app.guards.requireBrandUser('MANAGER') }, …)
  *   app.post('/api/bids', { onRequest: app.guards.requireShopper }, …)
@@ -56,7 +55,7 @@ export interface AuthState {
   mcp: McpPrincipal | null;
   isAdmin: boolean;
   /** The principal the route's guard authenticated: idempotency scope and rate-limit key. */
-  principal: IdempotencyPrincipal | null;
+  principal: Principal | null;
 }
 
 declare module 'fastify' {
