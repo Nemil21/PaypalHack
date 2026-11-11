@@ -7,6 +7,7 @@ import {
   loadConfig,
   loadDotenv,
 } from '@holdfast/core';
+import { ListingEventBus } from './events/bus.js';
 import { buildServer } from './server.js';
 
 loadDotenv();
@@ -24,9 +25,12 @@ try {
 
 const pool = createPool(config);
 const sql = createDb(pool);
+// One LISTEN connection per instance; every SSE client fans out from it (HF-008).
+const events = new ListingEventBus({ connectionString: config.DATABASE_URL });
 const app = buildServer(config, {
   db: pool,
   sql,
+  events,
   bids: {
     money: {
       db: sql,
@@ -37,9 +41,15 @@ const app = buildServer(config, {
     },
   },
 });
+events.setLogger(app.log);
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
 pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool error'));
-app.addHook('onClose', () => pool.end());
+app.addHook('onClose', async () => {
+  await events.close();
+  await pool.end();
+});
+// Failures retry in the background; /healthz still reports the database.
+void events.start();
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
 } catch (err) {

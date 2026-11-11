@@ -40,7 +40,22 @@ export function isCsrfAndKeyExempt(path: string): boolean {
 /** Infrastructure endpoints outside the per-user REST limit. */
 const UNLIMITED = ['/api/healthz', '/healthz', '/api/client-config'];
 
+/**
+ * SSE streams (HF-008). EventSource gives up for good on any non-200, so a 429 on a reconnect
+ * would silently end live updates; streams are bounded by a per-principal concurrency cap instead.
+ */
+const EVENT_STREAM = /^\/api\/(listings|bids)\/[^/]+\/events$/;
+
+export function isEventStreamPath(path: string): boolean {
+  return EVENT_STREAM.test(path);
+}
+
 /** Counted against the REST limit (60/min/user): every `/api` route except the above. */
 export function isRestLimited(path: string): boolean {
-  return under(path, '/api') && !isWebhookPath(path) && !UNLIMITED.includes(path);
+  return (
+    under(path, '/api') &&
+    !isWebhookPath(path) &&
+    !UNLIMITED.includes(path) &&
+    !isEventStreamPath(path)
+  );
 }

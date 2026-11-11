@@ -1,20 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
-import { LISTING_EVENT_TYPES, listingEventSchema, type ListingEvent } from '@holdfast/shared';
+import {
+  LISTING_EVENT_TYPES,
+  LISTING_EVENTS_RESYNC,
+  listingEventNoticeSchema,
+  type ListingEventNotice,
+} from '@holdfast/shared';
 
 /**
  * Live listing events over SSE (`GET /api/listings/:id/events`, HF-008). Same origin, so the
  * session cookie is sent without `withCredentials`.
  *
- * Frames are validated against the shared `ListingEvent` union and dropped if they don't parse.
- * Both default `message` frames and named frames (`event: bid.held`) are accepted, so the server
- * can choose either. The browser's EventSource reconnects by itself; on every reconnect we call
- * `onReconnect` because payloads are small and the client must re-fetch details (HF-008).
+ * The server sends named frames (`event: bid.held`) whose data is the small notice
+ * `{listingId, type, ids}`: which entities changed, never the details. Handlers re-fetch (debounced)
+ * on each notice. Frames that don't parse as a `ListingEventNotice` are dropped. The browser's
+ * EventSource reconnects by itself; on every reconnect, and on a server `resync` frame (its LISTEN
+ * connection dropped), we call `onReconnect` because notices may have been missed.
  */
 
 export type ListingEventsStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 export interface ListingEventHandlers {
-  onEvent: (event: ListingEvent) => void;
+  onEvent: (notice: ListingEventNotice) => void;
   /** Called when the stream comes back after a drop. Re-fetch the book here. */
   onReconnect?: () => void;
   onStatus?: (status: ListingEventsStatus) => void;
@@ -37,13 +43,46 @@ export function listingEventsUrl(listingId: string): string {
   return `/api/listings/${encodeURIComponent(listingId)}/events`;
 }
 
-/** Subscribe; returns an unsubscribe function. */
+/** The shopper's own-bid stream (`GET /api/bids/:id/events`, HF-008). */
+export function bidEventsUrl(bidId: string): string {
+  return `/api/bids/${encodeURIComponent(bidId)}/events`;
+}
+
+const defaultFactory: EventSourceFactory = (url) => new EventSource(url);
+
+/** Subscribe to a listing's stream (brand users); returns an unsubscribe function. */
 export function subscribeListingEvents(
   listingId: string,
   handlers: ListingEventHandlers,
-  createSource: EventSourceFactory = (url) => new EventSource(url),
+  createSource: EventSourceFactory = defaultFactory,
 ): () => void {
-  const source = createSource(listingEventsUrl(listingId));
+  return subscribe(
+    listingEventsUrl(listingId),
+    (n) => n.listingId === listingId,
+    handlers,
+    createSource,
+  );
+}
+
+/**
+ * Subscribe to one bid's stream (its shopper only): notices about this bid (and its raises) plus
+ * listing-wide round and status changes. Returns an unsubscribe function.
+ */
+export function subscribeBidEvents(
+  bidId: string,
+  handlers: ListingEventHandlers,
+  createSource: EventSourceFactory = defaultFactory,
+): () => void {
+  return subscribe(bidEventsUrl(bidId), () => true, handlers, createSource);
+}
+
+function subscribe(
+  url: string,
+  accept: (notice: ListingEventNotice) => boolean,
+  handlers: ListingEventHandlers,
+  createSource: EventSourceFactory,
+): () => void {
+  const source = createSource(url);
   let opened = false;
   let closed = false;
 
@@ -70,12 +109,15 @@ export function subscribeListingEvents(
     } catch {
       return;
     }
-    const parsed = listingEventSchema.safeParse(json);
-    if (parsed.success && parsed.data.listingId === listingId) handlers.onEvent(parsed.data);
+    const parsed = listingEventNoticeSchema.safeParse(json);
+    if (parsed.success && accept(parsed.data)) handlers.onEvent(parsed.data);
   };
 
   source.addEventListener('message', onFrame);
   for (const type of LISTING_EVENT_TYPES) source.addEventListener(type, onFrame);
+  source.addEventListener(LISTING_EVENTS_RESYNC, () => {
+    if (!closed) handlers.onReconnect?.();
+  });
 
   return () => {
     closed = true;
@@ -90,7 +132,7 @@ export function subscribeListingEvents(
  */
 export function useListingEvents(
   listingId: string | null | undefined,
-  onEvent: (event: ListingEvent) => void,
+  onEvent: (notice: ListingEventNotice) => void,
   opts: { onReconnect?: () => void } = {},
 ): ListingEventsStatus {
   const [status, setStatus] = useState<ListingEventsStatus>('connecting');
