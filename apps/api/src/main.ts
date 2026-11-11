@@ -5,6 +5,7 @@ import {
   createClaudeAgentModel,
   createClaudeNudgePhraser,
   createDb,
+  createNudgeConsumer,
   createPayPalClient,
   createPool,
   holdfastCronJobs,
@@ -96,10 +97,29 @@ const priceWatch = {
   onError: (err: unknown, ctx: { eventId: string; step: string; bidId?: string }) =>
     app.log.warn({ err: (err as Error).message, ...ctx }, 'price watch step failed'),
 };
+// HF-014a/018: the bid service's money deps, shared by REST bids and the rounds auto-raise runner.
+const bidMoney = {
+  db: sql,
+  paypal,
+  audit: auditHook,
+  // The labelled sandbox test card (S1): demo only, never on a live PayPal base.
+  allowTestCard: testCardAllowed(config),
+  // Wallet / 3DS return and cancel URLs (HF-014b).
+  appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+};
+// HF-038b: the buyer agents' nudge consumer. Each nudge is queued (concurrency 5) so the round
+// tick never waits on PayPal; the agent raises once under its mandate or asks the shopper (M07).
+const nudgeConsumer = createNudgeConsumer(bidMoney, {
+  // Called only once the server is built, so `app` is initialised by then.
+  onHandled: (h) => app.log.info({ nudge: h }, 'nudge handled'),
+  onError: (err, nudge) =>
+    app.log.warn({ err: (err as Error).message, nudgeId: nudge.id }, 'nudge handling failed'),
+});
 // HF-036b: live rounds timer. ROUNDS_TIME_SCALE scales round timing only (never hold age or
 // clear_deadline_at). Claude phrases one nudge template per round; without a key (or on error /
 // 5 s timeout) nudges use the template text.
 const rounds = {
+  onNudge: nudgeConsumer.onNudge,
   timing: roundsTiming(config.ROUNDS_TIME_SCALE),
   phraser: config.ANTHROPIC_API_KEY
     ? createClaudeNudgePhraser({
@@ -146,17 +166,7 @@ const app = buildServer(config, {
       ? createClaudeAgentModel({ apiKey: config.ANTHROPIC_API_KEY, model: config.ANTHROPIC_MODEL })
       : null,
   },
-  bids: {
-    money: {
-      db: sql,
-      paypal,
-      audit: auditHook,
-      // The labelled sandbox test card (S1): demo only, never on a live PayPal base.
-      allowTestCard: testCardAllowed(config),
-      // Wallet / 3DS return and cancel URLs (HF-014b).
-      appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
-    },
-  },
+  bids: { money: bidMoney },
 });
 events.setLogger(app.log);
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
@@ -204,8 +214,18 @@ const roundsTicker = startRoundsTicker(
       app.log.warn({ err: (err as Error).message, listingId }, 'rounds tick failed'),
   },
 );
+// Nudges a restart (or a failed handling) left without an outcome are picked up again.
+const sweepNudges = () =>
+  void nudgeConsumer
+    .sweep()
+    .catch((err: unknown) => app.log.warn({ err: (err as Error).message }, 'nudge sweep failed'));
+sweepNudges();
+const nudgeSweep = setInterval(sweepNudges, 30_000);
+nudgeSweep.unref();
 app.addHook('onClose', async () => {
   roundsTicker.stop();
+  clearInterval(nudgeSweep);
+  await nudgeConsumer.drain();
   await crons.stop();
   priceWatchRetrier.stop();
   await events.close();

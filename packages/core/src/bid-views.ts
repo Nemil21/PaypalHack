@@ -1,4 +1,5 @@
 import {
+  autoRaiseAskCopy,
   isRaisable,
   AFFILIATE_DISCLOSURE,
   moneyCopyKey,
@@ -10,6 +11,9 @@ import {
   type BidStatus,
   type ListingStatus,
   type MoneyCopyKey,
+  type AutoRaiseAskReason,
+  type AutoRaiseOutcome,
+  type NudgeAgentDecision,
 } from '@holdfast/shared';
 import type { Queryable } from './db.js';
 
@@ -53,6 +57,11 @@ export interface MyBidNudge {
   text: string;
   sentAt: string;
   roundEndsAt: string | null;
+  /**
+   * The buyer agent's decision on this nudge (HF-038b), once the nudge consumer handled it; null
+   * before that and for a later raise in the same round. `ASKED` opens the M07 raise sheet.
+   */
+  agent: NudgeAgentDecision | null;
 }
 
 export interface MyBid {
@@ -138,6 +147,10 @@ interface BidViewRow {
   nudge_text: string | null;
   nudge_sent_at: Date | null;
   nudge_round_ends_at: Date | null;
+  nudge_outcome: string | null;
+  nudge_reason: string | null;
+  nudge_agent_target_cents: number | null;
+  mandate_max_price_cents: number | null;
   db_now: Date;
   best_public_price_cents: number | null;
   best_public_merchant: string | null;
@@ -157,6 +170,9 @@ const VIEW_SQL = `
          n.cutoff_cents AS nudge_cutoff_cents, n.target_cents AS nudge_target_cents,
          n.text AS nudge_text, COALESCE(n.sent_at, n.created_at) AS nudge_sent_at,
          n.round_ends_at AS nudge_round_ends_at, clock_timestamp() AS db_now,
+         h.data->>'outcome' AS nudge_outcome, h.data->>'reason' AS nudge_reason,
+         (h.data->>'targetCents')::int AS nudge_agent_target_cents,
+         m.max_price_cents AS mandate_max_price_cents,
          p.best_public_price_cents, p.best_public_merchant, p.best_public_offer_url,
          p.price_updated_at
     FROM bids b
@@ -165,6 +181,11 @@ const VIEW_SQL = `
     LEFT JOIN bids succ ON succ.replaces_bid_id = b.id
     LEFT JOIN nudges n ON l.status = 'ROUNDS' AND n.listing_id = b.listing_id
                       AND n.shopper_id = b.shopper_id AND n.round = l.current_round
+    LEFT JOIN LATERAL (SELECT a.data FROM audit_events a
+                        WHERE n.id IS NOT NULL AND a.listing_id = n.listing_id
+                          AND a.action = 'NUDGE_HANDLED' AND a.data->>'nudgeId' = n.id::text
+                        ORDER BY (a.data->>'outcome' = 'RAISED') DESC, a.id LIMIT 1) h ON true
+    LEFT JOIN mandates m ON m.id = b.mandate_id
    WHERE b.shopper_id = $1 AND ($2::uuid[] IS NULL OR b.id = ANY($2::uuid[]))
    ORDER BY b.placed_at DESC
    LIMIT 500`;
@@ -195,6 +216,24 @@ function nudgeOf(r: BidViewRow, cutoffCents: number): MyBidNudge | null {
       : nudgeText({ yourBidCents: r.amount_cents, cutoffCents, suggestedCents }),
     sentAt: iso(r.nudge_sent_at) ?? r.db_now.toISOString(),
     roundEndsAt: iso(r.nudge_round_ends_at),
+    agent: own ? agentDecisionOf(r, suggestedCents) : null,
+  };
+}
+
+function agentDecisionOf(r: BidViewRow, suggestedCents: number): NudgeAgentDecision | null {
+  if (!r.nudge_outcome) return null;
+  const reason =
+    r.nudge_outcome === 'ASKED' ? ((r.nudge_reason as AutoRaiseAskReason | null) ?? null) : null;
+  return {
+    outcome: r.nudge_outcome as AutoRaiseOutcome,
+    reason,
+    message: reason
+      ? autoRaiseAskCopy(reason, {
+          targetCents: r.nudge_agent_target_cents ?? suggestedCents,
+          maxPriceCents: r.mandate_max_price_cents,
+          publicPriceCents: r.best_public_price_cents,
+        })
+      : null,
   };
 }
 

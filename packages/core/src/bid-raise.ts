@@ -5,6 +5,7 @@ import {
   raiseFailedMessage,
   ROUNDS_ENDED_COPY,
   severalHoldsWarning,
+  pendingHoldsWarning,
   formatUsd,
 } from '@holdfast/shared';
 import { audit } from './audit.js';
@@ -474,7 +475,7 @@ async function insertRaise(
 }
 
 /** Agent raises that landed or are still in flight (a declined one doesn't use the allowance). */
-async function agentRaiseCounts(
+export async function agentRaiseCounts(
   q: Queryable,
   listingId: string,
   shopperId: string,
@@ -727,6 +728,11 @@ export interface RaisedBidBody {
   message: string | null;
   /** From the 2nd raise on a chain: "Each raise places a new hold; …". */
   warnSeveralHolds: string | null;
+  /**
+   * Once per chain, on the 5th raise (HF-038b): "Your bank may show several pending holds for a
+   * few days." Null on every other raise.
+   */
+  warnPendingHolds: string | null;
   /** CARD / PAYPAL waiting for the buyer. */
   orderId?: string;
   approveUrl?: string | null;
@@ -752,6 +758,7 @@ export function raiseBidResponse(result: RaiseBidResult): IdempotentResponse {
       raiseCount,
       message: bid.authorized_at ? raisedMessage(oldBid.amount_cents, bid.amount_cents) : null,
       warnSeveralHolds: severalHoldsWarning(raiseCount),
+      warnPendingHolds: pendingHoldsWarning(raiseCount),
     };
     if (bid.status === 'PENDING_APPROVAL' && isTwoStep(bid.payment_method) && bid.paypal_order_id) {
       body.orderId = bid.paypal_order_id;

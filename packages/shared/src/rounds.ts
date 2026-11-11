@@ -63,6 +63,133 @@ export type Nudge = z.infer<typeof nudgeSchema>;
  */
 export type OnNudge = (nudge: Nudge) => void | Promise<void>;
 
+// --- Auto-raise (HF-038b, features/19 §Logic 4) ----------------------------------------------
+
+/** Why the buyer agent asks the shopper (M07) instead of raising on its own. */
+export const AUTO_RAISE_ASK_REASONS = [
+  /** The bid was placed without a mandate: the shopper raises themselves. */
+  'NO_MANDATE',
+  /** No saved card or wallet (vault): a raise needs the shopper present. */
+  'NO_VAULT',
+  /** The mandate is paused, fulfilled, expired or doesn't cover this product. */
+  'MANDATE_INACTIVE',
+  /** The target is above the mandate's max price per item. */
+  'ABOVE_MANDATE_MAX',
+  /** The target would take live holds past the mandate's total hold cap (D12). */
+  'MANDATE_CAP',
+  /** `release_if_cheaper` is on and the target is above the best public price (M11). */
+  'ABOVE_PUBLIC_PRICE',
+  /** The agent already raised this round, or 3 times on this listing (M11). */
+  'AGENT_LIMIT',
+  /** The agent tried, and PayPal declined the new hold; the old bid stands. */
+  'RAISE_FAILED',
+] as const;
+export type AutoRaiseAskReason = (typeof AUTO_RAISE_ASK_REASONS)[number];
+
+/** What the nudge consumer did with one nudge (audit `NUDGE_HANDLED`). */
+export const AUTO_RAISE_OUTCOMES = ['RAISED', 'ASKED', 'SKIPPED'] as const;
+export type AutoRaiseOutcome = (typeof AUTO_RAISE_OUTCOMES)[number];
+
+/** The facts the auto-raise rule looks at, all re-read after the nudge (never from the model). */
+export interface AutoRaiseFacts {
+  /** The suggested raise (`suggestedRaiseCents`). */
+  targetCents: number;
+  hasMandate: boolean;
+  /** The shopper has a saved card or wallet (S2 / S7 step 4: MIT holds from either vault). */
+  vaulted: boolean;
+  /** The mandate's own refusal of `targetCents`, or null when it covers it (`mandates` rules). */
+  mandateDenial:
+    | 'MANDATE_NOT_FOUND'
+    | 'MANDATE_INACTIVE'
+    | 'MANDATE_EXPIRED'
+    | 'ABOVE_MANDATE_MAX'
+    | 'MANDATE_EXCEEDED'
+    | 'PRODUCT_NOT_ALLOWED'
+    | null;
+  releaseIfCheaper: boolean;
+  bestPublicPriceCents: number | null;
+  /** The M11 agent caps (once per round, 3 per listing per shopper; HF-018) are used up. */
+  agentLimitReached: boolean;
+}
+
+/**
+ * The auto-raise rule as a pure function: `RAISE` only when an ACTIVE mandate covers the target,
+ * the shopper is vaulted, the M11 caps allow it and (with `release_if_cheaper`) the target is not
+ * above the best public price. Otherwise the reason the shopper is asked. `raiseBid` re-checks
+ * the mandate under `FOR UPDATE` (D12) and the caps; this is the cheap first pass.
+ */
+export function decideAutoRaise(
+  f: AutoRaiseFacts,
+): { action: 'RAISE' } | { action: 'ASK'; reason: AutoRaiseAskReason } {
+  const ask = (reason: AutoRaiseAskReason) => ({ action: 'ASK' as const, reason });
+  if (!f.hasMandate) return ask('NO_MANDATE');
+  if (!f.vaulted) return ask('NO_VAULT');
+  if (f.mandateDenial) return ask(askReasonForDenial(f.mandateDenial));
+  if (
+    f.releaseIfCheaper &&
+    f.bestPublicPriceCents != null &&
+    f.targetCents > f.bestPublicPriceCents
+  ) {
+    return ask('ABOVE_PUBLIC_PRICE');
+  }
+  if (f.agentLimitReached) return ask('AGENT_LIMIT');
+  return { action: 'RAISE' };
+}
+
+export function askReasonForDenial(
+  denial: NonNullable<AutoRaiseFacts['mandateDenial']>,
+): AutoRaiseAskReason {
+  switch (denial) {
+    case 'ABOVE_MANDATE_MAX':
+      return 'ABOVE_MANDATE_MAX';
+    case 'MANDATE_EXCEEDED':
+      return 'MANDATE_CAP';
+    default:
+      return 'MANDATE_INACTIVE';
+  }
+}
+
+/**
+ * The line M07 shows above the raise when the agent asked instead of raising. Null for bids
+ * without a mandate (the shopper raises themselves; nothing to explain).
+ */
+export function autoRaiseAskCopy(
+  reason: AutoRaiseAskReason,
+  ctx: { targetCents: number; maxPriceCents?: number | null; publicPriceCents?: number | null },
+): string | null {
+  const to = formatUsd(ctx.targetCents);
+  switch (reason) {
+    case 'NO_MANDATE':
+      return null;
+    case 'NO_VAULT':
+      return `Your agent needs a saved payment method to raise to ${to} for you.`;
+    case 'MANDATE_INACTIVE':
+      return `Your agent mandate doesn't cover this right now, so it didn't raise to ${to}.`;
+    case 'ABOVE_MANDATE_MAX':
+      return ctx.maxPriceCents != null
+        ? `${to} is above your agent's max of ${formatUsd(ctx.maxPriceCents)}, so it's asking you.`
+        : `${to} is above your agent's max, so it's asking you.`;
+    case 'MANDATE_CAP':
+      return `Raising to ${to} would go over your agent's total hold limit, so it's asking you.`;
+    case 'ABOVE_PUBLIC_PRICE':
+      return ctx.publicPriceCents != null
+        ? `${to} is above the best public price of ${formatUsd(ctx.publicPriceCents)}, so your agent didn't raise.`
+        : `${to} is above the best public price, so your agent didn't raise.`;
+    case 'AGENT_LIMIT':
+      return 'Your agent has used its raises here (once per round, 3 per listing), so it’s asking you.';
+    case 'RAISE_FAILED':
+      return `Your agent tried to raise to ${to}, but the new hold was declined.`;
+  }
+}
+
+/** The agent's decision on this round's nudge, as `GET /bids/mine` shows it (HF-038b). */
+export interface NudgeAgentDecision {
+  outcome: AutoRaiseOutcome;
+  reason: AutoRaiseAskReason | null;
+  /** M07 line explaining why the agent asked; null when there is nothing to explain. */
+  message: string | null;
+}
+
 /**
  * Template nudge text (Q#26: template in P0; HF-036b's Claude phrasing falls back to this):
  * "You're out at $219. The cutoff is $240. Raise to $241?"
