@@ -106,7 +106,8 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-058 ops', { timeout: 60_000 }, () => {
         brandName: 'Aurel Audio',
       });
       // The rest of the settlement's story comes along (the REQUESTED row has no PayPal id yet).
-      expect(res.rows.map((r) => r.action)).toContain('CAPTURE_REQUESTED');
+      const requested = res.rows.find((r) => r.action === 'CAPTURE_REQUESTED');
+      expect(requested?.direct).toBe(false);
       // Nothing from other listings.
       expect(res.rows.every((r) => r.listingId === s.listingId)).toBe(true);
     });

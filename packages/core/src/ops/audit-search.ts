@@ -77,7 +77,7 @@ export async function searchAudit(
       where.push(
         `(a.brand_id = ${t}::uuid OR a.listing_id = ${t}::uuid OR a.entity_id = ${t}::uuid)`,
       );
-      direct = `(a.entity_id = ${t}::uuid)`;
+      direct = `coalesce(a.entity_id = ${t}::uuid, false)`;
     } else {
       // PayPal ids live on the audit row, the bid (order / authorization) and the settlement
       // (capture id, or the authorization id for a VOID).
@@ -91,7 +91,7 @@ export async function searchAudit(
                 UNION SELECT s.id FROM settlements s JOIN bids b ON b.id = s.bid_id
                  WHERE b.paypal_order_id = ${t} OR b.paypal_authorization_id = ${t})))`,
       );
-      direct = `(a.paypal_id = ${t} OR a.request_id = ${t})`;
+      direct = `coalesce(a.paypal_id = ${t} OR a.request_id = ${t}, false)`;
     }
   }
   if (input.brandId) where.push(`a.brand_id = ${p(input.brandId)}::uuid`);
