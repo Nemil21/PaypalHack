@@ -1,0 +1,227 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "CYYBtPX",
+    "title": "Jbl Tune Buds 2",
+    "description": "Experience exceptional JBL Pure Bass Sound and immersive JBL Spatial Sound with the JBL Tune Buds 2 true wireless earbuds. Featuring Adaptive Noise Cancelling and Smart Ambient technology, these earbuds allow you to tune out the world or stay aware of your surroundings. Enjoy perfect-sounding calls thanks to six microphones with environmental noise cancellation and echo suppression. The ergonomic and water/dust resistant design ensures all-day comfort, while the JBL Headphones App offers personalized sound experiences through Personi-Fi 3.0. With up to 48 hours of total playback, these earbuds are designed for your day, your way.",
+    "brands": [
+      {
+        "id": "RFDs",
+        "name": "HARMAN"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/c3dfc7b0-e0af-4ca0-b613-19ba2333defd?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/c3dfc7b0-e0af-4ca0-b613-19ba2333defd?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "JBL Tune Buds 2 earbud in black, front view."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/e39efb74-e6f4-4932-9b85-3cb816874b01?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e39efb74-e6f4-4932-9b85-3cb816874b01?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "JBL Tune Buds 2 earbuds in black, three-quarter view."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/3d742104-bc0c-482d-9781-f37624c4a1dd?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "cleaned_url": "https://cdn.trychannel3.com/65b60d0a-bb2a-4062-8d6a-af03d4a0a6a7?aid=01M75E694V2596DDZTGZ5SDEQS&mid=Pu5r",
+        "is_main_image": false,
+        "shot_type": "lifestyle",
+        "alt_text": "Woman wearing black JBL earbuds with noise cancelling feature."
+      }
+    ],
+    "category": {
+      "slug": "in-ear-headphones",
+      "title": "In-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "in-ear-headphones",
+          "title": "In-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "JBL Pure Bass Sound with Spatial Sound",
+      "Adaptive noise cancelling with Smart Ambient",
+      "6 mics for perfect calls and customized call experience",
+      "Personi-Fi 3.0",
+      "IP54 dust and water resistant",
+      "Multi-point connection + Fast Pair enabled by Google",
+      "Up to 48 hours total playback",
+      "Bluetooth 5.3 and 10-hour battery life with noise cancellation",
+      "10mm dynamic drivers tuned for strong bass",
+      "three pairs of silicone oval ear tips for a comfortable, secure fit"
+    ],
+    "colors": [
+      {
+        "hex": "#222222",
+        "percentage": 0.7762
+      },
+      {
+        "hex": "#6f6f6f",
+        "percentage": 0.1159
+      },
+      {
+        "hex": "#393939",
+        "percentage": 0.1079
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/CYYBtPX-Pu5r-S666bu?o=01KR8PF91CP9B8P69C5A5F3F67&aid=01M75E694V2596DDZTGZ5SDEQS",
+        "domain": "pcrichard.com",
+        "price": {
+          "price": 109.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 1,
+            "unit": "lb"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/CYYBtPX-Fn95-S666bu?o=01KJ9TD5331XV769X0X9K0M34A&aid=01M75E694V2596DDZTGZ5SDEQS",
+        "domain": "crutchfield.com",
+        "price": {
+          "price": 109.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": {
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Black",
+              "exists": false,
+              "available": null,
+              "thumbnail_url": null,
+              "product_id": null
+            },
+            {
+              "label": "Turquoise",
+              "exists": false,
+              "available": null,
+              "thumbnail_url": null,
+              "product_id": null
+            },
+            {
+              "label": "White",
+              "exists": false,
+              "available": null,
+              "thumbnail_url": null,
+              "product_id": null
+            }
+          ]
+        }
+      ],
+      "selected": []
+    },
+    "structured_attributes": {
+      "microphone-type": [
+        "Noise-canceling",
+        "Built-in"
+      ],
+      "device-interface": [
+        "USB",
+        "Bluetooth"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "battery-type": [
+        "Contained-undetachable",
+        "Rechargeable"
+      ],
+      "charging-interface-type": [
+        "Wireless charging",
+        "USB type-C"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)",
+        "Adaptive noise cancellation",
+        "Environmental noise cancellation (ENC)"
+      ],
+      "power-source": [
+        "Batteries",
+        "Rechargeable"
+      ],
+      "audio-connectivity": [
+        "USB",
+        "Bluetooth"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "Waterproof"
+      ],
+      "headphone-style": [
+        "Canal",
+        "Earbuds"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wi-Fi"
+      ],
+      "ingress-protection-ip-rating": [
+        "IP54"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ]
+    },
+    "ratings": {
+      "value": 3.77,
+      "count": 95,
+      "source_count": 2
+    }
+  }
+}

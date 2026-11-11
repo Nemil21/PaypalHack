@@ -1,5 +1,12 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { Config, Db, KickSettlement, RoundsDeps } from '@holdfast/core';
+import {
+  createChannel3Client,
+  type Channel3Client,
+  type Config,
+  type Db,
+  type KickSettlement,
+  type RoundsDeps,
+} from '@holdfast/core';
 import { createGuards, registerAuth, Sessions, type McpTokenVerifier } from './auth/guards.js';
 import { registerAuthRoutes, type MagicLinkSender } from './auth/routes.js';
 import { registerHealthz, type Pingable } from './healthz.js';
@@ -19,6 +26,7 @@ import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerSettlementRoutes } from './routes/settlement.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { registerOfferRoutes } from './routes/offers.js';
+import { registerProductRoutes } from './routes/products.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -52,6 +60,8 @@ export interface ServerDeps {
   events?: ListingEventBus;
   /** SSE heartbeat interval (default 15 s); tests shorten it. */
   sseHeartbeatMs?: number;
+  /** Channel3 client (HF-009). Default: `createChannel3Client(config)` (`CHANNEL3_MODE`). */
+  channel3?: Channel3Client;
 }
 
 /**
@@ -118,6 +128,14 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) {
     registerSettlementRoutes(app, { db: deps.sql, kickSettlement: deps.settlement?.kick });
   }
+  registerProductRoutes(app, {
+    channel3:
+      deps.channel3 ??
+      createChannel3Client(config, {
+        logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
+      }),
+    ...(deps.sql ? { db: deps.sql.pool } : {}),
+  });
 
   registerAuthRoutes(app, {
     config,

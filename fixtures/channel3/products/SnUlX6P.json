@@ -1,0 +1,169 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "SnUlX6P",
+    "title": "Beats Studio Pro Wireless Noise Cancelling Over-the-Ear Headphones + Power Adapter",
+    "description": "Beats Studio Pro Wireless Noise Cancelling Over-the-Ear Headphones in Black. These headphones feature Beats' most powerful custom acoustic platform, Personalized Spatial Audio with dynamic head tracking, and Active Noise Cancelling (ANC) that continuously optimizes for an immersive listening experience. This bundle includes a power adapter.",
+    "brands": [
+      {
+        "id": "ainn",
+        "name": "Beats"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/d79f0b10-e145-4856-b505-195f0572018c?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/d79f0b10-e145-4856-b505-195f0572018c?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black Beats Studio Pro headphones and power adapter on white background."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/5d153cbd-bf4a-4a9e-8e62-785e04d4ef39?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/5d153cbd-bf4a-4a9e-8e62-785e04d4ef39?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Black Beats Studio Pro headphones and power adapter on white background."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/5c1d4d1b-3b8a-40f7-8d01-72b479502768?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/5c1d4d1b-3b8a-40f7-8d01-72b479502768?aid=01M75E5WHRA7J9M4D2C64SF0C5&mid=DyQi",
+        "is_main_image": false,
+        "shot_type": "on_model",
+        "alt_text": "Woman with curly hair wearing white Beats Studio Pro headphones."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "Experience immersive listening with Beats’ most powerful custom acoustic platform",
+      "Sound that surrounds you with Personalized Spatial Audio and dynamic head tracking",
+      "Active Noise Cancelling (ANC) continuously optimizes for immersive listening",
+      "Wireless Noise Cancelling",
+      "Compatible with any Bluetooth Device"
+    ],
+    "colors": [
+      {
+        "hex": "#1f1f21",
+        "percentage": 0.4957
+      },
+      {
+        "hex": "#38383b",
+        "percentage": 0.2981
+      },
+      {
+        "hex": "#fefefe",
+        "percentage": 0.1463
+      },
+      {
+        "hex": "#6d6d6f",
+        "percentage": 0.06
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/SnUlX6P-DyQi-S666bu?o=01M32005Z2N8SJPR3APQY7V1BF&aid=01M75E5WHRA7J9M4D2C64SF0C5",
+        "domain": "bloomingdales.com",
+        "price": {
+          "price": 240.01,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/SnUlX6P-Qqxu-S666bu?o=01M3EWCCGHVCDR799H1VJPEWSZ&aid=01M75E5WHRA7J9M4D2C64SF0C5",
+        "domain": "lowes.com",
+        "price": {
+          "price": 264.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "audio-connectivity": [
+        "USB",
+        "Bluetooth"
+      ],
+      "connectivity-technology": [
+        "Wireless",
+        "Bluetooth"
+      ],
+      "headphone-style": [
+        "Closed-back"
+      ],
+      "power-source": [
+        "Rechargeable"
+      ],
+      "earphone-features": [
+        "Noise cancellation"
+      ],
+      "device-interface": [
+        "USB"
+      ]
+    },
+    "ratings": {
+      "value": 5,
+      "count": 2,
+      "source_count": 1
+    }
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "OtS0To9",
+    "title": "Tour Pro 2 True Wireless Noise Cancelling Earbuds",
+    "description": "Experience superior audio with the JBL Tour Pro 2 True Wireless Noise Cancelling Earbuds. Featuring JBL Pro Sound, immersive Spatial Sound, and True Adaptive Noise Cancelling, these earbuds offer an unparalleled listening experience. The innovative 1.45-inch smart charging case allows for seamless control of settings, calls, and playback without needing your smartphone. With up to 40 hours of playtime, crystal-clear calls thanks to 6-mic technology, and hands-free voice control, the Tour Pro 2 earbuds are designed for ultimate convenience and performance.",
+    "brands": [
+      {
+        "id": "RFDs",
+        "name": "HARMAN"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/66fe1dd1-ec00-4337-950a-ad8a48837cee?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/66fe1dd1-ec00-4337-950a-ad8a48837cee?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black JBL Tour Pro 2 earbuds case open, showing earbuds inside."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/b6d95706-88c9-435d-a2d6-29d10b9bfa73?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/b6d95706-88c9-435d-a2d6-29d10b9bfa73?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Silver JBL Tour Pro 2 earbuds case open, showing earbuds inside."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/46005841-0775-4656-af81-d13463356c77?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/46005841-0775-4656-af81-d13463356c77?aid=01M75E68AG5GBXZYN32CDNDRMD&mid=mDEv",
+        "is_main_image": false,
+        "shot_type": "lifestyle",
+        "alt_text": "Pair of black JBL Tour Pro 2 wireless earbuds."
+      }
+    ],
+    "category": {
+      "slug": "in-ear-headphones",
+      "title": "In-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "in-ear-headphones",
+          "title": "In-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "True Adaptive Noise Cancelling",
+      "Smart Ambient Technology",
+      "Legendary Pro Sound",
+      "Immersive JBL Spatial Sound",
+      "6-Mic Perfect Calls with Voice Control",
+      "Personal Sound Amplification",
+      "Hands Free Voice Control",
+      "Fast Pair Enabled by Google and Microsoft Swift Pair",
+      "Bluetooth 5.3 LE audio"
+    ],
+    "colors": [
+      {
+        "hex": "#383838",
+        "percentage": 0.6669
+      },
+      {
+        "hex": "#1c1c1c",
+        "percentage": 0.231
+      },
+      {
+        "hex": "#969493",
+        "percentage": 0.102
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/OtS0To9-mDEv-S666bu?o=01KRSK6H0G1ADRJMP2Z65FK55H&aid=01M75E68AG5GBXZYN32CDNDRMD",
+        "domain": "audioadvice.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "microphone-type": [
+        "Built-in"
+      ],
+      "device-interface": [
+        "Bluetooth",
+        "USB"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "power-source": [
+        "Battery-powered",
+        "Rechargeable"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "audio-connectivity": [
+        "Bluetooth"
+      ],
+      "headphone-style": [
+        "Canal"
+      ],
+      "earphone-features": [
+        "Noise cancellation",
+        "Built-in microphone",
+        "Volume control"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wireless"
+      ]
+    },
+    "ratings": null
+  }
+}

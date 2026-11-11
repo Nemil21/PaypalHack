@@ -1,0 +1,286 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "r4bivjG",
+    "title": "JBL Live 780NC Wireless Noise Cancelling Headphones",
+    "description": "The JBL Live 780NC over-ear headphones provide a rich, engaging audio experience with JBL Signature Sound and Hi-Res certified audio. They feature True Adaptive Noise Cancelling 2.0 powered by six microphones to filter environmental noise in real-time. Designed for comfort and durability, they include ergonomically shaped earcups, a lightweight silicone headband, and a sturdy metal hinge for a foldable design. With a battery life of up to 80 hours, multi-point Bluetooth connection, and an AI-trained algorithm for clear calls, these headphones are built for seamless everyday use.",
+    "brands": [
+      {
+        "id": "4AJV",
+        "name": "JBL"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/32b0b4f5-50b1-4543-9ed2-2ed6d43af7c7?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/32b0b4f5-50b1-4543-9ed2-2ed6d43af7c7?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "JBL Live 780NC headphones on a plain background."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/9c04ec90-3847-4e22-92c8-e3ac033bf224?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/9c04ec90-3847-4e22-92c8-e3ac033bf224?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "JBL Live 780NC headphones shown from a three-quarter angle."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/9c0cbfb5-d526-4aba-bcf6-448a5153bd21?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/9c0cbfb5-d526-4aba-bcf6-448a5153bd21?aid=01M75E5W756EFW9N7XRXYHS1DR&mid=Qoqa",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "JBL Live 780NC headphones shown from a profile angle."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [
+      "Plastic",
+      "Metal"
+    ],
+    "key_features": [
+      "Wireless",
+      "Over-Ear",
+      "Adaptive Noise Cancelling 2.0",
+      "JBL Signature Sound",
+      "Hi-Res certified audio",
+      "JBL Spatial Sound (3D immersive experience)",
+      "App Controlled",
+      "Foldable design",
+      "Up to 80 hours battery life (ANC off)",
+      "AI-trained algorithm for clear calls"
+    ],
+    "colors": [
+      {
+        "hex": "#2a4339",
+        "percentage": 0.3861
+      },
+      {
+        "hex": "#ffffff",
+        "percentage": 0.2197
+      },
+      {
+        "hex": "#5c786e",
+        "percentage": 0.1364
+      },
+      {
+        "hex": "#7d998f",
+        "percentage": 0.1303
+      },
+      {
+        "hex": "#425f54",
+        "percentage": 0.112
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/r4bivjG-Qoqa-S666bu?o=01M6T5HX56RX04R1AF6Q0WRE9V&aid=01M75E5W756EFW9N7XRXYHS1DR",
+        "domain": "jcpenney.com",
+        "price": {
+          "price": 139,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4bivjG-7lFu-S666bu?o=01M3X3RDY9N3BJM0SHRD543Y83&aid=01M75E5W756EFW9N7XRXYHS1DR",
+        "domain": "jbl.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 260,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4bivjG-Bteb-S666bu?o=01M61MYX49MZ8D24SSP9WEB8GY&aid=01M75E5W756EFW9N7XRXYHS1DR",
+        "domain": "dell.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": {
+            "number": 3.94,
+            "unit": "ft"
+          },
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 9.17,
+            "unit": "oz"
+          }
+        }
+      }
+    ],
+    "variants": {
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Black",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/63fe4725-a53c-474d-9832-e3a95a99a99b",
+              "product_id": "qAGqtIS"
+            },
+            {
+              "label": "Blue",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/f51b16ab-96d1-41fa-84b4-49490c67b336",
+              "product_id": "ago7JIz"
+            },
+            {
+              "label": "Champagne",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/849ab15b-f5c8-477a-ae7f-77ba33fc9188",
+              "product_id": "oRU3H2l"
+            },
+            {
+              "label": "Green",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/32b0b4f5-50b1-4543-9ed2-2ed6d43af7c7",
+              "product_id": "r4bivjG"
+            },
+            {
+              "label": "White",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/b2af242f-ec56-455c-ac1c-9c94472f3c20",
+              "product_id": "cXDqSjk"
+            }
+          ]
+        }
+      ],
+      "selected": [
+        {
+          "name": "Color",
+          "label": "Green"
+        }
+      ]
+    },
+    "structured_attributes": {
+      "pattern": [
+        "Solid"
+      ],
+      "audio-connectivity": [
+        "USB",
+        "3.5 mm",
+        "Bluetooth"
+      ],
+      "headphone-style": [
+        "Closed-back"
+      ],
+      "noise-cancellation-technology": [
+        "Adaptive noise cancellation",
+        "Active noise cancellation (ANC)"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "High fidelity audio",
+        "Noise cancellation",
+        "Awareness mode",
+        "Volume control"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "Battery-powered",
+        "USB"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "microphone-type": [
+        "Built-in"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wired",
+        "USB",
+        "Wireless"
+      ],
+      "device-interface": [
+        "USB",
+        "3.5 mm"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "material": [
+        "Metal",
+        "Silicone",
+        "Plastic"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ]
+    },
+    "ratings": {
+      "value": 4.8,
+      "count": 26,
+      "source_count": 1
+    }
+  }
+}

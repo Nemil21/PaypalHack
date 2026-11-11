@@ -1,0 +1,166 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "9c8cHaU",
+    "title": "Charge 6 Portable Bluetooth Speaker Waterproof with AI Sound Boost",
+    "description": "The JBL Charge 6 is an updated portable Bluetooth speaker featuring powerful JBL Pro Sound enhanced by a new AI Sound Boost algorithm for maximum acoustic performance and rich bass. It offers up to 28 hours of continuous playtime, plus a built-in power bank to charge mobile devices. This speaker is highly durable, rated IP68 for water and dust resistance, and drop-proof from up to 1 meter. Connectivity is improved with Bluetooth 5.4, and it supports multi-speaker connection via Auracast for stereo pairing or connecting multiple speakers. It also features a sturdy, removable handle strap and supports lossless audio playback through its USB-C port.",
+    "brands": [
+      {
+        "id": "RFDs",
+        "name": "HARMAN"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/abd92510-e949-4ce5-a857-ea89cd385294?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/abd92510-e949-4ce5-a857-ea89cd385294?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Front view of a red JBL portable Bluetooth speaker."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/ca63ea15-ba2c-40d4-aabc-06b5a2de99da?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/ca63ea15-ba2c-40d4-aabc-06b5a2de99da?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Red JBL portable Bluetooth speaker with a handle."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/49834242-9f20-4af6-921c-a0dededf85bc?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/49834242-9f20-4af6-921c-a0dededf85bc?aid=01M75E645J8MKPCXSRJMHVFX1R&mid=DO3T",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Side profile view of the red JBL portable Bluetooth speaker."
+      }
+    ],
+    "category": {
+      "slug": "portable-bluetooth-speakers",
+      "title": "Portable Bluetooth Speakers",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "speakers",
+          "title": "Speakers"
+        },
+        {
+          "slug": "portable-bluetooth-speakers",
+          "title": "Portable Bluetooth Speakers"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [
+      "recycled plastic",
+      "recycled fabric"
+    ],
+    "key_features": [
+      "Powerful JBL Pro Sound With AI Sound Boost",
+      "Up To 28 Hours Of Playtime",
+      "Multi-Speaker Connection By Auracast",
+      "Waterproof, Dustproof, And Drop-Proof",
+      "Sturdy Handle Strap",
+      "Fast Charge",
+      "Built-In Powerbank",
+      "Lossless Audio Playback",
+      "JBL Portable App"
+    ],
+    "colors": [
+      {
+        "hex": "#9c282d",
+        "percentage": 0.9129
+      },
+      {
+        "hex": "#d36d71",
+        "percentage": 0.0871
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/9c8cHaU-DO3T-S666bu?o=01KBP9F59H73AWAHJJMDPGTT3Z&aid=01M75E645J8MKPCXSRJMHVFX1R",
+        "domain": "abt.com",
+        "price": {
+          "price": 149.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "audio-purpose": [
+        "Portable audio",
+        "Outdoor use"
+      ],
+      "audio-component-form-factor": [
+        "Portable/Field"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wired",
+        "USB"
+      ],
+      "compatible-voice-assistant": [
+        "None"
+      ],
+      "speaker-design": [
+        "Portable"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "mounting-type": [
+        "Portable"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "material": [
+        "Fabric",
+        "Plastic"
+      ],
+      "device-interface": [
+        "USB"
+      ],
+      "speaker-features": [
+        "Built-in amplifier",
+        "Volume control",
+        "Weather resistant"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "speaker-technology": [
+        "Dynamic"
+      ],
+      "power-source": [
+        "Battery-powered",
+        "Rechargeable"
+      ]
+    },
+    "ratings": {
+      "value": 4.48,
+      "count": 873,
+      "source_count": 2
+    }
+  }
+}

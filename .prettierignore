@@ -7,3 +7,5 @@ skill
 scripts
 package-lock.json
 *.md
+# Recorded Channel3 fixtures stay byte-for-byte as recorded (HF-009).
+fixtures/

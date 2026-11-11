@@ -1,0 +1,307 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "qE1D14e",
+    "title": "Jbl Tour Pro 2",
+    "description": "Experience seamless sound with JBL Tour Pro 2 True Wireless Noise Cancelling Earbuds. These earbuds feature true adaptive noise cancelling technology to block out distractions, allowing you to enjoy your favorite audio or silence. Legendary JBL pro sound and immersive spatial audio provide a superb listening experience on the go. The unique smart charging case allows direct access to all key earbud features via its 1.45-inch display, eliminating the need for a smartphone app. Enjoy up to 40 hours of playtime with the Bluetooth-enabled smart charging case and superior call quality with 6-mic technology. The Personal Sound Amplification feature boosts voice volume for you and others without removing the earbuds.",
+    "brands": [
+      {
+        "id": "4AJV",
+        "name": "JBL"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/b52c0043-b3a6-4451-a9d1-eb00f8d27797?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/b52c0043-b3a6-4451-a9d1-eb00f8d27797?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Front view of the JBL Tour Pro 2 portable speaker."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/11500438-9753-4bee-a7b0-b3d7cde08d07?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/11500438-9753-4bee-a7b0-b3d7cde08d07?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Front view of the JBL Tour Pro 2 portable speaker with branding."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/5975b455-8695-499f-badf-89b88ad05b69?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/5975b455-8695-499f-badf-89b88ad05b69?aid=01M75E67Z2W7V09FZ50W5JENH1&mid=n0yg",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Side profile view of the JBL Tour Pro 2 portable speaker."
+      }
+    ],
+    "category": {
+      "slug": "in-ear-headphones",
+      "title": "In-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "in-ear-headphones",
+          "title": "In-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "Smart Charging Case™ with 1.45-inch display",
+      "True Adaptive Noise Cancelling",
+      "Immersive JBL Spatial Sound",
+      "6-mic technology for crystal clear calls",
+      "Up to 40 hours of total playback",
+      "Bluetooth 5.3 LE audio",
+      "IPX5 water resistant",
+      "Personi-fi 2.0 personalized sound profiles",
+      "Up to 40 hours of total playback (10+30 hours ANC off)",
+      "Personal Sound Amplification boosts conversations by +15-20dB"
+    ],
+    "colors": [
+      {
+        "hex": "#323232",
+        "percentage": 0.7788
+      },
+      {
+        "hex": "#4d4d4d",
+        "percentage": 0.1208
+      },
+      {
+        "hex": "#8f8b8a",
+        "percentage": 0.1005
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-n0yg-S666bu?o=01M38CER2WDDAPHHHKQ2DF6M4Y&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "backmarket.com",
+        "price": {
+          "price": 156.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "used",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 109,
+            "unit": "oz"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-mDEv-S666bu?o=01M2GQK6YA0FC8KZNZAH84YR0R&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "audioadvice.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 268,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-p1PB-S666bu?o=01KYC9M8PG5TXFTWDKV71WFRWN&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "bestbuy.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": null,
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-B50Y-S666bu?o=01M6RCMSW1XQ31TNQKSEDMPBMX&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "selfridges.com",
+        "price": {
+          "price": 104,
+          "compare_at_price": 147,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-aiyf-S666bu?o=01M4CRQSQYK0X8HWC79MSFCWYH&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "jbl.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 73,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/qE1D14e-7lFu-S666bu?o=01M2Q0S6EXZM48N35FS73805CE&aid=01M75E67Z2W7V09FZ50W5JENH1",
+        "domain": "jbl.com",
+        "price": {
+          "price": 249.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 73,
+            "unit": "g"
+          }
+        }
+      }
+    ],
+    "variants": {
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Black",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/b52c0043-b3a6-4451-a9d1-eb00f8d27797",
+              "product_id": "qE1D14e"
+            },
+            {
+              "label": "Black-AM-Current",
+              "exists": true,
+              "available": null,
+              "thumbnail_url": "https://cdn.trychannel3.com/056dede6-7917-44d0-8236-925fafe2f5e3",
+              "product_id": "vLcsoU2"
+            }
+          ]
+        }
+      ],
+      "selected": [
+        {
+          "name": "Color",
+          "label": "Black"
+        }
+      ]
+    },
+    "structured_attributes": {
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)",
+        "Adaptive noise cancellation"
+      ],
+      "headphone-style": [
+        "Earbuds",
+        "Canal"
+      ],
+      "microphone-type": [
+        "Built-in",
+        "Omnidirectional"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "Battery-powered",
+        "Batteries"
+      ],
+      "device-interface": [
+        "Bluetooth",
+        "USB"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "Volume control"
+      ],
+      "audio-connectivity": [
+        "Bluetooth",
+        "USB"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wired",
+        "USB",
+        "Wi-Fi"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "ingress-protection-ip-rating": [
+        "IPX5"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "battery-type": [
+        "Rechargeable",
+        "Contained-undetachable"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "audio-component-form-factor": [
+        "Desktop"
+      ]
+    },
+    "ratings": {
+      "value": 4.28,
+      "count": 208,
+      "source_count": 2
+    }
+  }
+}

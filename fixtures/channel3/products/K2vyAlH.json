@@ -1,0 +1,159 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "K2vyAlH",
+    "title": "Nautica Nayman SP700 Portable Bluetooth Speaker",
+    "description": "The Nautica Nayman SP700 is a waterproof portable Bluetooth speaker designed for powerful 16W performance in a lightweight, compact body. It delivers crisp highs, rich mids and deep bass for an immersive listening experience. With an IPX7 waterproof rating, it withstands rain, splashes and full immersion up to 3.3 ft for 30 minutes, making it ideal for the beach, poolside, shower, hiking and outdoor adventures. The 10 hour battery and Bluetooth 5.3 provide fast pairing and reliable all day play, while USB-C offers convenient charging. Pair two units wirelessly with TWS mode for true stereo sound. Built-in RGB ambient lighting adds a dynamic visual touch that enhances mood and atmosphere. Available in multiple colors, the SP700 is designed to keep your music clear, bold and ready for every moment.",
+    "brands": [
+      {
+        "id": "gzxw",
+        "name": "Nautica"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/03dd77ca-8209-4e69-baca-976fb082068a?aid=01M75E63TF0SM67ZJ6VKG8FAH1&mid=p1PB",
+        "cleaned_url": "https://cdn.trychannel3.com/400ef10d-2972-4ed3-8daa-172ad87899b5?aid=01M75E63TF0SM67ZJ6VKG8FAH1&mid=p1PB",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Two red Nautica Nayman SP700 portable Bluetooth speakers."
+      }
+    ],
+    "category": {
+      "slug": "portable-bluetooth-speakers",
+      "title": "Portable Bluetooth Speakers",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "speakers",
+          "title": "Speakers"
+        },
+        {
+          "slug": "portable-bluetooth-speakers",
+          "title": "Portable Bluetooth Speakers"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "16W powerful and clear sound",
+      "Deep bass performance",
+      "IPX7 waterproof and rugged build",
+      "10-hour playtime with Bluetooth 5.3",
+      "RGB ambient light and TWS pairing"
+    ],
+    "colors": [
+      {
+        "hex": "#ae2b2b",
+        "percentage": 0.3859
+      },
+      {
+        "hex": "#ea6667",
+        "percentage": 0.1526
+      },
+      {
+        "hex": "#f8f7f8",
+        "percentage": 0.1375
+      },
+      {
+        "hex": "#1a0f0e",
+        "percentage": 0.1337
+      },
+      {
+        "hex": "#daa0a2",
+        "percentage": 0.1004
+      },
+      {
+        "hex": "#b45254",
+        "percentage": 0.09
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/K2vyAlH-p1PB-S666bu?o=01KXZS06FYZ7A7Y23N01Q5P77Q&aid=01M75E63TF0SM67ZJ6VKG8FAH1",
+        "domain": "bestbuy.com",
+        "price": {
+          "price": 69.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "speaker-design": [
+        "Portable"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "device-interface": [
+        "USB"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "audio-component-form-factor": [
+        "Portable/Field"
+      ],
+      "audio-purpose": [
+        "Portable audio"
+      ],
+      "mounting-type": [
+        "Portable"
+      ],
+      "compatible-voice-assistant": [
+        "None"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Wireless"
+      ],
+      "power-source": [
+        "Battery-powered"
+      ],
+      "speaker-features": [
+        "AI-powered",
+        "Subwoofer",
+        "Volume control",
+        "Weather resistant"
+      ],
+      "speaker-technology": [
+        "Dynamic"
+      ]
+    },
+    "ratings": {
+      "value": 4.4,
+      "count": 69,
+      "source_count": 1
+    }
+  }
+}

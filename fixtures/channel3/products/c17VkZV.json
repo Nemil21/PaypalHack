@@ -1,0 +1,233 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "c17VkZV",
+    "title": "JBL Live 770NC Wireless Over-Ear Noise Cancelling Headphones",
+    "description": "Experience immersive sound with JBL Live 770NC Wireless Over-Ear Headphones. Featuring True Adaptive Noise Cancelling and Smart Ambient technology, these headphones allow you to tune out distractions or stay aware of your surroundings. Enjoy powerful JBL Signature Sound, seamless Bluetooth connectivity with two devices simultaneously, and access to your voice assistant with a simple tap. With up to 65 hours of playtime (50 hours with ANC on) and a quick 5-minute speed charge for 4 hours of playback, the JBL Live 770NC is designed for all-day listening. The comfortable over-ear design and sleek black finish make them a stylish and functional accessory for any audio lover.",
+    "brands": [
+      {
+        "id": "RFDs",
+        "name": "HARMAN"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/e02ef919-29e0-4132-8e47-a5e48530e356?aid=01M75E5SZ82SENTW297D9MKV94&mid=QetO",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e02ef919-29e0-4132-8e47-a5e48530e356?aid=01M75E5SZ82SENTW297D9MKV94&mid=QetO",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black over-ear headphones shown from the front view."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/515d36c7-a551-4eef-b52b-2d3336fad188?aid=01M75E5SZ82SENTW297D9MKV94&mid=QetO",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Black over-ear headphones with headband and earcups shown."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/7323febf-7727-42ac-8cc2-eb8b05b57ec8?aid=01M75E5SZ82SENTW297D9MKV94&mid=QetO",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Black over-ear headphones shown with headband and earcups separated."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "True Adaptive Noise Cancelling",
+      "Smart Ambient technology",
+      "JBL Signature Sound",
+      "Voice assistant access",
+      "65 hours of music streaming",
+      "5-minute speed charge for 4 hours",
+      "Connect with two Bluetooth devices simultaneously",
+      "Bluetooth 5.3 (LE Audio)",
+      "Beamforming microphones",
+      "40.0 mm Driver Diameter"
+    ],
+    "colors": [
+      {
+        "hex": "#1a1a1b",
+        "percentage": 0.4963
+      },
+      {
+        "hex": "#343435",
+        "percentage": 0.2791
+      },
+      {
+        "hex": "#f8f8f8",
+        "percentage": 0.1306
+      },
+      {
+        "hex": "#5e5e60",
+        "percentage": 0.094
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/c17VkZV-QetO-S666bu?o=01KH89P8AD2BMST9825J3DCKNM&aid=01M75E5SZ82SENTW297D9MKV94",
+        "domain": "urbanoutfitters.com",
+        "price": {
+          "price": 219.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 0.56,
+            "unit": "lb"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/c17VkZV-p1PB-S666bu?o=01KXT810TJ9H8MPMJQK5Z7GTVZ&aid=01M75E5SZ82SENTW297D9MKV94",
+        "domain": "bestbuy.com",
+        "price": {
+          "price": 219.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/c17VkZV-Pu5r-S666bu?o=01KR7R3RRKFGDDFEVZ1AHQDVY6&aid=01M75E5SZ82SENTW297D9MKV94",
+        "domain": "pcrichard.com",
+        "price": {
+          "price": 219.96,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 1,
+            "unit": "lb"
+          }
+        }
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "Volume control"
+      ],
+      "audio-connectivity": [
+        "Bluetooth",
+        "USB",
+        "3.5 mm"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "Battery-powered",
+        "USB"
+      ],
+      "battery-size": [
+        "Built-in battery",
+        "≤100Wh"
+      ],
+      "device-interface": [
+        "USB",
+        "Wi-Fi",
+        "3.5 mm",
+        "Bluetooth"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "USB",
+        "Wired",
+        "Wireless"
+      ],
+      "headphone-style": [
+        "Closed-back"
+      ],
+      "microphone-type": [
+        "Omnidirectional",
+        "Built-in",
+        "Noise-canceling"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "noise-cancellation-technology": [
+        "Adaptive noise cancellation",
+        "Active noise cancellation (ANC)"
+      ],
+      "material": [
+        "Fabric",
+        "Metal",
+        "Plastic",
+        "Synthetic",
+        "Foam"
+      ],
+      "audio-component-form-factor": [
+        "Desktop",
+        "Portable/Field"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ]
+    },
+    "ratings": {
+      "value": 4.46,
+      "count": 800,
+      "source_count": 2
+    }
+  }
+}
