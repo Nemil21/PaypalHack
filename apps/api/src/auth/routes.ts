@@ -2,11 +2,13 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { isAdminEmail, type Config, type Db } from '@holdfast/core';
 import { ApiError, parse } from '../http/errors.js';
+import { applyRateDecision, type RateLimiter } from '../http/rate-limit.js';
 import type { Guards, Sessions } from './guards.js';
 import {
   claimShopperEmail,
   ensureDemoBrandUser,
   ensureDemoShopper,
+  isUuid,
   loadBrandUser,
   loadShopper,
   type BrandUserRow,
@@ -36,6 +38,7 @@ export interface AuthRouteDeps {
   db?: Db;
   guards: Guards;
   sessions: Sessions;
+  limiter: RateLimiter;
   sendMagicLink?: MagicLinkSender;
 }
 
@@ -91,7 +94,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     const brandClaims = sessions.brandClaims(req);
     const shopperClaims = sessions.shopperClaims(req);
     const [brandUser, shopper] = await Promise.all([
-      brandClaims ? loadBrandUser(db().pool, brandClaims.sub).catch(() => null) : null,
+      brandClaims && isUuid(brandClaims.sub) ? loadBrandUser(db().pool, brandClaims.sub) : null,
       shopperClaims ? loadShopper(db().pool, shopperClaims.sub) : null,
     ]);
     return {
@@ -117,6 +120,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     { onRequest: guards.ensureShopper },
     async (req, reply) => {
       const body = parse(z.object({ email, next: nextPath }), req.body, 'body');
+      // Per-email limit on top of the REST one, so nobody can mail-bomb an address (HF-054b).
+      if (!applyRateDecision(reply, deps.limiter.hit('magicLink', body.email))) return reply;
       const token = signToken(config.SESSION_SECRET, 'magic-link', {
         sub: body.email,
         exp: Date.now() + MAGIC_LINK_TTL_MS,
@@ -138,7 +143,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       throw new ApiError('UNAUTHENTICATED', 'This sign-in link is invalid or has expired.');
     }
     usedLinks.set(claims.jti, claims.exp);
-    const shopper = await claimShopperEmail(db(), claims.ext?.shopperId ?? null, claims.sub);
+    // The email may only land on the requester's provisional shopper when the *same browser*
+    // verifies. Otherwise whoever requested a link for someone else's address would, once the
+    // owner clicks it, hold a cookie for a shopper carrying that verified email. Opened elsewhere,
+    // the link signs in the email's existing shopper or a new one only this browser gets.
+    const requester = claims.ext?.shopperId;
+    const sameBrowser = !!requester && sessions.shopperClaims(req)?.sub === requester;
+    const shopper = await claimShopperEmail(db(), sameBrowser ? requester : null, claims.sub);
     sessions.setShopper(req, reply, shopper.id);
     reply.header('Cache-Control', 'no-store');
     return reply.redirect(claims.ext?.next ?? '/bids', 302);
