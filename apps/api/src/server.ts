@@ -24,6 +24,7 @@ import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerSettlementRoutes } from './routes/settlement.js';
+import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { registerOfferRoutes } from './routes/offers.js';
 import { registerProductRoutes } from './routes/products.js';
@@ -117,6 +118,8 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerBidRoutes(app, deps.bids);
     // HF-016: cancel, my bids and bid detail share the bid service's deps.
     registerMyBidRoutes(app, deps.bids);
+    // HF-017b: mandate settings; pause releases holds through the same PayPal client.
+    registerMandateRoutes(app, deps.bids);
   }
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
