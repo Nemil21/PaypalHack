@@ -415,6 +415,50 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-052 intents (stub)', () => {
     expect(view!.history.at(-1)!.why).toMatch(/below the \$255\.01 needed to win there/);
   });
 
+  it('a move that fails after its row was inserted does not block the next run; repeated failures stop', async () => {
+    const s = await vaultedShopper();
+    const r1 = await vaultedShopper();
+    const a = await listing('Aurel One', { quantity: 1 });
+    const b = await listing('Nova X', { quantity: 1 });
+    const c = await activeIntent(s, [a.product_id, b.product_id]);
+    await db.pool.query(`UPDATE listings SET status = 'DRAFT' WHERE id = $1`, [b.id]);
+    await activateIntent(deps(), s, c.intent.id);
+    const [old] = await intentHeld(c.intent.id);
+    expect(old!.listing_id).toBe(a.id);
+    await heldBid(a.id, r1, 26_000); // the intent's $250 bid is now losing
+    await db.pool.query(`UPDATE listings SET status = 'OPEN' WHERE id = $1`, [b.id]);
+
+    // The first move is declined after its bid row exists.
+    fake.failNext('order_create', { kind: 'decline' });
+    const first = await runIntent(deps(), c.intent.id);
+    expect(first?.action).toBe('moved');
+    expect(first?.action === 'moved' && first.result.ok).toBe(false);
+    expect(await intentHeld(c.intent.id)).toEqual([{ id: old!.id, listing_id: a.id }]);
+
+    // The next run gets a fresh key and moves the bid.
+    const second = await runIntent(deps(), c.intent.id);
+    expect(second?.action === 'moved' && second.result.ok).toBe(true);
+    expect(await intentHeld(c.intent.id)).toEqual([{ id: expect.any(String), listing_id: b.id }]);
+    expect((await fx.bid(old!.id)).status).toBe('VOIDED');
+  });
+
+  it('a held bid whose moves keep failing stays put after MAX_MOVE_ATTEMPTS', () => {
+    const held = bid('x', 'a', { amountCents: 22_000 });
+    const losing = book('a', { otherAmountsCents: [24_000, 23_000] });
+    const failed = (id: string, ms: number) =>
+      bid(id, 'b', { status: 'HOLD_FAILED', placedAt: new Date(T0.getTime() + ms) });
+    const st = (n: number) =>
+      state({
+        bids: [held, ...Array.from({ length: n }, (_, i) => failed(`f${i}`, i + 1))],
+        books: [losing, book('b')],
+      });
+    expect(decideIntent(st(2))).toMatchObject({ kind: 'move' });
+    expect(decideIntent(st(3))).toMatchObject({
+      kind: 'stay',
+      why: expect.stringMatching(/failed 3 times/),
+    });
+  });
+
   it('a move above the mandate max is refused before any hold; the cap excludes the moved bid (D12)', async () => {
     const s = await vaultedShopper();
     const a = await listing('Aurel One');

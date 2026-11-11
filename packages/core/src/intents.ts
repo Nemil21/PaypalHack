@@ -42,6 +42,11 @@ export const REPLACE_AFTER_VOID_REASONS = [
 ] as const;
 /** An intent lists 1–5 products. */
 export const MAX_INTENT_PRODUCTS = 5;
+/**
+ * Failed move attempts (declined, or refused at landing) the rule makes for one held bid before it
+ * stops trying, so a declining card is not retried every minute.
+ */
+export const MAX_MOVE_ATTEMPTS = 3;
 /** Audit action for a placement made by the move rule (the first bid, or after a lost book). */
 export const INTENT_PLACED_ACTION = 'INTENT_BID_PLACED';
 
@@ -147,6 +152,8 @@ export type IntentDecision =
 
 const WON_STATUSES = new Set(['WON', 'CAPTURED', 'SHIPPED']);
 const IN_FLIGHT = new Set(['PENDING_APPROVAL', 'LOST']);
+/** A bid that never became a live hold, or was released: a failed attempt if newer than the HELD bid. */
+const NEVER_HELD = new Set(['HOLD_FAILED', 'ABANDONED', 'VOIDING', 'VOIDED']);
 const bookName = (b: { title: string | null; brandName?: string | null }) =>
   b.title ? `the ${b.title} book` : 'another book';
 
@@ -179,6 +186,16 @@ export function decideIntent(state: IntentState): IntentDecision {
     const best = pickBook(state.books, max, new Set([held.listingId]));
     if (!best || best.requiredCents >= Math.min(currentRequired, max + 1)) {
       return { kind: 'stay', why: 'No other open book is likelier to clear within your max.' };
+    }
+    // While a bid is HELD, the intent's only newer bids are move attempts from it that failed.
+    const failedMoves = state.bids.filter(
+      (b) => b.placedAt.getTime() > held.placedAt.getTime() && NEVER_HELD.has(b.status),
+    ).length;
+    if (failedMoves >= MAX_MOVE_ATTEMPTS) {
+      return {
+        kind: 'stay',
+        why: `Moving your ${formatUsd(held.amountCents)} bid failed ${failedMoves} times, so it stays where it is.`,
+      };
     }
     return {
       kind: 'move',
@@ -560,7 +577,9 @@ export async function runIntent(
       toListingId: decision.toListingId,
       amountCents: decision.amountCents,
       shopperId: intent.shopper_id,
-      idempotencyKey: `intent:${intentId}:move:${decision.bidId}`,
+      // One key per attempt: a failed move inserted a bid of the intent, so the next run (another
+      // book, another amount, or a retry) gets a fresh key instead of replaying the failure.
+      idempotencyKey: `intent:${intentId}:move:${decision.bidId}:${state.bids.length}`,
       reason: 'BETTER_BOOK',
       why: decision.why,
       actor,
