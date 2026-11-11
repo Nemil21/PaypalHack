@@ -668,6 +668,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-003a money primitives', () => {
 
     beforeAll(async () => {
       listener = new pg.Client({ connectionString: t.url });
+      listener.on('error', () => {}); // teardown drops the database WITH (FORCE)
       await listener.connect();
       listener.on('notification', (n) => {
         if (n.channel === LISTING_EVENTS_CHANNEL && n.payload) received.push(JSON.parse(n.payload));
