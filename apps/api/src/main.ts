@@ -1,6 +1,7 @@
 import {
   auditHook,
   ConfigError,
+  createChannel3Client,
   createDb,
   createPayPalClient,
   createPool,
@@ -8,6 +9,7 @@ import {
   loadConfig,
   loadDotenv,
   mockDeclinesAllowed,
+  startPriceWatchRetrier,
   startSettlementOutboxKicker,
   testCardAllowed,
 } from '@holdfast/core';
@@ -32,6 +34,11 @@ const sql = createDb(pool);
 // One LISTEN connection per instance; every SSE client fans out from it (HF-008).
 const events = new ListingEventBus({ connectionString: config.DATABASE_URL });
 const paypal = createPayPalClient(config);
+// One Channel3 client for search, listings and the price-watch subscribe retry (HF-009, HF-012a).
+const channel3 = createChannel3Client(config, {
+  // Calls happen only once the server is built, so `app` is initialised by then.
+  logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
+});
 // HF-030a: the in-process settlement coordinator is the default runner (HF-030b adds Workflows).
 const settlement =
   config.SETTLEMENT_RUNNER === 'inprocess'
@@ -45,6 +52,7 @@ const app = buildServer(config, {
   db: pool,
   sql,
   events,
+  channel3,
   settlement: { kick: settlement?.kick },
   bids: {
     money: {
@@ -69,8 +77,14 @@ const kicker = settlement
       onError: (err) => app.log.warn({ err: (err as Error).message }, 'settlement kick failed'),
     })
   : null;
+// Listings published while Channel3 was down get their price-watch subscription later (HF-012a).
+const priceWatchRetrier = startPriceWatchRetrier(
+  { db: sql, channel3 },
+  { onError: (err) => app.log.warn({ err: (err as Error).message }, 'price-watch retry failed') },
+);
 app.addHook('onClose', async () => {
   kicker?.stop();
+  priceWatchRetrier.stop();
   await events.close();
   await pool.end();
 });

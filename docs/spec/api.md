@@ -69,8 +69,12 @@ Client results are `held | pending | denied | needs_approval`, judged by the res
 ```
 → `201 { "listingId": "…", "status": "DRAFT", "slug": "aurel-a7-a7f2" }`
 `windowHours` is `24` or `48` only. Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (windowHours not 24/48), `DUPLICATE` (a live listing already exists for this product).
+HF-012a details: optional `gtin` / `mpn` (typed by hand; one is required unless Channel3 has it) and, for a manual listing without `channel3Id` (Channel3 down), `title` + a GTIN or MPN. `variant` is the key (`Color=Green`) or its label. The 201 also carries `productId`, `windowHours`, `bestPublicPriceCents` (null = unknown, floor check skipped) and `channel3Available`. Error details: `PRODUCT_MISMATCH { reason: BRAND_MISMATCH | NOT_NEW | VARIANT_MISMATCH | GTIN_MISMATCH | MPN_MISMATCH | NOT_FOUND }`; `VALIDATION_ERROR { field, reason: FLOOR_NOT_BELOW_PUBLIC_PRICE (+ bestPublicPriceCents) | NO_IDENTIFIER (+ fallback: MANUAL_IDENTIFIER when Channel3 is down) | INVALID_GTIN }`; `DUPLICATE { existingListingId, existingSlug, link }`. OWNER/MANAGER only.
 
 ### `POST /listings/:id/publish` → `{ "status": "OPEN", "windowClosesAt": "…", "clearDeadlineAt": "…" }`. Sets every D6 deadline. Reuses the product's Channel3 subscription or creates one (outside the DB transaction).
+HF-012a: the body also has `listingId`, `slug`, `offerPath` (`/o/:slug`), `windowOpensAt` and `priceWatch` (false when Channel3 was down at publish; the subscribe is retried every 5 min). Errors: `403 BRAND_NOT_VERIFIED`, `409 DUPLICATE { existingListingId, link }`, `409 STATE_CONFLICT { reason: NOT_DRAFT }`, `404` for another brand's listing.
+
+### `GET /listings[?status=OPEN,ROUNDS]` → `{ "listings": [ … ] }` (HF-012a): the session brand's listings, newest first, with product, deadlines, `offerPath` and `priceWatch`.
 
 ### `PATCH /listings/:id` `{ "quantity": 320 }` (later wave) → raise quantity only, while OPEN. Floor and window are locked (02).
 

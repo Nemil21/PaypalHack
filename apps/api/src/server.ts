@@ -22,6 +22,7 @@ import { registerBookRoutes } from './routes/book.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
+import { registerListingRoutes } from './routes/listings.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerSettlementRoutes } from './routes/settlement.js';
 import { registerMandateRoutes } from './routes/mandates.js';
@@ -131,14 +132,13 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) {
     registerSettlementRoutes(app, { db: deps.sql, kickSettlement: deps.settlement?.kick });
   }
-  registerProductRoutes(app, {
-    channel3:
-      deps.channel3 ??
-      createChannel3Client(config, {
-        logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
-      }),
-    ...(deps.sql ? { db: deps.sql.pool } : {}),
-  });
+  const channel3 =
+    deps.channel3 ??
+    createChannel3Client(config, {
+      logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
+    });
+  registerProductRoutes(app, { channel3, ...(deps.sql ? { db: deps.sql.pool } : {}) });
+  if (deps.sql) registerListingRoutes(app, { db: deps.sql, channel3 });
 
   registerAuthRoutes(app, {
     config,

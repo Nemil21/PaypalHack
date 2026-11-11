@@ -131,9 +131,11 @@ const BRAND_NOISE = new Set([
   'brand',
 ]);
 
+/** Seeded demo brands are named "Aurel Audio (demo)" (HF-045); the marker is not the brand. */
 function brandTokens(name: string): string[] {
   return name
     .toLowerCase()
+    .replace(/\(\s*demo\s*\)/g, ' ')
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
     .split(/[^a-z0-9]+/)
@@ -141,9 +143,10 @@ function brandTokens(name: string): string[] {
 }
 
 /**
- * Fuzzy brand match (02 §Logic 1): equal after normalising case, accents, punctuation and
- * corporate suffixes, or every token of one name appears in the other. "Aurel Audio" matches
- * "AUREL" and "Aurel Audio Inc."; "JBL" does not match "HARMAN".
+ * Fuzzy brand match (02 §Logic 1; the HF-012a rule): case-insensitive token containment after
+ * stripping "(demo)", accents, punctuation and corporate suffixes, i.e. equal, or every token of
+ * one name appears in the other. "Aurel Audio" matches "AUREL" and "Aurel Audio Inc.";
+ * "JBL" does not match "HARMAN".
  */
 export function brandMatches(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false;
