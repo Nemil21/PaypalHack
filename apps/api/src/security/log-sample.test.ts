@@ -130,7 +130,9 @@ describe('HF-047 log sample', () => {
     expect(sample.length).toBeGreaterThan(500);
     for (const s of SECRETS) expect(sample).not.toContain(s);
     expect(sample).not.toContain(magic);
-    expect(sample).not.toContain(CVV);
+    // Anchored to its context: a bare 4-digit string turns up in `time` / `responseTime` digits.
+    expect(sample).not.toMatch(new RegExp(`(cvv|security_code)\\W{0,4}${CVV}`, 'i'));
+    expect(sample).toContain('cvv [redacted]');
     expect(sample).toContain('[card]');
     expect(sample).toContain('1794427548174');
     expect(sample).toContain('22900');
