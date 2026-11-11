@@ -294,6 +294,7 @@ export async function startRounds(
     const at = listing.db_now.toISOString();
     await brandAudit(tx, listing, input.actor, 'ROUNDS_STARTED', {
       targetQuantity: listing.target_quantity,
+      roundEndsAt: iso(listing.round_ends_at),
       windowClosesAt: iso(listing.window_closes_at),
       roundsEndAt: iso(listing.rounds_end_at),
       clearDeadlineAt: iso(listing.clear_deadline_at),
@@ -533,6 +534,14 @@ export async function snapshotRound(
   const roundEndsAt = iso(listing.round_ends_at);
   const drafts = selectNudges(result, { targetQuantity: q, roundEndsAt });
 
+  // HF-037b: the expected gross this round started from, for the console's per-round Δ.
+  await brandAudit(tx, listing, actor, 'ROUND_SNAPSHOT', {
+    round,
+    targetQuantity: q,
+    cutoffCents: result.cutoffCents,
+    grossCents: result.grossCents,
+    belowCutoff: drafts.length,
+  });
   await (deps.emit ?? emit)(tx, listing.id, {
     type: 'round.started',
     listingId: listing.id,

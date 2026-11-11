@@ -7,6 +7,8 @@
  *   npm run dev:rounds-replay -- --serve 4036          # serve GET /api/listings/:id/events
  *   npm run dev:rounds-replay -- --delay 0 --raises 5 --bidders 20 --target 8
  *   npm run dev:rounds-replay -- --serve 4036 --round-ms 300000 --end   # console (HF-037a)
+ *   npm run dev:rounds-replay -- --serve 4036 --round-ms 300000 --extend --end --end-reason NO_RAISES
+ *                                                     # raises feed, late raise, end reason (HF-037b)
  *
  * With `--serve`, every connection replays the sequence for the listing id in its URL, then
  * keeps the stream open with comment heartbeats. Point the web dev proxy's
@@ -32,6 +34,9 @@ const { values } = parseArgs({
     listing: { type: 'string' },
     'round-ms': { type: 'string' },
     end: { type: 'boolean', default: false },
+    'end-reason': { type: 'string' },
+    extend: { type: 'boolean', default: false },
+    'extend-ms': { type: 'string' },
   },
 });
 
@@ -43,6 +48,9 @@ const base: RoundsReplayOptions = {
   raises: int(values.raises),
   roundMs: int(values['round-ms']),
   end: values.end,
+  endReason: values['end-reason'] as RoundsReplayOptions['endReason'],
+  extend: values.extend,
+  extendMs: int(values['extend-ms']),
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
+  NotFoundError,
   isUuid,
+  loadRoundsActivity,
   nextRound,
   setRoundsTarget,
   startRounds,
@@ -27,6 +29,8 @@ import { ApiError, envelope, parse } from '../http/errors.js';
  *   POST  /api/listings/:id/rounds/stop
  *   PATCH /api/listings/:id/rounds        {targetQuantity}
  * Brand OWNER/MANAGER only. Every response is the floor-blind `RoundsState`.
+ *
+ *   GET   /api/listings/:id/rounds/activity  (HF-037b: the console's raises feed; any brand role)
  */
 
 export type RoundsRouteDeps = RoundsDeps;
@@ -151,5 +155,22 @@ export function registerRoundsRoutes(app: FastifyInstance, deps: RoundsRouteDeps
       const body = parse(roundsTargetRequestSchema, req.body, 'rounds request');
       return respond(await setRoundsTarget(deps, { ...ctx, targetQuantity: body.targetQuantity }));
     }),
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/api/listings/:id/rounds/activity',
+    { onRequest: app.guards.requireBrandUser() },
+    async (req) => {
+      const notFoundError = new ApiError('NOT_FOUND', 'Listing not found.');
+      if (!isUuid(req.params.id)) throw notFoundError;
+      try {
+        return await loadRoundsActivity(deps.db, req.auth.brandUser!.brandId, req.params.id, {
+          timing: deps.timing,
+        });
+      } catch (err) {
+        if (err instanceof NotFoundError) throw notFoundError;
+        throw err;
+      }
+    },
   );
 }
