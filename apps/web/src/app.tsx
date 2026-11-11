@@ -3,6 +3,7 @@ import { AppShell } from './components/layout/AppShell';
 import { ToastProvider } from './components/ui';
 import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
+import { OfferPage } from './routes/offer/OfferPage';
 import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
 
 /**
@@ -53,7 +54,7 @@ const router = createBrowserRouter([
       // Shopper
       {
         path: 'o/:slug',
-        element: <ScreenPlaceholder screen="Offer page (W12 / M01)" ticket="HF-019" />,
+        element: <OfferPage />,
       },
       { path: 'bids', element: <ScreenPlaceholder screen="My bids (W14 / M03)" ticket="HF-020" /> },
       {

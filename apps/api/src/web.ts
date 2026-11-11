@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import type { FastifyInstance } from 'fastify';
-import type { Config } from '@holdfast/core';
+import { testCardAllowed, type Config } from '@holdfast/core';
 
 /**
  * Same-origin web app (M31, HF-007). The API serves the built SPA from `apps/web/dist`, so the
@@ -29,6 +29,15 @@ export interface ClientConfig {
    */
   agGridLicenseKey: string | null;
   demoMode: boolean;
+  /**
+   * PayPal's public client id for the JS SDK v6 card fields (HF-019). Public by design (S7 served
+   * it the same way); null with the `FakePayPal` stub, where the browser SDK has nothing to call.
+   */
+  paypalClientId: string | null;
+  /** Load the sandbox SDK host (`www.sandbox.paypal.com`). */
+  paypalSandbox: boolean;
+  /** The labelled "Use sandbox test card" button: core `testCardAllowed` (HF-014b Part 1). */
+  testCardEnabled: boolean;
 }
 
 function isApiPath(url: string): boolean {
@@ -49,7 +58,13 @@ export function registerWebApp(
 ): void {
   app.get('/api/client-config', async (_req, reply): Promise<ClientConfig> => {
     reply.header('Cache-Control', 'no-store');
-    return { agGridLicenseKey: config.AG_GRID_LICENSE_KEY ?? null, demoMode: config.DEMO_MODE };
+    return {
+      agGridLicenseKey: config.AG_GRID_LICENSE_KEY ?? null,
+      demoMode: config.DEMO_MODE,
+      paypalClientId: config.PAYPAL_MODE === 'stub' ? null : config.PAYPAL_CLIENT_ID,
+      paypalSandbox: config.paypalIsSandbox,
+      testCardEnabled: testCardAllowed(config),
+    };
   });
 
   const indexPath = webDistDir ? join(webDistDir, 'index.html') : null;
