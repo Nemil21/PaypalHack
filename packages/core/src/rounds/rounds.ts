@@ -13,11 +13,15 @@ import type { Db, Queryable, Tx } from '../db.js';
 import { emit } from '../money/emit.js';
 import type { ListingRow } from '../money/rows.js';
 import { sendNudge, type EmitFn } from './nudges.js';
+import { nudgeTextFor, roundTemplate, type NudgePhraser } from './phrasing.js';
+import { UNSCALED_TIMING, type RoundsTiming } from './timing.js';
 
 /**
  * Live rounds, basic part (HF-036a; features/19 §Logic 1–3, 6–7). The brand starts rounds once,
  * advances them with "Next round" and stops them. Each round writes one truthful nudge snapshot
- * (M10) from `loadClearInput` + `clear()`. HF-036b adds the timer on top of `advanceRound`.
+ * (M10) from `loadClearInput` + `clear()`. HF-036b adds the timer: every round gets
+ * `round_ends_at = least(now() + roundLen, rounds_end_at)` and the in-process tick (`tick.ts`)
+ * advances it through the same `advanceRound`; "Next round" stays as the manual control.
  *
  * Every write is one transaction that starts with a conditional `UPDATE listings`, so the
  * listing row lock is taken first (lock order: listing → bids). `landHold` takes the listing
@@ -33,6 +37,13 @@ export interface RoundsDeps {
   emit?: EmitFn;
   /** Test seam: runs inside the transaction right after the listing UPDATE. */
   afterListingUpdate?: (tx: Tx) => Promise<void>;
+  /** HF-036b: round length, soft close, extension and cap (`ROUNDS_TIME_SCALE`). Default 1×. */
+  timing?: RoundsTiming;
+  /** HF-036b: Claude nudge phrasing, one call per round; template text when absent or failing. */
+  phraser?: NudgePhraser;
+  /** Default 5 s. */
+  phrasingTimeoutMs?: number;
+  onPhrasingError?: (err: unknown) => void;
 }
 
 /**
@@ -80,7 +91,7 @@ export function canRunRounds(actor: RoundsActor): boolean {
   return actor.type === 'BRAND_USER' && !!actor.role && ROUNDS_ROLES.has(actor.role);
 }
 
-type RoundsListing = ListingRow & {
+export type RoundsListing = ListingRow & {
   window_opens_at: Date | null;
   rounds_started_at: Date | null;
   current_round: number | null;
@@ -89,7 +100,7 @@ type RoundsListing = ListingRow & {
   db_now: Date;
 };
 
-interface TxResult {
+export interface TxResult {
   listing: RoundsListing;
   nudges: Nudge[];
   endedReason: RoundEndReason | null;
@@ -206,7 +217,7 @@ function checkTarget(targetQuantity: number, quantity: number): void {
 
 const RETURNING = `RETURNING *, clock_timestamp() AS db_now`;
 
-async function brandAudit(
+export async function brandAudit(
   tx: Queryable,
   listing: RoundsListing,
   actor: RoundsActor,
@@ -241,10 +252,17 @@ export interface StartRoundsInput extends Base {
  * - round 1's nudge snapshot (ends rounds at once if nobody is below the cutoff).
  * Refused (409 `ROUNDS_WINDOW_PASSED`) when the 6 h after the window closed are already over.
  */
-export function startRounds(deps: RoundsDeps, input: StartRoundsInput): Promise<RoundsOutcome> {
+export async function startRounds(
+  deps: RoundsDeps,
+  input: StartRoundsInput,
+): Promise<RoundsOutcome> {
+  const timing = deps.timing ?? UNSCALED_TIMING;
+  const template = await templateBefore(deps, input, 'OPEN', 1);
   return run(deps, input, async (tx) => {
     checkTarget(input.targetQuantity, await quantityOf(tx, input));
     // SET expressions read the row's old values, so `window_closes_at` here is the original.
+    // $4 / $5 are the (scaled) rounds cap and round length; `clear_deadline_at` is never scaled:
+    // it is computed from the unscaled 6 h cap, exactly as in an unscaled run.
     const res = await tx.query(
       `UPDATE listings
           SET status = 'ROUNDS',
@@ -253,7 +271,10 @@ export function startRounds(deps: RoundsDeps, input: StartRoundsInput): Promise<
               round_extensions = 0,
               target_quantity = $3,
               window_closes_at = least(window_closes_at, now()),
-              rounds_end_at = least(now() + interval '6 hours',
+              rounds_end_at = least(now() + $4::float8 * interval '1 millisecond',
+                                    window_closes_at + interval '6 hours'),
+              round_ends_at = least(now() + $5::float8 * interval '1 millisecond',
+                                    now() + $4::float8 * interval '1 millisecond',
                                     window_closes_at + interval '6 hours'),
               clear_deadline_at = least(
                 least(now() + interval '6 hours', window_closes_at + interval '6 hours')
@@ -264,7 +285,7 @@ export function startRounds(deps: RoundsDeps, input: StartRoundsInput): Promise<
           AND window_closes_at IS NOT NULL AND window_opens_at IS NOT NULL
           AND now() < window_closes_at + interval '6 hours'
        ${RETURNING}`,
-      [input.listingId, input.brandId, input.targetQuantity],
+      [input.listingId, input.brandId, input.targetQuantity, timing.capMs, timing.roundMs],
     );
     const listing = res.rows[0] as RoundsListing | undefined;
     if (!listing) throw await refusal(tx, input, 'start');
@@ -284,7 +305,7 @@ export function startRounds(deps: RoundsDeps, input: StartRoundsInput): Promise<
       from: 'OPEN',
       to: 'ROUNDS',
     });
-    return snapshotRound(deps, tx, listing, input.actor);
+    return snapshotRound(deps, tx, listing, input.actor, template);
   });
 }
 
@@ -301,7 +322,14 @@ export interface NextRoundInput extends Base {
  * now() < rounds_end_at`: of two concurrent calls for round n, exactly one advances; the other
  * touches 0 rows (409 `ROUND_ADVANCED`). Then writes round n + 1's nudge snapshot.
  */
-export function nextRound(deps: RoundsDeps, input: NextRoundInput): Promise<RoundsOutcome> {
+export async function nextRound(deps: RoundsDeps, input: NextRoundInput): Promise<RoundsOutcome> {
+  const timing = deps.timing ?? UNSCALED_TIMING;
+  const template = await templateBefore(
+    deps,
+    input,
+    'ROUNDS',
+    input.fromRound === undefined ? null : input.fromRound + 1,
+  );
   return run(deps, input, async (tx) => {
     let from = input.fromRound;
     if (from === undefined) {
@@ -314,34 +342,40 @@ export function nextRound(deps: RoundsDeps, input: NextRoundInput): Promise<Roun
       if (row.current_round === null) throw await refusal(tx, input, 'inRounds');
       from = row.current_round;
     }
-    const listing = await advanceRound(tx, input.listingId, input.brandId, from);
+    const listing = await advanceRound(tx, input.listingId, input.brandId, from, timing.roundMs);
     if (!listing) throw await refusal(tx, input, 'inRounds');
     await deps.afterListingUpdate?.(tx);
     await brandAudit(tx, listing, input.actor, 'ROUND_ADVANCED', {
       fromRound: from,
       round: listing.current_round,
+      roundEndsAt: iso(listing.round_ends_at),
     });
-    return snapshotRound(deps, tx, listing, input.actor);
+    return snapshotRound(deps, tx, listing, input.actor, template);
   });
 }
 
 /**
  * The one way a round advances (HF-036a button, HF-036b timer): the conditional UPDATE from
- * round `n` to `n + 1`. Returns null when the listing is not in live rounds at round `n`.
+ * round `n` to `n + 1`, which also starts the new round's timer
+ * (`round_ends_at = least(now() + roundMs, rounds_end_at)`). Returns null when the listing is not
+ * in live rounds at round `n`.
  */
 export async function advanceRound(
   tx: Queryable,
   listingId: string,
   brandId: string,
   n: number,
+  roundMs: number = UNSCALED_TIMING.roundMs,
 ): Promise<RoundsListing | null> {
   const res = await tx.query(
     `UPDATE listings
-        SET current_round = $3 + 1, round_extensions = 0, updated_at = now()
+        SET current_round = $3 + 1, round_extensions = 0, updated_at = now(),
+            round_ends_at = least(clock_timestamp() + $4::float8 * interval '1 millisecond',
+                                  rounds_end_at)
       WHERE id = $1 AND brand_id = $2 AND status = 'ROUNDS' AND current_round = $3
         AND clock_timestamp() < rounds_end_at
      ${RETURNING}`,
-    [listingId, brandId, n],
+    [listingId, brandId, n, roundMs],
   );
   return (res.rows[0] as RoundsListing | undefined) ?? null;
 }
@@ -367,8 +401,8 @@ export function stopRounds(deps: RoundsDeps, input: Base): Promise<RoundsOutcome
   });
 }
 
-/** End live rounds now (stop, or nobody below the cutoff) and emit `round.ended`. */
-async function endRounds(
+/** End live rounds now (stop, an end rule, nobody below the cutoff) and emit `round.ended`. */
+export async function endRounds(
   deps: RoundsDeps,
   tx: Queryable,
   listingId: string,
@@ -429,6 +463,53 @@ export function setRoundsTarget(
   });
 }
 
+// --- Phrasing (HF-036b) -----------------------------------------------------------------------
+
+/** What the phraser may see: product title and brand name. Never a number, never the floor. */
+export async function phrasingFacts(
+  q: Queryable,
+  listingId: string,
+): Promise<{ productTitle: string | null; brandName: string | null } | null> {
+  const row = (
+    await q.query(
+      `SELECT p.title, b.name FROM listings l
+         JOIN products p ON p.id = l.product_id JOIN brands b ON b.id = l.brand_id
+        WHERE l.id = $1`,
+      [listingId],
+    )
+  ).rows[0] as { title: string | null; name: string | null } | undefined;
+  return row ? { productTitle: row.title, brandName: row.name } : null;
+}
+
+/**
+ * The round's Claude template for the brand's start / "Next round" call, fetched **before** the
+ * transaction (never hold row locks across a model call) and only when the call can succeed.
+ */
+async function templateBefore(
+  deps: RoundsDeps,
+  input: Base,
+  status: 'OPEN' | 'ROUNDS',
+  round: number | null,
+): Promise<string | null> {
+  if (!deps.phraser || !canRunRounds(input.actor)) return null;
+  const row = (
+    await deps.db.pool.query(
+      `SELECT current_round FROM listings
+        WHERE id = $1 AND brand_id = $2 AND status = $3
+          AND (rounds_end_at IS NULL OR clock_timestamp() < rounds_end_at)`,
+      [input.listingId, input.brandId, status],
+    )
+  ).rows[0] as { current_round: number | null } | undefined;
+  if (!row) return null;
+  const facts = await phrasingFacts(deps.db.pool, input.listingId);
+  if (!facts) return null;
+  return roundTemplate(
+    deps.phraser,
+    { listingId: input.listingId, round: round ?? (row.current_round ?? 0) + 1, ...facts },
+    { timeoutMs: deps.phrasingTimeoutMs, onError: deps.onPhrasingError },
+  );
+}
+
 // --- Snapshot (M10) --------------------------------------------------------------------------
 
 /**
@@ -436,11 +517,13 @@ export function setRoundsTarget(
  * `clear(bids, Q, floor)`: every bid not in `winners` gets one nudge (once per listing, round and
  * shopper). If nobody is below the cutoff, rounds end at once (`NONE_BELOW_CUTOFF`).
  */
-async function snapshotRound(
+export async function snapshotRound(
   deps: RoundsDeps,
   tx: Tx,
   listing: RoundsListing,
   actor: RoundsActor,
+  /** HF-036b: this round's Claude template; null → HF-036a template text. */
+  template: string | null = null,
 ): Promise<TxResult> {
   const round = listing.current_round!;
   const q = listing.target_quantity!;
@@ -467,6 +550,7 @@ async function snapshotRound(
       listingId: listing.id,
       round,
       draft,
+      text: nudgeTextFor(template, draft),
       triggeredBy: actor.id,
       emit: deps.emit,
     });
