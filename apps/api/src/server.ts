@@ -9,6 +9,7 @@ import {
   type RoundsDeps,
 } from '@holdfast/core';
 import { createGuards, registerAuth, Sessions, type McpTokenVerifier } from './auth/guards.js';
+import type { PayPalIdentity } from './auth/paypal-login.js';
 import { registerAuthRoutes, type MagicLinkSender } from './auth/routes.js';
 import { registerHealthz, type Pingable } from './healthz.js';
 import { assertSameOrigin } from './http/csrf.js';
@@ -60,6 +61,8 @@ export interface ServerDeps {
   mcpTokens?: McpTokenVerifier;
   /** Magic-link delivery (default: printed locally; email in HF-054b). */
   sendMagicLink?: MagicLinkSender;
+  /** Log in with PayPal (HF-010). Default: from `PAYPAL_MODE` (stub or sandbox REST). */
+  paypalIdentity?: PayPalIdentity;
   /** Listing event bus (HF-008): mounts the SSE streams when `sql` is set too. */
   events?: ListingEventBus;
   /** SSE heartbeat interval (default 15 s); tests shorten it. */
@@ -155,6 +158,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     sessions,
     limiter,
     sendMagicLink: deps.sendMagicLink,
+    paypalIdentity: deps.paypalIdentity,
   });
 
   // Last: its not-found handler serves the SPA for every path no route above claimed.

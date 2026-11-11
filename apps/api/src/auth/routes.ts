@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { isAdminEmail, type Config, type Db } from '@holdfast/core';
 import { ApiError, parse } from '../http/errors.js';
@@ -9,12 +9,20 @@ import {
   ensureDemoBrandUser,
   ensureDemoShopper,
   isUuid,
+  brandUserByEmail,
   loadBrandUser,
   loadShopper,
   type BrandUserRow,
   type ShopperRow,
 } from './store.js';
 import { signToken, verifyToken } from './tokens.js';
+import {
+  createPayPalIdentity,
+  PayPalLoginError,
+  sameState,
+  type PayPalIdentity,
+} from './paypal-login.js';
+import { randomBytes } from 'node:crypto';
 
 /**
  * Sign-in endpoints (HF-006):
@@ -24,8 +32,10 @@ import { signToken, verifyToken } from './tokens.js';
  *   GET  /api/auth/shopper/magic-link/verify  ?token=…   → 302 to `next` with the shopper cookie
  *   POST /api/auth/demo/brand                 { role?: 'OWNER' | 'VIEWER' }   DEMO_MODE only
  *   POST /api/auth/demo/shopper               { email? }                      DEMO_MODE only
+ *   GET  /api/auth/paypal/start               ?next=/path → 302 to PayPal consent (HF-010)
+ *   GET  /api/auth/paypal/callback            ?code&state | ?error → 302 /brand, /brand/onboarding
+ *                                             or /brand/sign-in?error=cancelled|state|failed|unverified
  * With `DEMO_MODE=false` the demo routes are not registered at all, so they answer 404.
- * Log in with PayPal (HF-010) adds /api/auth/paypal/* next to these.
  */
 
 export const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
@@ -40,7 +50,12 @@ export interface AuthRouteDeps {
   sessions: Sessions;
   limiter: RateLimiter;
   sendMagicLink?: MagicLinkSender;
+  /** Log in with PayPal (HF-010). Default: `createPayPalIdentity(config)` (`PAYPAL_MODE`). */
+  paypalIdentity?: PayPalIdentity;
 }
+
+/** W02 error states the sign-in screen reads from `?error=` (HF-010). */
+export type LippError = 'cancelled' | 'state' | 'failed' | 'unverified';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 
@@ -88,6 +103,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
   };
   /** Magic-link `jti`s already used. In memory: one web instance (see README). */
   const usedLinks = new Map<string, number>();
+  const paypal = deps.paypalIdentity ?? createPayPalIdentity(config);
 
   app.get('/api/me', async (req, reply) => {
     reply.header('Cache-Control', 'no-store');
@@ -97,8 +113,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       brandClaims && isUuid(brandClaims.sub) ? loadBrandUser(db().pool, brandClaims.sub) : null,
       shopperClaims ? loadShopper(db().pool, shopperClaims.sub) : null,
     ]);
+    // Signed in with PayPal but not onboarded yet (HF-010): W03 picks up from here (HF-011b).
+    const pending = brandUser ? null : sessions.pendingBrand(req);
     return {
       brandUser: brandUser ? brandUserView(brandUser, config) : null,
+      pendingBrand: pending
+        ? { email: pending.email, name: pending.name, hasPayerId: pending.payerId !== null }
+        : null,
       shopper: shopper ? shopperView(shopper) : null,
       demoMode: config.DEMO_MODE,
     };
@@ -110,7 +131,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       req.body ?? {},
       'body',
     );
-    if (who !== 'shopper') sessions.clear(req, reply, 'brand');
+    if (who !== 'shopper') {
+      sessions.clear(req, reply, 'brand');
+      sessions.clear(req, reply, 'brand-pending');
+    }
     if (who !== 'brand') sessions.clear(req, reply, 'shopper');
     return { signedOut: who };
   });
@@ -155,6 +179,72 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     return reply.redirect(claims.ext?.next ?? '/bids', 302);
   });
 
+  // --- Log in with PayPal (HF-010) -------------------------------------------------------------
+
+  const callbackUrl = (req: FastifyRequest) => `${baseUrl(config, req)}/api/auth/paypal/callback`;
+  const signInError = (reply: FastifyReply, error: LippError) => {
+    reply.header('Cache-Control', 'no-store');
+    return reply.redirect(`/brand/sign-in?error=${error}`, 302);
+  };
+
+  app.get('/api/auth/paypal/start', async (req, reply) => {
+    const q = parse(z.object({ next: nextPath }), req.query ?? {}, 'query');
+    const state = randomBytes(24).toString('base64url');
+    sessions.setLippState(req, reply, state, q.next);
+    reply.header('Cache-Control', 'no-store');
+    return reply.redirect(paypal.authorizeUrl({ state, redirectUri: callbackUrl(req) }), 302);
+  });
+
+  app.get('/api/auth/paypal/callback', async (req, reply) => {
+    const q = parse(
+      z.object({
+        code: z.string().min(1).max(2048).optional(),
+        state: z.string().max(512).optional(),
+        error: z.string().max(200).optional(),
+      }),
+      req.query ?? {},
+      'query',
+    );
+    const expected = sessions.lippState(req);
+    // One attempt per state: the cookie goes whatever the outcome.
+    sessions.clear(req, reply, 'lipp-state');
+
+    if (q.error) return signInError(reply, q.error === 'access_denied' ? 'cancelled' : 'failed');
+    if (!expected || !q.state || !sameState(q.state, expected.sub)) {
+      req.log.warn({ lipp: { reason: expected ? 'STATE_MISMATCH' : 'NO_STATE_COOKIE' } }, 'lipp');
+      return signInError(reply, 'state');
+    }
+    if (!q.code) return signInError(reply, 'failed');
+
+    let identity;
+    try {
+      identity = await paypal.exchange(q.code);
+    } catch (err) {
+      if (!(err instanceof PayPalLoginError)) throw err;
+      req.log.warn({ lipp: { stage: err.stage, http: err.http, code: err.code } }, 'lipp');
+      return signInError(reply, 'failed');
+    }
+    if (!identity.emailVerified) return signInError(reply, 'unverified');
+
+    reply.header('Cache-Control', 'no-store');
+    const user = await brandUserByEmail(db().pool, identity.email);
+    if (user) {
+      sessions.clear(req, reply, 'brand-pending');
+      sessions.setBrand(req, reply, user.id);
+      if (user.brandVerificationStatus !== 'VERIFIED')
+        return reply.redirect('/brand/onboarding', 302);
+      return reply.redirect(expected.ext?.next ?? '/brand', 302);
+    }
+    // Unknown email: identity in the session only; HF-011b creates the brand and OWNER row.
+    sessions.clear(req, reply, 'brand');
+    sessions.setPendingBrand(req, reply, {
+      email: identity.email,
+      payerId: identity.payerId,
+      name: identity.name,
+    });
+    return reply.redirect('/brand/onboarding', 302);
+  });
+
   if (!config.DEMO_MODE) return;
 
   app.post('/api/auth/demo/brand', async (req, reply) => {
@@ -164,6 +254,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
       'body',
     );
     const user = await ensureDemoBrandUser(db(), role, config.PAYPAL_BRAND_EMAIL);
+    sessions.clear(req, reply, 'brand-pending');
     sessions.setBrand(req, reply, user.id);
     return { brandUser: brandUserView(user, config) };
   });

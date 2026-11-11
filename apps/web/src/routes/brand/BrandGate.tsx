@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useOutletContext } from 'react-router';
+import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router';
 import type { BrandListingView } from '@holdfast/shared';
-import { PageHeader } from '../../components/layout/AppShell';
-import { Button, ErrorBanner, Skeleton } from '../../components/ui';
+import { ErrorBanner, Skeleton } from '../../components/ui';
 import { ApiError, api } from '../../lib/api';
-import { clientConfig } from '../../lib/client-config';
-import { useApiAction } from '../../lib/use-api-action';
+import { paths } from '../../lib/routes';
 
 /**
  * Brand session + listings for the console screens (HF-023 Part 1). Loads `GET /api/me` and
- * `GET /api/listings`; on 401 it shows sign-in. With `DEMO_MODE`, "Demo sign-in" offers the seeded
- * OWNER and the read-only VIEWER (HF-006); W02 (HF-010) replaces this prompt with Log in with
- * PayPal.
+ * `GET /api/listings`. Signed out → W02 (`/brand/sign-in?next=…`, HF-010: Log in with PayPal and
+ * the DEMO_MODE sign-ins); signed in with PayPal but not onboarded yet → W03.
  */
 
 export type BrandRole = 'OWNER' | 'MANAGER' | 'VIEWER';
@@ -39,6 +36,7 @@ export function useBrand(): BrandContext {
 type Load =
   | { state: 'loading' }
   | { state: 'signed-out' }
+  | { state: 'pending' }
   | { state: 'error'; error: ApiError }
   | { state: 'ready'; me: BrandMe; listings: BrandListingView[] };
 
@@ -46,11 +44,15 @@ export function BrandGate() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
+  const location = useLocation();
 
   useEffect(() => {
     let live = true;
     Promise.all([
-      api.request<{ brandUser: BrandMe | null }>({ method: 'GET', path: '/api/me' }),
+      api.request<{ brandUser: BrandMe | null; pendingBrand?: { email: string } | null }>({
+        method: 'GET',
+        path: '/api/me',
+      }),
       // HF-012a's `GET /api/listings`: newest first, this brand only.
       api.request<{ listings: BrandListingView[] }>({ method: 'GET', path: '/api/listings' }),
     ])
@@ -59,7 +61,9 @@ export function BrandGate() {
         setLoad(
           me.brandUser
             ? { state: 'ready', me: me.brandUser, listings: list.listings }
-            : { state: 'signed-out' },
+            : me.pendingBrand
+              ? { state: 'pending' }
+              : { state: 'signed-out' },
         );
       })
       .catch((err: unknown) => {
@@ -86,7 +90,11 @@ export function BrandGate() {
       </div>
     );
   }
-  if (load.state === 'signed-out') return <BrandSignInPrompt onSignedIn={reload} />;
+  if (load.state === 'pending') return <Navigate to={paths.brandOnboarding} replace />;
+  if (load.state === 'signed-out') {
+    const next = location.pathname + location.search;
+    return <Navigate to={`${paths.brandSignIn}?next=${encodeURIComponent(next)}`} replace />;
+  }
   if (load.state === 'error') {
     return (
       <div className="pt-8">
@@ -96,46 +104,4 @@ export function BrandGate() {
   }
   const ctx: BrandContext = { me: load.me, listings: load.listings, reloadListings: reload };
   return <Outlet context={ctx} />;
-}
-
-function BrandSignInPrompt({ onSignedIn }: { onSignedIn(): void }) {
-  const demo = clientConfig().demoMode;
-  const signIn = useApiAction<{ brandUser: BrandMe }>();
-  const as = async (role: 'OWNER' | 'VIEWER') => {
-    signIn.reset();
-    const res = await signIn.run({ method: 'POST', path: '/api/auth/demo/brand', body: { role } });
-    if (res?.brandUser) onSignedIn();
-  };
-  return (
-    <>
-      <PageHeader
-        eyebrow="Brand console"
-        title="Sign in to see money already waiting."
-        lede={
-          demo
-            ? 'Demo sign-in opens the Aurel Audio console. The viewer account is read-only.'
-            : 'Brand sign-in with PayPal is coming next. Ask your Holdfast contact for access.'
-        }
-      />
-      {demo && (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => as('OWNER')}
-            disabled={signIn.status === 'pending'}
-          >
-            Demo sign-in · Owner
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => as('VIEWER')}
-            disabled={signIn.status === 'pending'}
-          >
-            Demo sign-in · Viewer
-          </Button>
-        </div>
-      )}
-      {signIn.status === 'error' && <ErrorBanner className="mt-4" message={signIn.error.message} />}
-    </>
-  );
 }
