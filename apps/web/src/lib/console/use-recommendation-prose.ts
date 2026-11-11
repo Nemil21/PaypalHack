@@ -1,41 +1,36 @@
 import { useEffect, useState } from 'react';
 import type { Recommendation } from '@holdfast/shared';
 import { askBrandAgent, explainKey } from './brand-agent';
-
-/** Prose already fetched this session, per recommendation (a refetched book reuses it). */
-const cache = new Map<string, string | null>();
+import { createProseScheduler, type ProseScheduler } from './prose-scheduler';
 
 /**
- * Claude's explanation under the W06 recommendation card (HF-051b, features/09 §Logic 2). One
- * `POST /api/brand-agent/ask` without a question per distinct recommendation, not per bid. Claude
- * down, slow or unconfigured → null, and the card renders without prose.
+ * Claude's explanation under the W06 recommendation card (HF-051b, features/09 §Logic 2): a
+ * `POST /api/brand-agent/ask` without a question, once the recommendation has settled and at most
+ * every 30 s (`prose-scheduler.ts`), so a bid burst does not spend the brand's `agent` rate budget.
+ * Claude down, slow or unconfigured → null, and the card renders without prose.
  */
 export function useRecommendationProse(
   listingId: string,
   rec: Recommendation | undefined,
 ): string | null {
   const key = explainKey(listingId, rec);
-  const [prose, setProse] = useState<{ key: string; text: string | null } | null>(null);
+  const [prose, setProse] = useState<string | null>(null);
+  const [scheduler, setScheduler] = useState<ProseScheduler | null>(null);
 
   useEffect(() => {
-    if (!key) return;
-    if (cache.has(key)) {
-      setProse({ key, text: cache.get(key)! });
-      return;
-    }
-    const abort = new AbortController();
-    askBrandAgent({ listingId }, { signal: abort.signal }).then(
-      (res) => {
-        // Only a real answer is cached; "unavailable" may recover on the next recommendation.
-        if (res.answer && !res.unverifiedNumbers.length) cache.set(key, res.answer);
-        setProse({ key, text: res.unverifiedNumbers.length ? null : res.answer });
+    const s = createProseScheduler({
+      explain: async () => {
+        const res = await askBrandAgent({ listingId });
+        // Prose quoting a number no tool returned is not shown under the card.
+        return res.unverifiedNumbers.length ? null : res.answer;
       },
-      () => {
-        if (!abort.signal.aborted) setProse({ key, text: null });
-      },
-    );
-    return () => abort.abort();
-  }, [key, listingId]);
+      onProse: setProse,
+    });
+    setScheduler(s);
+    return () => s.dispose();
+  }, [listingId]);
 
-  return prose && prose.key === key ? prose.text : null;
+  useEffect(() => scheduler?.update(key), [scheduler, key]);
+
+  return key ? prose : null;
 }
