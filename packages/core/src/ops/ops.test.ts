@@ -278,7 +278,10 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-058 ops', { timeout: 60_000 }, () => {
     });
 
     it('runs nightly: once per 23 h, whatever the hourly tick count', async () => {
-      // An earlier test already ran a reconcile just now: the hourly tick skips.
+      // Earlier tests only ran listing-filtered reconciles: none is a clean nightly run yet.
+      const first = await runNightlyCaptureReconcile({ db, paypal: client });
+      expect(first).toMatchObject({ skipped: false, failed: 0 });
+      // The next hourly tick skips.
       const skipped = await runNightlyCaptureReconcile({ db, paypal: client });
       expect(skipped.skipped).toBe(true);
       // Once the last run is old enough (0 h here) it runs again.
@@ -290,6 +293,93 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-058 ops', { timeout: 60_000 }, () => {
         reconcileCaptures: () => runNightlyCaptureReconcile({ db, paypal: client }),
       });
       expect(jobs.map((j) => j.id)).toContain(CRON_JOB_IDS.captureReconcile);
+    });
+
+    /** A `CAPTURE_RECONCILE_RUN` row from `hoursAgo` (newest by id: the gate reads it first). */
+    async function plantRun(hoursAgo: number, data: Record<string, unknown>): Promise<void> {
+      await db.pool.query(
+        `INSERT INTO audit_events (at, actor_type, actor_id, entity, action, data)
+         VALUES (now() - $1::float8 * interval '1 hour', 'SYSTEM', 'reconcile:captures',
+                 'reconcile', 'CAPTURE_RECONCILE_RUN', $2)`,
+        [
+          hoursAgo,
+          JSON.stringify({ allListings: true, checked: 1, matched: 1, mismatches: 0, ...data }),
+        ],
+      );
+    }
+
+    it('a failed or narrowed run does not count: the next tick reconciles, back to the last clean run', async () => {
+      // The last clean nightly run was 30 h ago (a night was missed) …
+      await plantRun(30, { windowHours: 24, failed: 0 });
+      const missed = await readOpsHealth({ db: db.pool, paypalMode: 'stub' });
+      expect(missed.alerts.lastReconcile).toMatchObject({ stale: true });
+      expect(missed.alerts.ok).toBe(false);
+      // … then a narrow CLI run, then a nightly run during a PayPal outage.
+      await plantRun(2, { windowHours: 1, failed: 0 });
+      await plantRun(1, { windowHours: 24, failed: 3, checked: 0, matched: 0 });
+      const outage = await readOpsHealth({ db: db.pool, paypalMode: 'stub' });
+      expect(outage.alerts.lastReconcile).toMatchObject({ failed: 3, stale: false });
+      expect(outage.alerts.ok).toBe(false);
+
+      // Neither gates the night: the next hourly tick reconciles, reaching back past the clean run.
+      const s = await settled('CAPTURE');
+      const res = await runNightlyCaptureReconcile({ db, paypal: client });
+      expect(res.skipped).toBe(false);
+      if (res.skipped) return;
+      expect(res.failed).toBe(0);
+      expect(res.checked).toBeGreaterThan(0);
+      const run = await one<{ data: { windowHours: number; allListings: boolean } }>(
+        `SELECT data FROM audit_events WHERE action = 'CAPTURE_RECONCILE_RUN' ORDER BY id DESC LIMIT 1`,
+      );
+      expect(run.data.allListings).toBe(true);
+      // 30 h since the last clean run, plus an hour of margin.
+      expect(run.data.windowHours).toBeGreaterThanOrEqual(31);
+      expect(run.data.windowHours).toBeLessThanOrEqual(32);
+      expect((await searchAudit(db.pool, { q: s.settlementId })).rows.length).toBeGreaterThan(0);
+      // That clean run gates the next tick.
+      expect((await runNightlyCaptureReconcile({ db, paypal: client })).skipped).toBe(true);
+    });
+
+    it('a run whose PayPal GETs failed is retried on the next tick', async () => {
+      // The night is due: the last clean run was 24 h ago.
+      await plantRun(24, { windowHours: 24, failed: 0 });
+      await settled('CAPTURE');
+      fake.failNext('get_authorization', { kind: 'status', http: 500 }, 1000);
+      const failed = await runNightlyCaptureReconcile({ db, paypal: client });
+      expect(failed.skipped === false && failed.failed > 0).toBe(true);
+      fake.clearFaults();
+      // Not skipped although a run just happened: it had failures.
+      const retried = await runNightlyCaptureReconcile({ db, paypal: client });
+      expect(retried).toMatchObject({ skipped: false, failed: 0 });
+      const health = await readOpsHealth({ db: db.pool, paypalMode: 'stub' });
+      expect(health.alerts.lastReconcile).toMatchObject({ failed: 0, stale: false });
+    });
+
+    it('flags a mismatch once across overlapping nights', async () => {
+      const planted = await seedSettlement(db, client, { action: 'VOID' });
+      await db.pool.query(
+        `UPDATE settlements SET status = 'SUCCEEDED', finished_at = now() WHERE id = $1`,
+        [planted.settlementId],
+      );
+      const one1 = await reconcileCaptures(
+        { db, paypal: client },
+        { listingIds: [planted.listingId] },
+      );
+      const one2 = await reconcileCaptures(
+        { db, paypal: client },
+        { listingIds: [planted.listingId] },
+      );
+      expect(one1.mismatches).toHaveLength(1);
+      expect(one2.mismatches).toHaveLength(1);
+      const flags = await q(
+        `SELECT 1 FROM audit_events WHERE action = 'RECONCILE_MISMATCH' AND entity_id = $1`,
+        [planted.settlementId],
+      );
+      expect(flags).toHaveLength(1);
+      await client.void(planted.authorizationId, `void-${planted.bidId}` as never);
+      await db.pool.query(`UPDATE settlements SET status = 'CANCELLED' WHERE id = $1`, [
+        planted.settlementId,
+      ]);
     });
   });
 

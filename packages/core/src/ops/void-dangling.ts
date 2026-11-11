@@ -41,6 +41,9 @@ export async function voidDangling(
   await record('ADMIN_VOID_DANGLING_REQUESTED');
   let run;
   try {
+    // The lock connection comes from the app pool, not the scheduler's `cronLockPool` (HF-048b):
+    // advisory locks are per database, so it still excludes the scheduled sweep, and it is one
+    // connection, released as soon as the run (or the failed try-lock) ends.
     run = await runJob(deps.db, {
       id: CRON_JOB_IDS.holdSweeper,
       intervalMs: SWEEP_INTERVAL_MS,

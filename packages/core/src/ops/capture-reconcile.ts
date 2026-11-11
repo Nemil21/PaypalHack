@@ -25,6 +25,10 @@ export const CAPTURE_RECONCILE_WINDOW_HOURS = 24;
 /** The hourly job runs a reconcile only when the last one is at least this old. */
 export const CAPTURE_RECONCILE_EVERY_HOURS = 23;
 export const CAPTURE_RECONCILE_CHECK_INTERVAL_MS = 60 * 60_000;
+/** After failed or missed nights, the next run reaches back to the last clean run, up to this. */
+export const CAPTURE_RECONCILE_MAX_WINDOW_HOURS = 72;
+/** The health panel calls the reconcile stale (red) when the newest run is older than this. */
+export const CAPTURE_RECONCILE_STALE_HOURS = 25;
 const CONCURRENCY = 5;
 
 export const CAPTURE_RECONCILE_ACTOR: Actor = { type: 'SYSTEM', id: 'reconcile:captures' };
@@ -67,7 +71,8 @@ export interface CaptureReconcileResult {
   /** Settlements compared with PayPal. */
   checked: number;
   matched: number;
-  /** PayPal GETs that failed (retried next night). */
+  /** PayPal GETs that failed. A run with failures does not count as the night's run, so the next
+   *  hourly tick reconciles again (see `runNightlyCaptureReconcile`). */
   failed: number;
   mismatches: ReconcileMismatch[];
 }
@@ -137,6 +142,7 @@ export async function reconcileCaptures(
       action: 'CAPTURE_RECONCILE_RUN',
       data: {
         windowHours,
+        allListings: !opts.listingIds,
         checked: out.checked,
         matched: out.matched,
         failed: out.failed,
@@ -228,6 +234,14 @@ async function captureOf(
 }
 
 async function flag(tx: Queryable, m: ReconcileMismatch): Promise<void> {
+  // Consecutive nights overlap (24 h window, ~23 h cadence): flag each disagreement once.
+  const seen = await tx.query(
+    `SELECT 1 FROM audit_events
+      WHERE entity = 'settlement' AND entity_id = $1 AND action = 'RECONCILE_MISMATCH'
+        AND data->>'reason' = $2 LIMIT 1`,
+    [m.settlementId, m.reason],
+  );
+  if (seen.rowCount) return;
   await audit(tx, {
     actorType: CAPTURE_RECONCILE_ACTOR.type,
     actorId: CAPTURE_RECONCILE_ACTOR.id,
@@ -254,37 +268,59 @@ export type NightlyCaptureReconcileResult =
   | (Omit<CaptureReconcileResult, 'mismatches'> & { skipped: false; mismatches: number });
 
 /**
- * The hourly cron entry: reconciles only when the last `CAPTURE_RECONCILE_RUN` is at least 23 h
- * old (or there is none), so a restart never skips a night and never doubles one. Runs under the
- * scheduler's advisory lock, so only one instance reconciles.
+ * The hourly cron entry: reconciles only when the last **clean** run is at least 23 h old (or
+ * there is none), so a restart never skips a night and never doubles one. Clean = a full window
+ * (≥ 24 h, all listings) with no failed PayPal GET: a run during a PayPal outage, or a narrow
+ * `reconcile:captures --hours=1`, does not count, and the next hourly tick runs again. Its window
+ * reaches back to the last clean run (24–72 h), so settlements a failed night missed are still
+ * checked. Runs under the scheduler's advisory lock, so only one instance reconciles.
  */
 export async function runNightlyCaptureReconcile(
   deps: CaptureReconcileDeps,
   opts: CaptureReconcileOptions & { everyHours?: number } = {},
 ): Promise<NightlyCaptureReconcileResult> {
-  const last = await lastCaptureReconcile(deps.db.pool);
+  const clean = await lastCaptureReconcile(deps.db.pool, { clean: true });
   const every = opts.everyHours ?? CAPTURE_RECONCILE_EVERY_HOURS;
-  if (last && last.ageSeconds < every * 3600) return { skipped: true, lastRunAt: last.at };
-  const res = await reconcileCaptures(deps, opts);
+  if (clean && clean.ageSeconds < every * 3600) return { skipped: true, lastRunAt: clean.at };
+  const windowHours = clean
+    ? Math.min(
+        CAPTURE_RECONCILE_MAX_WINDOW_HOURS,
+        Math.max(CAPTURE_RECONCILE_WINDOW_HOURS, Math.ceil(clean.ageSeconds / 3600) + 1),
+      )
+    : CAPTURE_RECONCILE_WINDOW_HOURS;
+  const res = await reconcileCaptures(deps, { windowHours, ...opts });
   return { ...res, skipped: false, mismatches: res.mismatches.length };
 }
 
 export interface LastCaptureReconcile {
   at: Date;
   ageSeconds: number;
+  windowHours: number;
   checked: number;
   matched: number;
   failed: number;
   mismatches: number;
 }
 
-export async function lastCaptureReconcile(q: Queryable): Promise<LastCaptureReconcile | null> {
+/**
+ * The newest `CAPTURE_RECONCILE_RUN`; with `clean`, the newest full-window (≥ 24 h, every
+ * listing) run with no failed PayPal GET.
+ */
+export async function lastCaptureReconcile(
+  q: Queryable,
+  opts: { clean?: boolean } = {},
+): Promise<LastCaptureReconcile | null> {
   const r = (
     await q.query(
       `SELECT at, extract(epoch FROM now() - at)::float8 AS age, data
          FROM audit_events
         WHERE entity = 'reconcile' AND action = 'CAPTURE_RECONCILE_RUN'
+          AND (NOT $1::boolean
+               OR (coalesce((data->>'windowHours')::float8, 0) >= $2
+                   AND coalesce((data->>'failed')::int, 1) = 0
+                   AND coalesce((data->>'allListings')::boolean, true)))
         ORDER BY id DESC LIMIT 1`,
+      [!!opts.clean, CAPTURE_RECONCILE_WINDOW_HOURS],
     )
   ).rows[0] as { at: Date; age: number; data: Record<string, unknown> } | undefined;
   if (!r) return null;
@@ -292,6 +328,7 @@ export async function lastCaptureReconcile(q: Queryable): Promise<LastCaptureRec
   return {
     at: r.at,
     ageSeconds: r.age,
+    windowHours: n('windowHours'),
     checked: n('checked'),
     matched: n('matched'),
     failed: n('failed'),

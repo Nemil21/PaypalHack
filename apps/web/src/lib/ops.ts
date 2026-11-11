@@ -60,7 +60,15 @@ export interface OpsHealth {
   alerts: {
     ok: boolean;
     voidStuck: number;
-    lastReconcile: { at: string; checked: number; mismatches: number } | null;
+    lastReconcile: {
+      at: string;
+      checked: number;
+      /** PayPal GETs that failed: the run could not check everything. */
+      failed: number;
+      mismatches: number;
+      /** Older than 25 h: the nightly reconcile is not running. */
+      stale: boolean;
+    } | null;
   };
 }
 
@@ -157,6 +165,14 @@ const ago = (iso: string | null, now: Date) => {
   return `${Math.round(s / 3600)} h ago`;
 };
 
+function reconcileCaption(r: OpsHealth['alerts']['lastReconcile'], now: Date): string {
+  if (!r) return 'no reconcile yet';
+  const parts = [`reconcile ${ago(r.at, now)}${r.stale ? ' (overdue)' : ''}`];
+  parts.push(`${r.mismatches} mismatches`);
+  if (r.failed) parts.push(`${r.failed} could not be checked`);
+  return `${parts[0]}: ${parts.slice(1).join(', ')}`;
+}
+
 export function healthTiles(h: OpsHealth, now = new Date()): HealthTile[] {
   const q = h.settlementQueue;
   const w = h.webhooks;
@@ -206,9 +222,7 @@ export function healthTiles(h: OpsHealth, now = new Date()): HealthTile[] {
       key: 'alerts',
       label: 'Alerts',
       value: String(h.alerts.voidStuck + (r?.mismatches ?? 0)),
-      caption: `${h.alerts.voidStuck} stuck voids · ${
-        r ? `reconcile ${ago(r.at, now)}: ${r.mismatches} mismatches` : 'no reconcile yet'
-      }`,
+      caption: `${h.alerts.voidStuck} stuck voids · ${reconcileCaption(r, now)}`,
       ok: h.alerts.ok,
     },
   ];

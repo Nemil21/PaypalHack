@@ -47,7 +47,13 @@ const HEALTHY: OpsHealth = {
   alerts: {
     ok: true,
     voidStuck: 0,
-    lastReconcile: { at: '2026-11-12T04:00:00.000Z', checked: 12, mismatches: 0 },
+    lastReconcile: {
+      at: '2026-11-12T04:00:00.000Z',
+      checked: 12,
+      failed: 0,
+      mismatches: 0,
+      stale: false,
+    },
   },
 };
 
@@ -124,7 +130,13 @@ describe('W20 health tiles (HF-058)', () => {
         alerts: {
           ok: false,
           voidStuck: 1,
-          lastReconcile: { at: '2026-11-12T04:00:00.000Z', checked: 5, mismatches: 4 },
+          lastReconcile: {
+            at: '2026-11-11T04:00:00.000Z',
+            checked: 5,
+            failed: 2,
+            mismatches: 4,
+            stale: true,
+          },
         },
       },
       new Date('2026-11-12T10:00:00.000Z'),
@@ -138,6 +150,9 @@ describe('W20 health tiles (HF-058)', () => {
     expect(tiles[2]!.caption).toBe('1 stuck running · 2 not picked up');
     expect(tiles[3]!.caption).toBe('2 failing to process');
     expect(tiles[4]!.value).toBe('5');
+    expect(tiles[4]!.caption).toBe(
+      '1 stuck voids · reconcile 30 h ago (overdue): 4 mismatches, 2 could not be checked',
+    );
   });
 });
 

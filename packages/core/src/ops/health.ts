@@ -2,7 +2,7 @@ import type { Queryable } from '../db.js';
 import { PayPalRestClient } from '../paypal/client.js';
 import type { PayPalClient } from '../paypal/types.js';
 import { CHANNEL3_OUTAGE_FAILURES, readChannel3Health } from '../price-watch/health.js';
-import { lastCaptureReconcile } from './capture-reconcile.js';
+import { CAPTURE_RECONCILE_STALE_HOURS, lastCaptureReconcile } from './capture-reconcile.js';
 
 /**
  * W20 health panel (HF-058; api.md §Ops `GET /admin/health`): PayPal token, Channel3
@@ -10,7 +10,8 @@ import { lastCaptureReconcile } from './capture-reconcile.js';
  * must act on (sweeper `VOID_STUCK` bids, the last capture reconcile's mismatches). The public
  * `/healthz` (HF-048a) stays the liveness probe; this is the admin view.
  *
- * Each tile has `ok`; `status` is `degraded` when any tile is not ok (W20 shows red tiles).
+ * The alerts tile is also red when the last capture reconcile had failed PayPal GETs or is older
+ * than 25 h. Each tile has `ok`; `status` is `degraded` when any tile is not ok (W20 shows red tiles).
  */
 
 /** A RUNNING settlement whose lease expired this long ago is stuck, not busy. */
@@ -76,8 +77,11 @@ export interface OpsHealth {
       at: string;
       checked: number;
       matched: number;
+      /** PayPal GETs that failed: the run could not check everything. */
       failed: number;
       mismatches: number;
+      /** Older than 25 h: the nightly reconcile is not running. */
+      stale: boolean;
     } | null;
   };
 }
@@ -149,7 +153,14 @@ export async function readOpsHealth(deps: OpsHealthDeps): Promise<OpsHealth> {
   const queueOk = q.stale_running === 0 && q.stalled === 0;
   // Unprocessed rows are retried every minute; ones that keep failing need a look.
   const webhooksOk = h.failing === 0;
-  const alertsOk = voidStuck === 0 && (reconcile?.mismatches ?? 0) === 0;
+  const reconcileStale = !!reconcile && reconcile.ageSeconds > CAPTURE_RECONCILE_STALE_HOURS * 3600;
+  // Red too when the safety net itself is down: the last run could not reach PayPal, or no run
+  // for over a day (D19).
+  const alertsOk =
+    voidStuck === 0 &&
+    (reconcile?.mismatches ?? 0) === 0 &&
+    (reconcile?.failed ?? 0) === 0 &&
+    !reconcileStale;
 
   const health: OpsHealth = {
     status: 'healthy',
@@ -190,6 +201,7 @@ export async function readOpsHealth(deps: OpsHealthDeps): Promise<OpsHealth> {
             matched: reconcile.matched,
             failed: reconcile.failed,
             mismatches: reconcile.mismatches,
+            stale: reconcileStale,
           }
         : null,
     },
