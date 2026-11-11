@@ -51,3 +51,5 @@ jobs:
         run: npm run migrate && npm run migrate
       - name: Postgres constraint tests
         run: npm run test:db
+      - name: Money primitives integration tests (HF-003a races on Postgres)
+        run: npx vitest run packages/core/src/money
