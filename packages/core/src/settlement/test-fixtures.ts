@@ -120,6 +120,8 @@ export interface ClearedListingOptions {
   /** Holds created in parallel (sandbox: S7 step 6 ran 20 fine). Default 10. */
   holdConcurrency?: number;
   description?: string;
+  /** Winner amounts by 1-based rank (HF-032 sandbox: ≈ $226 average). Default $300 down by $1. */
+  winnerCents?: (rank: number) => number;
 }
 
 const FLOOR_CENTS = 20_000;
@@ -147,7 +149,7 @@ export async function seedClearedListing(
     ...Array.from({ length: opts.winners }, (_, i) => ({
       kind: 'W' as const,
       rank: i + 1,
-      amount: 30_000 - i * 100,
+      amount: opts.winnerCents?.(i + 1) ?? 30_000 - i * 100,
     })),
     ...Array.from({ length: opts.reserve }, (_, i) => ({
       kind: 'R' as const,

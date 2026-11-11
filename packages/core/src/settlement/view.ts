@@ -7,6 +7,7 @@ import type {
 } from '@holdfast/shared';
 import type { Queryable } from '../db.js';
 import { emit } from '../money/emit.js';
+import { payoutFailureReason } from '../payouts/payout-brand.js';
 
 /**
  * Settlement rows and counts in the `SettlementView` shapes (packages/shared). `settleBid`
@@ -224,7 +225,7 @@ export async function loadSettlementView(
           netCents: p.net_cents ?? 0,
           paypalBatchId: p.paypal_batch_id,
           itemStatus: p.item_status,
-          failureReason: p.error_code,
+          failureReason: payoutFailureReason(p.error_code),
         }
       : null,
     updatedAt: new Date(Math.max(...updated.map((d) => d.getTime()))).toISOString(),
