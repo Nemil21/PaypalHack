@@ -59,6 +59,28 @@
       opacity: 0.55;
     }
   }
+
+  /* M02 success check (HF-020). */
+  --animate-pop: pop 400ms ease-out;
+  @keyframes pop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop {
+    animation: none;
+  }
 }
 
 /* Geist Mono UPPERCASE for nav, buttons and labels. */

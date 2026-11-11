@@ -198,4 +198,62 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-016 shopper bid routes', () => {
     ]);
     expect(JSON.stringify(body)).not.toMatch(/floor/i);
   });
+
+  const patch = (shopperId: string | null, bidId: string, payload: unknown, key = randomUUID()) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/api/bids/${bidId}`,
+      headers: {
+        ...(shopperId ? { cookie: session(shopperId) } : {}),
+        'idempotency-key': key,
+      },
+      payload: payload as Record<string, unknown>,
+    });
+
+  it('PATCH releaseIfCheaper: owner only, persists, switching on above the public price voids', async () => {
+    const l = await fx.listing();
+    const s = await fx.shopper();
+    const other = await fx.shopper();
+    const { bidId, authorizationId } = await heldBid(l.id, s.id, 22_900);
+    await tdb.db.pool.query(
+      `UPDATE products SET best_public_price_cents = 21900, best_public_merchant = 'cheapstore.example',
+              best_public_offer_url = 'https://cheapstore.example/a7', price_updated_at = now()
+        WHERE id = (SELECT product_id FROM listings WHERE id = $1)`,
+      [l.id],
+    );
+
+    expect((await patch(null, bidId, { releaseIfCheaper: false })).statusCode).toBe(401);
+    expect((await patch(other.id, bidId, { releaseIfCheaper: false })).statusCode).toBe(404);
+    expect((await patch(s.id, bidId, { releaseIfCheaper: 'no' })).statusCode).toBe(400);
+    const noKey = await app.inject({
+      method: 'PATCH',
+      url: `/api/bids/${bidId}`,
+      headers: { cookie: session(s.id) },
+      payload: { releaseIfCheaper: false },
+    });
+    expect(noKey.statusCode).toBe(400);
+
+    const off = await patch(s.id, bidId, { releaseIfCheaper: false });
+    expect(off.statusCode).toBe(200);
+    expect(off.json()).toMatchObject({ status: 'HELD', releaseIfCheaper: false, cheaper: null });
+    expect((await get(s.id, `/api/bids/${bidId}`)).json().priceWatch.on).toBe(false);
+
+    const key = randomUUID();
+    const on = await patch(s.id, bidId, { releaseIfCheaper: true }, key);
+    expect(on.statusCode).toBe(200);
+    expect(on.json()).toMatchObject({
+      status: 'VOIDED',
+      voidReason: 'PRICE_DROP',
+      releaseIfCheaper: true,
+      moneyKey: 'released',
+      cheaper: { priceCents: 21_900, merchant: 'cheapstore.example' },
+    });
+    expect(fake.authorization(authorizationId)?.status).toBe('VOIDED');
+    const replay = await patch(s.id, bidId, { releaseIfCheaper: true }, key);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+
+    const detail = (await get(s.id, `/api/bids/${bidId}`)).json();
+    expect(detail.priceDrop).toMatchObject({ oldCents: 22_900, newCents: 21_900, released: true });
+    expect((await patch(s.id, bidId, { releaseIfCheaper: false })).statusCode).toBe(409);
+  });
 });

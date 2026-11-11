@@ -17,6 +17,8 @@ import type { Queryable } from './db.js';
 
 export interface MyBidListing {
   id: string;
+  /** For the W13 "Let my agent manage this" mandate prefill (HF-017b `?productId=`). */
+  productId: string;
   slug: string | null;
   status: string;
   title: string | null;
@@ -35,6 +37,8 @@ export interface MyBid {
   /** "$229 held", "Releasing your $229 hold.", "$229 released. Your bank may show it…". */
   moneyText: string;
   voidReason: string | null;
+  /** Why a hold failed or a bid was abandoned (`HOLD_FAILED`, `WINDOW_CLOSED`, …); W21 reads it. */
+  errorCode: string | null;
   paymentMethod: string | null;
   source: string | null;
   placedAt: string;
@@ -62,15 +66,18 @@ interface BidViewRow {
   status: BidStatus;
   amount_cents: number;
   void_reason: string | null;
+  error_code: string | null;
   payment_method: string | null;
   source: string | null;
   placed_at: Date;
+  voided_at: Date | null;
   authorized_at: Date | null;
   release_if_cheaper: boolean;
   raise_count: number | null;
   replaces_bid_id: string | null;
   replaced_by_bid_id: string | null;
   listing_id: string;
+  product_id: string;
   listing_slug: string | null;
   listing_status: string;
   listing_title: string | null;
@@ -81,17 +88,23 @@ interface BidViewRow {
   cleared_at: Date | null;
   nudge_bid_id: string | null;
   nudge_cutoff_cents: number | null;
+  best_public_price_cents: number | null;
+  best_public_merchant: string | null;
+  best_public_offer_url: string | null;
+  price_updated_at: Date | null;
 }
 
 /** One query for both views; `ids` narrows it to a bid chain. */
 const VIEW_SQL = `
-  SELECT b.id, b.status, b.amount_cents, b.void_reason, b.payment_method, b.source, b.placed_at,
-         b.authorized_at, b.release_if_cheaper, b.raise_count, b.replaces_bid_id,
+  SELECT b.id, b.status, b.amount_cents, b.void_reason, b.error_code, b.payment_method, b.source,
+         b.placed_at, b.voided_at, b.authorized_at, b.release_if_cheaper, b.raise_count, b.replaces_bid_id,
          succ.id AS replaced_by_bid_id,
-         l.id AS listing_id, l.slug AS listing_slug, l.status AS listing_status,
+         l.id AS listing_id, l.product_id, l.slug AS listing_slug, l.status AS listing_status,
          p.title AS listing_title, p.image_url AS listing_image_url,
          l.window_closes_at, l.rounds_end_at, l.round_ends_at, l.cleared_at,
-         n.bid_id AS nudge_bid_id, n.cutoff_cents AS nudge_cutoff_cents
+         n.bid_id AS nudge_bid_id, n.cutoff_cents AS nudge_cutoff_cents,
+         p.best_public_price_cents, p.best_public_merchant, p.best_public_offer_url,
+         p.price_updated_at
     FROM bids b
     JOIN listings l ON l.id = b.listing_id
     JOIN products p ON p.id = l.product_id
@@ -103,6 +116,8 @@ const VIEW_SQL = `
    LIMIT 500`;
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const str = (v: unknown) => (typeof v === 'string' && v.length > 0 ? v : null);
 
 export function moneyText(status: BidStatus, amountCents: number): string {
   return status === 'VOIDING' ? releasingHoldMessage(amountCents) : moneyLine(status, amountCents);
@@ -128,6 +143,7 @@ function toMyBid(r: BidViewRow): MyBid {
     moneyKey: moneyCopyKey(r.status),
     moneyText: moneyText(r.status, r.amount_cents),
     voidReason: r.void_reason,
+    errorCode: r.error_code,
     paymentMethod: r.payment_method,
     source: r.source,
     placedAt: r.placed_at.toISOString(),
@@ -139,6 +155,7 @@ function toMyBid(r: BidViewRow): MyBid {
     onReserveList: r.status === 'LOST',
     listing: {
       id: r.listing_id,
+      productId: r.product_id,
       slug: r.listing_slug,
       status: r.listing_status,
       title: r.listing_title,
@@ -207,11 +224,45 @@ export interface ChainEntry {
   voidReason: string | null;
 }
 
+/**
+ * The price watch on the selected bid (HF-020; W15 "Price watch on since <time>" row, features/06).
+ * `on` mirrors `release_if_cheaper`; the public price is `products.best_public_*`.
+ */
+export interface PriceWatch {
+  on: boolean;
+  /** When the watch started covering this chain: the first hold of the chain. */
+  since: string | null;
+  bestPublicPriceCents: number | null;
+  merchant: string | null;
+  url: string | null;
+  checkedAt: string | null;
+}
+
+/**
+ * A price-drop release (M06 sheet, W21 "Price dropped"): the bid voided with `PRICE_DROP`, the
+ * cheaper store from the void's audit row (HF-020 toggle, HF-042 watcher), else the product's
+ * current best public offer.
+ */
+export interface PriceDrop {
+  bidId: string;
+  at: string;
+  oldCents: number;
+  newCents: number | null;
+  merchant: string | null;
+  url: string | null;
+  /** VOIDED: "released"; still VOIDING: "releasing" (D14). */
+  released: boolean;
+  /** HF-042a replay path stamps `replayed=true`; the UI labels it "replayed event (demo)". */
+  replayed: boolean;
+}
+
 export interface BidDetail {
   bid: MyBid;
   /** The `replaces_bid_id` chain, oldest first (the money box: one hold per entry). */
   chain: ChainEntry[];
   timeline: TimelineEvent[];
+  priceWatch: PriceWatch;
+  priceDrop: PriceDrop | null;
 }
 
 const STEP_FOR: Record<string, TimelineStep> = {
@@ -287,6 +338,7 @@ export async function getBidDetail(
   const outcomeSeen = new Set<string>();
   // Promoted bids (HF-031) were on the reserve list at Clear: their Clear outcome is LOST.
   const promoted = new Set<string>();
+  const priceDropAudit = new Map<string, { at: string; data: Record<string, unknown> }>();
   for (const a of audits.rows as Array<{
     at: Date;
     actor_type: string;
@@ -303,6 +355,9 @@ export async function getBidDetail(
     const step = STEP_FOR[a.action] ?? a.action;
     if (step === 'WON' || step === 'LOST') outcomeSeen.add(bid.id);
     if (a.action === 'PROMOTED') promoted.add(bid.id);
+    if (a.action === 'BID_VOID_REQUESTED' && data.reason === 'PRICE_DROP') {
+      priceDropAudit.set(bid.id, { at: a.at.toISOString(), data });
+    }
     const base = {
       at: a.at.toISOString(),
       bidId: bid.id,
@@ -387,6 +442,32 @@ export async function getBidDetail(
 
   events.sort(([a, ai], [b, bi]) => a.at.localeCompare(b.at) || ai - bi);
 
+  const firstHeld = oldestFirst.find((r) => r.authorized_at)?.authorized_at ?? null;
+  const priceWatch: PriceWatch = {
+    on: self.release_if_cheaper,
+    since: iso(firstHeld),
+    bestPublicPriceCents: self.best_public_price_cents,
+    merchant: self.best_public_merchant,
+    url: self.best_public_offer_url,
+    checkedAt: iso(self.price_updated_at),
+  };
+
+  let priceDrop: PriceDrop | null = null;
+  const dropped = [...oldestFirst].reverse().find((r) => r.void_reason === 'PRICE_DROP');
+  if (dropped) {
+    const req = priceDropAudit.get(dropped.id);
+    priceDrop = {
+      bidId: dropped.id,
+      at: req?.at ?? iso(dropped.voided_at) ?? dropped.placed_at.toISOString(),
+      oldCents: dropped.amount_cents,
+      newCents: num(req?.data.newPriceCents) ?? dropped.best_public_price_cents,
+      merchant: str(req?.data.merchant) ?? dropped.best_public_merchant,
+      url: str(req?.data.url) ?? dropped.best_public_offer_url,
+      released: dropped.status === 'VOIDED',
+      replayed: req?.data.replayed === true,
+    };
+  }
+
   return {
     bid: toMyBid(self),
     chain: oldestFirst.map((r) => ({
@@ -398,5 +479,7 @@ export async function getBidDetail(
       voidReason: r.void_reason,
     })),
     timeline: events.map(([e]) => e),
+    priceWatch,
+    priceDrop,
   };
 }

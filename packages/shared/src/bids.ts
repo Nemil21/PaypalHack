@@ -31,3 +31,10 @@ export const raiseBidRequestSchema = z
   })
   .strict();
 export type RaiseBidRequest = z.infer<typeof raiseBidRequestSchema>;
+
+/**
+ * `PATCH /api/bids/:id` body (HF-020; api.md, features/06): the per-bid "Release my hold if it's
+ * cheaper elsewhere" setting. Owner only, live bids only.
+ */
+export const patchBidRequestSchema = z.object({ releaseIfCheaper: z.boolean() }).strict();
+export type PatchBidRequest = z.infer<typeof patchBidRequestSchema>;
