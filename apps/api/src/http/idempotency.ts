@@ -49,12 +49,15 @@ export function readIdempotencyKey(req: FastifyRequest): string | null {
   const raw = req.headers[IDEMPOTENCY_HEADER];
   const key = Array.isArray(raw) ? raw[0] : raw;
   if (!key) {
+    // `field` matches HF-003b's `idempotent()` answer, so both layers return the same shape.
     throw new ApiError('VALIDATION_ERROR', 'This request needs an Idempotency-Key header.', {
+      field: 'Idempotency-Key',
       issues: [{ path: 'headers.idempotency-key', message: 'is required' }],
     });
   }
   if (!KEY_RE.test(key)) {
     throw new ApiError('VALIDATION_ERROR', 'The Idempotency-Key header is malformed.', {
+      field: 'Idempotency-Key',
       issues: [{ path: 'headers.idempotency-key', message: 'must be 1-255 printable characters' }],
     });
   }
