@@ -21,6 +21,7 @@ import { QuantitySlider } from '../../components/console/QuantitySlider';
 import { RecommendationCard } from '../../components/console/RecommendationCard';
 import { RoundsPanel } from '../../components/console/RoundsPanel';
 import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
+import { OrderTimeline } from '../../components/bryntum/OrderTimeline';
 import { cn } from '../../lib/cn';
 import { createBidRowTracker, type BidRowTracker } from '../../lib/console/bids-grid';
 import { buildCurveModel } from '../../lib/console/curve';
@@ -284,6 +285,15 @@ export function ListingConsole() {
             {book && !empty && <BidsPanel book={book} slider={slider} tracker={tracker} />}
           </div>
         </SliderContext.Provider>
+
+        {/* HF-060: the order-status timeline, re-read whenever the listing changes state. */}
+        {book && (
+          <OrderTimeline
+            path={`/api/listings/${encodeURIComponent(listingId)}/timeline`}
+            refreshKey={book.listing.status}
+            className="pb-12"
+          />
+        )}
       </div>
     </ConsoleFrame>
   );

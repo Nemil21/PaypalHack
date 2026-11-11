@@ -23,6 +23,7 @@ import { loggerOptions } from './http/redact.js';
 import type { ListingEventBus } from './events/bus.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
+import { registerOrderTimelineRoutes } from './routes/order-timeline.js';
 import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
 import {
   registerPayoutsReportsRoutes,
@@ -200,6 +201,8 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerMandateRoutes(app, deps.bids);
   }
   if (deps.sql) registerBookRoutes(app, deps.sql);
+  // HF-060: order-status timeline facts (W06, W09, W15).
+  if (deps.sql) registerOrderTimelineRoutes(app, deps.sql);
   if (deps.sql) registerBrandAgentRoutes(app, { model: null, ...deps.brandAgent, db: deps.sql });
   if (deps.sql) registerBrandOverviewRoutes(app, deps.sql);
   if (deps.sql) {

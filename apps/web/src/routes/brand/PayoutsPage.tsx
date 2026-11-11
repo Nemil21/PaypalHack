@@ -9,6 +9,7 @@ import type {
   ShipmentRosterRow,
   ShipmentUploadBody,
 } from '@holdfast/shared';
+import { OrderTimeline } from '../../components/bryntum/OrderTimeline';
 import { PageHeader } from '../../components/layout/AppShell';
 import {
   Badge,
@@ -313,6 +314,10 @@ function StatementCard(props: {
           <p className="mt-3 text-[13px] text-muted">
             Each winner paid their own bid. Gross is the sum of completed PayPal captures.
           </p>
+          <OrderTimeline
+            path={`/api/listings/${encodeURIComponent(s.listingId)}/timeline`}
+            className="mt-6"
+          />
           <TrackingPanel listingId={s.listingId} canShip={props.canShip} />
         </div>
       )}

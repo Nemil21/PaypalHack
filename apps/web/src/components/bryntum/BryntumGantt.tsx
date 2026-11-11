@@ -37,8 +37,9 @@ function toRecord(t: GanttTask): Record<string, unknown> {
   return {
     id: t.id,
     name: t.name,
-    startDate: t.startDate,
-    ...(t.milestone ? { duration: 0 } : { endDate: t.endDate }),
+    ...(t.unscheduled
+      ? { unscheduled: true }
+      : { startDate: t.startDate, ...(t.milestone ? { duration: 0 } : { endDate: t.endDate }) }),
     manuallyScheduled: true,
     cls: t.cls ?? '',
     amount: t.amount ?? '',
@@ -137,9 +138,6 @@ export default function BryntumGantt(props: BryntumGanttProps) {
       .loadInlineData({
         tasksData: data.tasks.map(toRecord),
         dependenciesData: data.dependencies.map((d) => ({ ...d, type: 2 })),
-        timeRangesData: data.now
-          ? [{ id: 'now', name: 'Now', startDate: data.now, duration: 0, cls: 'hf-now' }]
-          : [],
       })
       .then(() => {
         if (!live || g.isDestroyed) return;
@@ -151,6 +149,10 @@ export default function BryntumGantt(props: BryntumGanttProps) {
           leftMargin: 24,
           rightMargin: 64,
         });
+        // After the zoom, so the line is placed on the final time axis. The Now marker: a zero-length time range (TimeRanges feature draws it as a line).
+        g.project.timeRangeStore.data = data.now
+          ? [{ id: 'now', name: 'Now', startDate: data.now, duration: 0, cls: 'hf-now' }]
+          : [];
       });
     return () => {
       live = false;

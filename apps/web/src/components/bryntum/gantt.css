@@ -94,20 +94,23 @@
   stroke-dasharray: 4 3;
 }
 
-/* Now marker. */
-.hf-gantt .b-sch-range.hf-now,
-.hf-gantt .b-sch-line.hf-now,
-.hf-gantt .hf-now.b-sch-timerange {
-  border-color: var(--color-orange);
-  border-inline-start: 2px solid var(--color-orange);
+/* Now marker: a zero-length time range, drawn by Bryntum from its --b-time-range-line-* vars. */
+.hf-gantt {
+  --b-time-range-line-color: var(--color-orange, #f26b2c);
+  --b-time-range-line-width: 2px;
+  --b-time-range-line-style: solid;
+  --b-time-range-line-opacity: 1;
+  --b-time-range-line-primary: var(--color-orange, #f26b2c);
+  --b-time-range-line-header-background: var(--color-orange, #f26b2c);
+  --b-time-range-line-label-background: var(--color-orange, #f26b2c);
+  --b-time-range-line-label-color: #fff;
 }
-.hf-gantt .hf-now label,
-.hf-gantt .b-sch-timerange.hf-now label {
-  background: var(--color-orange);
-  color: var(--color-white);
+.hf-gantt .b-sch-timerange.hf-now label,
+.hf-gantt .hf-now label {
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
 }
 
 .hf-gantt-tip {

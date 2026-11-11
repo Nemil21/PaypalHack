@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import type { SettlementView } from '@holdfast/shared';
 import { settlementGantt } from '../../lib/settlement/gantt';
 import { Skeleton } from '../ui';
+import { useWide } from './OrderTimeline';
 
 const BryntumGantt = lazy(() => import('./BryntumGantt'));
 
@@ -17,6 +18,9 @@ const ROW_PX = 34;
  */
 export function SettlementGanttPanel({ view, now }: { view: SettlementView; now?: Date }) {
   const live = !now && view.listingStatus === 'CLEARING';
+  // At 375 px the bidder column shrinks and the amount column goes, so the bars keep ~60 % of the
+  // width (the log below still has every amount). The Gantt is rebuilt when this flips.
+  const wide = useWide();
   const [tick, setTick] = useState(() => Date.now());
   useEffect(() => {
     if (!live) return;
@@ -54,10 +58,11 @@ export function SettlementGanttPanel({ view, now }: { view: SettlementView; now?
           }
         >
           <BryntumGantt
+            key={wide ? 'wide' : 'narrow'}
             data={data}
             nameHeader="Bidder · step"
-            nameWidth={250}
-            showAmount
+            nameWidth={wide ? 250 : 140}
+            showAmount={wide}
             height={height}
             ariaLabel="Settlement timeline: captures, releases and the payout"
           />

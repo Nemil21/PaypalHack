@@ -13,7 +13,9 @@ export interface GanttTask {
   startDate: string;
   endDate: string;
   milestone?: boolean;
-  /** CSS class on the bar (`hf-*`, styled in styles.css). */
+  /** A row with no bar yet (a phase that has not happened); its dates are ignored. */
+  unscheduled?: boolean;
+  /** CSS class on the bar (`hf-*`, styled in components/bryntum/gantt.css). */
   cls?: string;
   /** Right-hand column text, e.g. "$229". */
   amount?: string;
