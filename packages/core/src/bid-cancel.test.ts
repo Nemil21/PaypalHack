@@ -276,6 +276,18 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-016 cancel, my bids, bid detail', () => 
       expect(await fx.bid(p.id)).toMatchObject({ status: 'ABANDONED', needs_reconcile: true });
     });
 
+    it('HOLD_FAILED bid → current state, honest copy', async () => {
+      const l = await fx.listing();
+      const s = await fx.shopper();
+      const p = await fx.pendingBid(l.id, s.id);
+      await db.pool.query(`UPDATE bids SET status = 'HOLD_FAILED' WHERE id = $1`, [p.id]);
+      const r = await cancelBid(deps(), { bidId: p.id, shopperId: s.id });
+      expect(r).toMatchObject({ ok: true, outcome: 'UNCHANGED' });
+      expect(cancelBidResponse(r).body).toMatchObject({
+        message: 'This bid was never held. Nothing was charged.',
+      });
+    });
+
     it("another shopper's bid → NOT_FOUND (404), untouched", async () => {
       const l = await fx.listing();
       const s = await fx.shopper();
@@ -520,6 +532,23 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-016 cancel, my bids, bid detail', () => 
         voidReason: 'REPLACED',
       });
       expect(bids.find((b) => b.bidId === next.id)).toMatchObject({ replacesBidId: first.id });
+
+      // Cancelling the raised-from id (stale tab, agent, MCP) must not claim the money is released:
+      // 409 REPLACED pointing at the live bid, and the live hold is untouched.
+      mark = fake.calls.length;
+      const stale = await cancelBid(deps(), { bidId: first.id, shopperId: s.id });
+      expect(stale).toMatchObject({
+        ok: false,
+        error: { code: 'STATE_CONFLICT', reason: 'REPLACED', replacedByBidId: next.id },
+      });
+      expect(cancelBidResponse(stale)).toMatchObject({
+        status: 409,
+        body: { error: { reason: 'REPLACED', bidId: first.id, replacedByBidId: next.id } },
+      });
+      expect(JSON.stringify(cancelBidResponse(stale).body)).not.toMatch(/released/i);
+      expect(callsSince('void')).toHaveLength(0);
+      expect((await fx.bid(next.id)).status).toBe('HELD');
+      expect(fake.authorization(hold.authorizationId)?.status).toBe('CREATED');
     });
 
     it('GET /bids/:id after Clear: Held → Won derived from cleared_at', async () => {

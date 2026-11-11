@@ -82,7 +82,10 @@ interface BidViewRow {
   nudge_cutoff_cents: number | null;
 }
 
-/** One query for both views; `ids` narrows it to a bid chain. */
+/**
+ * One query for both views; `ids` narrows it to a bid chain. `LIMIT 500`: a shopper's bids in the
+ * demo stay far below it; add a cursor if that changes.
+ */
 const VIEW_SQL = `
   SELECT b.id, b.status, b.amount_cents, b.void_reason, b.payment_method, b.source, b.placed_at,
          b.authorized_at, b.release_if_cheaper, b.raise_count, b.replaces_bid_id,
@@ -267,7 +270,8 @@ export async function getBidDetail(
     `SELECT id, at, actor_type, entity, entity_id, action, paypal_id, data
        FROM audit_events
       WHERE (entity = 'bid' AND entity_id = ANY($1::uuid[]))
-         OR (data->>'bidId') = ANY($1::text[])
+         OR (entity = 'settlement'
+             AND entity_id IN (SELECT id FROM settlements WHERE bid_id = ANY($1::uuid[])))
       ORDER BY at, id`,
     [ids],
   );
@@ -291,6 +295,7 @@ export async function getBidDetail(
     data: Record<string, unknown> | null;
   }>) {
     const data = a.data ?? {};
+    // Settlement rows (capture / void tasks) carry the bid id in `data.bidId`.
     const owner = a.entity === 'bid' ? a.entity_id : (data.bidId as string | undefined);
     const bid = owner ? byId.get(owner) : undefined;
     if (!bid) continue;

@@ -48,7 +48,20 @@ export type CancelBidResult =
       outcome: 'VOIDED' | 'VOIDING' | 'ABANDONED' | 'UNCHANGED';
     }
   | { ok: false; error: { code: 'NOT_FOUND' } }
-  | { ok: false; error: { code: 'STATE_CONFLICT'; reason: string; bidId: string }; bid: BidRow };
+  | {
+      ok: false;
+      /**
+       * `reason` is the bid status, `REPLACED` (a raise superseded it: act on `replacedByBidId`, the
+       * live head of the chain) or `BUSY` (other writers kept moving it; retry).
+       */
+      error: {
+        code: 'STATE_CONFLICT';
+        reason: string;
+        bidId: string;
+        replacedByBidId?: string;
+      };
+      bid: BidRow;
+    };
 
 /** Server-side holds: the create call itself authorizes, so an outcome may still be unknown. */
 const SERVER_HOLD_METHODS = new Set(['VAULT', 'TEST_CARD']);
@@ -78,7 +91,23 @@ export async function cancelBid(deps: MoneyDeps, input: CancelBidInput): Promise
         continue;
       }
       case 'VOIDING':
-      case 'VOIDED':
+      case 'VOIDED': {
+        // A raise released this hold, not the shopper: the money now sits on the successor, so
+        // "released" would be untrue (D14). Point the caller at the live bid instead.
+        if (bid.void_reason === 'REPLACED') {
+          return {
+            ok: false,
+            error: {
+              code: 'STATE_CONFLICT',
+              reason: 'REPLACED',
+              bidId: bid.id,
+              replacedByBidId: await chainHead(deps, bid.id),
+            },
+            bid,
+          };
+        }
+        return { ok: true, bid, outcome: 'UNCHANGED' };
+      }
       case 'ABANDONED':
       case 'HOLD_FAILED':
         return { ok: true, bid, outcome: 'UNCHANGED' };
@@ -93,8 +122,22 @@ export async function cancelBid(deps: MoneyDeps, input: CancelBidInput): Promise
         throw new Error(`cancelBid: unexpected bid status ${bid.status}`);
     }
   }
-  // Still moving after several passes: report what it is now; a retry settles it.
-  return { ok: true, bid, outcome: 'UNCHANGED' };
+  // Still moving after several passes: nothing was cancelled by this call; a retry settles it.
+  return { ok: false, error: { code: 'STATE_CONFLICT', reason: 'BUSY', bidId: bid.id }, bid };
+}
+
+/** The newest bid on `bidId`'s `replaces_bid_id` chain (raise → raise → …). */
+async function chainHead(deps: MoneyDeps, bidId: string): Promise<string> {
+  const res = await deps.db.pool.query(
+    `WITH RECURSIVE down(id, depth) AS (
+       SELECT id, 0 FROM bids WHERE id = $1
+       UNION ALL
+       SELECT b.id, down.depth + 1 FROM bids b JOIN down ON b.replaces_bid_id = down.id
+        WHERE down.depth < 100)
+     SELECT id FROM down ORDER BY depth DESC LIMIT 1`,
+    [bidId],
+  );
+  return (res.rows[0] as { id: string }).id;
 }
 
 async function loadOwned(deps: MoneyDeps, input: CancelBidInput): Promise<BidRow | null> {
@@ -156,6 +199,8 @@ export function cancelMessage(bid: Pick<BidRow, 'status' | 'amount_cents'>): str
       return releasedHoldMessage(bid.amount_cents);
     case 'VOIDING':
       return releasingHoldMessage(bid.amount_cents);
+    case 'HOLD_FAILED':
+      return 'This bid was never held. Nothing was charged.';
     default:
       return 'Your bid was cancelled. Nothing was charged.';
   }
@@ -180,15 +225,28 @@ export function cancelBidResponse(result: CancelBidResult): IdempotentResponse {
   if (result.error.code === 'NOT_FOUND') {
     return { status: 404, body: errorBody('NOT_FOUND' satisfies ErrorCode, 'Bid not found.') };
   }
-  const { reason, bidId } = result.error;
+  const { reason, bidId, replacedByBidId } = result.error;
   return {
     status: 409,
     body: errorBody(
       'STATE_CONFLICT' satisfies ErrorCode,
-      reason === 'WON' || reason === 'CAPTURED' || reason === 'SHIPPED'
-        ? 'This bid has won and can no longer be cancelled.'
-        : 'This bid is being settled and can no longer be cancelled.',
-      { reason, bidId },
+      conflictMessage(reason),
+      replacedByBidId ? { reason, bidId, replacedByBidId } : { reason, bidId },
     ),
   };
+}
+
+function conflictMessage(reason: string): string {
+  switch (reason) {
+    case 'REPLACED':
+      return 'You raised this bid. Your newer bid holds your money now; cancel that one instead.';
+    case 'BUSY':
+      return 'This bid is changing right now. Try again in a moment.';
+    case 'WON':
+    case 'CAPTURED':
+    case 'SHIPPED':
+      return 'This bid has won and can no longer be cancelled.';
+    default:
+      return 'This bid is being settled and can no longer be cancelled.';
+  }
 }
