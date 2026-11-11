@@ -6,6 +6,11 @@
 # - One web instance: in-process jobs and rate limits assume a single process.
 # - Migrations only on deploy (preDeployCommand). Never seed on deploy: seeding is manual or the
 #   HF-048b `demo:refresh` cron.
+# - Background jobs (sweeper every 5 min, settlement kick + payout poll every minute, round tick)
+#   run in-process on the single web instance under Postgres advisory locks (HF-034, HF-036b).
+#   The only Render cron is the daily `demo:refresh` (HF-048b).
+# - Auto-deploy is off on every service (HF-048b, B13): the rules forbid edits after the
+#   deadline, and the judged build must not change under the judges. Deploy by hand only.
 # - Secrets are `sync: false`: Render prompts for them when the Blueprint is first applied and
 #   never reads them from this file. Env groups cannot hold prompted values, so the group below
 #   carries non-secret flags only.
@@ -58,8 +63,8 @@ services:
     preDeployCommand: npm run migrate
     startCommand: npm start
     healthCheckPath: /healthz
-    # HF-048b turns this off from 21:00 PST Nov 11 through recording, and after submission.
-    autoDeployTrigger: commit
+    # Off from 21:00 PST Nov 11 through recording, and permanently after submission (HF-048b).
+    autoDeployTrigger: 'off'
     envVars:
       - fromGroup: holdfast-config
       - key: DATABASE_URL
@@ -103,7 +108,7 @@ services:
     region: oregon
     buildCommand: npm ci --include=dev && npm run build -w @holdfast/shared -w @holdfast/core -w @holdfast/workflows
     startCommand: node apps/workflows/dist/main.js
-    autoDeployTrigger: commit
+    autoDeployTrigger: 'off'
     envVars:
       - fromGroup: holdfast-config
       - key: DATABASE_URL
@@ -119,4 +124,44 @@ services:
         generateValue: true
       # The 1-decline run needs PayPal-Mock-Response on the capture (sandbox + DEMO_MODE + this).
       - key: ALLOW_MOCK_DECLINE
+        sync: false
+
+  # HF-048b: the daily judge-book refresh, 08:00 UTC, through judging (Dec 21) and beyond until
+  # someone removes it. `demo:refresh` resets the market (sweep → reconcile:holds → verify no
+  # sandbox hold is left → truncate) and reseeds the 60-hold judge book with the window open 30 h.
+  # It retries while a judge's Clear is still settling and exits non-zero if it cannot finish.
+  - type: cron
+    name: holdfast-demo-refresh
+    runtime: node
+    region: oregon
+    plan: starter
+    schedule: '0 8 * * *'
+    # tsx runs the CLI from source (`--conditions=source`), so no build beyond the install.
+    buildCommand: npm ci --include=dev
+    startCommand: npm run demo:refresh
+    autoDeployTrigger: 'off'
+    envVars:
+      - fromGroup: holdfast-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: holdfast-db
+          property: connectionString
+      # The owner role the reset truncates with. The Blueprint's database user owns the schema
+      # (it ran the migrations), so it is the same connection string.
+      - key: DEMO_ADMIN_DATABASE_URL
+        fromDatabase:
+          name: holdfast-db
+          property: connectionString
+      # loadConfig requires it; the cron never signs sessions.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      # The sandbox business receiver for the brand payout (not the merchant account).
+      - key: PAYPAL_BRAND_EMAIL
+        sync: false
+      # Optional: restores real watched products' public prices after the reset.
+      - key: CHANNEL3_API_KEY
         sync: false

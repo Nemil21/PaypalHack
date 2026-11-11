@@ -34,10 +34,11 @@ import {
 import {
   AUREL_BRAND_FEE_BPS,
   buildBidTable,
-  DEMO_QUANTITY,
   expectedTableNumbers,
+  FULL_BOOK,
   projectDemoNumbers,
   type BidMeta,
+  type BookSpec,
   type DemoNumbers,
   type TableBid,
   VAULTABLE_TEST_CARD_COUNT,
@@ -97,6 +98,8 @@ export interface SeedDemoOptions {
   runId?: string;
   /** Abort when more than this share of holds fall back to no-hold. Default 0.1. */
   maxFallbackRatio?: number;
+  /** Which book to seed. Default `FULL_BOOK` (recording); `JUDGE_BOOK` for `demo:refresh`. */
+  book?: BookSpec;
 }
 
 export class DemoDataExistsError extends Error {
@@ -158,6 +161,7 @@ export interface SeededListing {
 export interface SeedDemoResult {
   runId: string;
   seed: number;
+  book: BookSpec;
   brandId: string;
   brandName: string;
   payoutEmail: string;
@@ -169,7 +173,10 @@ export interface SeedDemoResult {
   /** Numbers straight from the bid table; equal to `numbers` when every hold landed. */
   expected: DemoNumbers;
   matchesTable: boolean;
-  /** `simulate(240)` through the API path (`simulateListing`), for cross-checking. */
+  /**
+   * `simulate(book.quantity)` (240 for the full book) through the API path (`simulateListing`),
+   * for cross-checking.
+   */
   simulate240: SimulateResponse;
 }
 
@@ -191,6 +198,7 @@ export function defaultRunId(seed: number, at: Date): string {
 export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promise<SeedDemoResult> {
   const log = deps.log ?? (() => {});
   const maxFallbackRatio = opts.maxFallbackRatio ?? 0.1;
+  const book = opts.book ?? FULL_BOOK;
   if (!(opts.windowLeftMs > 0 && opts.windowLeftMs <= WINDOW_HOURS * HOUR_MS)) {
     throw new RangeError('windowLeftMs must be more than 0 and at most 48 h');
   }
@@ -200,7 +208,7 @@ export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promi
   const { rows: clock } = await deps.db.pool.query<{ now: Date }>(`SELECT now() AS now`);
   const seededAt = clock[0]!.now;
   const runId = opts.runId ?? defaultRunId(opts.seed, seededAt);
-  const table = buildBidTable(opts.seed);
+  const table = buildBidTable(opts.seed, book);
 
   // 1–3: brand, products, listings.
   const brandId = await upsertDemoBrand(deps.db, opts.payoutEmail);
@@ -208,7 +216,16 @@ export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promi
   const opens = new Date(closes.getTime() - WINDOW_HOURS * HOUR_MS);
   const listings: SeededListing[] = [];
   for (const fixture of [AUREL_A7, AUREL_A5]) {
-    const listing = await openDemoListing(deps.db, brandId, fixture, runId, opens, closes);
+    const quantity = fixture.key === 'A7' ? book.a7ListingQuantity : fixture.quantity;
+    const listing = await openDemoListing(
+      deps.db,
+      brandId,
+      fixture,
+      quantity,
+      runId,
+      opens,
+      closes,
+    );
     listing.priceWatch = deps.channel3
       ? await ensurePriceWatch(
           { db: deps.db, channel3: deps.channel3 },
@@ -217,7 +234,7 @@ export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promi
         )
       : false;
     listings.push(listing);
-    log(`listing ${listing.slug} OPEN (${fixture.quantity} units)`);
+    log(`listing ${listing.slug} OPEN (${quantity} units)`);
   }
   const listingOf = (key: 'A7' | 'A5') => listings.find((l) => l.key === key)!;
   const a7ProductId = (await productIdOf(deps.db.pool, listingOf('A7').id))!;
@@ -372,13 +389,13 @@ export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promi
   const a7 = listingOf('A7');
   const input = (await loadClearInput(deps.db.pool, a7.id))!;
   const numbers = projectDemoNumbers(input, meta, {
-    quantity: DEMO_QUANTITY,
+    quantity: book.quantity,
     dropToCents: PRICE_DROP_FIXTURE.toCents,
     feeBps: AUREL_BRAND_FEE_BPS,
     liquidationQuoteCents: AUREL_A7.liquidationQuoteCents,
   });
-  const expected = expectedTableNumbers(opts.seed);
-  const simulate240 = await simulateListing(deps.db, brandId, a7.id, DEMO_QUANTITY);
+  const expected = expectedTableNumbers(opts.seed, book);
+  const simulate240 = await simulateListing(deps.db, brandId, a7.id, book.quantity);
   const same = (a: SimulateResponse, b: SimulateResponse) =>
     a.cutoffCents === b.cutoffCents && a.grossCents === b.grossCents && a.winners === b.winners;
   const matchesTable =
@@ -389,6 +406,7 @@ export async function seedDemo(deps: SeedDemoDeps, opts: SeedDemoOptions): Promi
   return {
     runId,
     seed: opts.seed,
+    book,
     brandId,
     brandName: AUREL_BRAND.name,
     payoutEmail: opts.payoutEmail,
@@ -480,6 +498,7 @@ async function openDemoListing(
   db: Db,
   brandId: string,
   fixture: DemoProductFixture,
+  quantity: number,
   runId: string,
   opens: Date,
   closes: Date,
@@ -516,7 +535,7 @@ async function openDemoListing(
           brandId,
           product.id,
           fixture.slug,
-          fixture.quantity,
+          quantity,
           fixture.floorCents,
           fixture.liquidationQuoteCents,
           opens,
@@ -569,7 +588,7 @@ async function openDemoListing(
       id: listing.id,
       slug: fixture.slug,
       title: fixture.title,
-      quantity: fixture.quantity,
+      quantity,
       floorCents: fixture.floorCents,
       liquidationQuoteCents: fixture.liquidationQuoteCents,
       publicPriceCents: fixture.publicPriceCents,

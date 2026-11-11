@@ -4,9 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { AUREL_A5, AUREL_A7, AUREL_BRAND, PRICE_DROP_FIXTURE } from './aurel-fixture.js';
 import {
   A5_BIDS,
+  bookSize,
   buildBidTable,
+  DEFAULT_SEED,
   DEMO_QUANTITY,
   expectedTableNumbers,
+  FULL_BOOK,
+  JUDGE_BOOK,
   projectDemoNumbers,
   ROUND_AGENTS,
   tableClearInput,
@@ -123,5 +127,37 @@ describe('projectDemoNumbers', () => {
     expect(n.raises).toBe(1);
     expect(n.postRounds.cutoffCents).toBe(22_220);
     expect(n.postRounds.grossCents).toBe(24_900 + 22_220);
+  });
+});
+
+describe('JUDGE_BOOK (HF-048b demo:refresh)', () => {
+  const judge = buildBidTable(DEFAULT_SEED, JUDGE_BOOK);
+  const a7 = judge.filter((b) => b.listing === 'A7');
+
+  it('60 holds, deterministic, a few vaulted round agents', () => {
+    expect(judge).toHaveLength(60);
+    expect(bookSize(JUDGE_BOOK)).toBe(60);
+    expect(buildBidTable(DEFAULT_SEED, JUDGE_BOOK)).toEqual(judge);
+    expect(a7.filter((b) => b.kind === 'AGENT')).toHaveLength(JUDGE_BOOK.agents);
+    expect(new Set(judge.map((b) => b.n)).size).toBe(60);
+  });
+
+  it('a judge Clear has winners and losers: eligible bids exceed the listing quantity', () => {
+    const eligible = a7.filter((b) => b.amountCents >= AUREL_A7.floorCents);
+    expect(eligible.length).toBeGreaterThan(JUDGE_BOOK.a7ListingQuantity);
+    const r = clear(
+      tableClearInput(judge, 'A7', JUDGE_BOOK).bids,
+      JUDGE_BOOK.quantity,
+      AUREL_A7.floorCents,
+    );
+    expect(r.cutoffCents).toBe(21_900);
+    expect(expectedTableNumbers(DEFAULT_SEED, JUDGE_BOOK).current.winners).toBe(
+      JUDGE_BOOK.quantity,
+    );
+  });
+
+  it('leaves the full book unchanged', () => {
+    expect(buildBidTable(DEFAULT_SEED, FULL_BOOK)).toEqual(buildBidTable(DEFAULT_SEED));
+    expect(bookSize(FULL_BOOK)).toBe(288);
   });
 });
