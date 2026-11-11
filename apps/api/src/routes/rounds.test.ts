@@ -48,7 +48,7 @@ describe.skipIf(!TEST_DATABASE_URL)('live rounds routes (HF-036a)', () => {
   afterAll(async () => {
     await app?.close();
     await t?.close();
-  });
+  }, 60_000);
 
   const one = async <T = { id: string }>(sql: string, params: unknown[] = []) =>
     (await t.db.pool.query(sql, params)).rows[0] as T;

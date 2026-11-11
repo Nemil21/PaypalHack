@@ -43,7 +43,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-036a live rounds (Postgres + FakePayPal)
 
   afterAll(async () => {
     await t?.close();
-  });
+  }, 60_000);
 
   const q = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
     (await db.pool.query(sql, params)).rows as T[];
@@ -535,9 +535,14 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-036a live rounds (Postgres + FakePayPal)
       const base = { listingId: l.id, brandId: l.brandId, actor: owner(l.brandId) };
       await startRounds(deps(), { ...base, targetQuantity: 2 });
 
-      // Hold the winner's transaction open so every other call queues on the listing row.
+      // Every call advances from the round the console showed (a double click, two tabs).
+      // Without `fromRound` a call that starts after the winner committed would read round 2
+      // and rightly advance again, so the race is only deterministic with it. The winner holds
+      // its transaction open so the others queue on the listing row and see 0 rows.
       const d = deps({ afterListingUpdate: () => sleep(50) });
-      const results = await Promise.all(Array.from({ length: 8 }, () => nextRound(d, base)));
+      const results = await Promise.all(
+        Array.from({ length: 8 }, () => nextRound(d, { ...base, fromRound: 1 })),
+      );
       expect(results.filter((r) => r.ok)).toHaveLength(1);
       for (const r of results.filter((r) => !r.ok)) {
         expect(r).toMatchObject({
@@ -559,7 +564,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-036a live rounds (Postgres + FakePayPal)
       );
       expect(advanced).toHaveLength(1);
 
-      // Same race with the explicit round from the console.
+      // And again from round 2.
       const again = await Promise.all(
         Array.from({ length: 5 }, () => nextRound(d, { ...base, fromRound: 2 })),
       );
