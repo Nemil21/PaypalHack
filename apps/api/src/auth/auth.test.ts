@@ -376,8 +376,12 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
       expect(url.origin).toBe('http://holdfast.test');
       expect(url.pathname).toBe('/api/auth/shopper/magic-link/verify');
 
-      // Opened in another browser (no cookie): still lands on the provisional shopper.
-      const verify = await app.inject({ method: 'GET', url: url.pathname + url.search });
+      // Opened in the browser that asked for it: the provisional shopper gets the email.
+      const verify = await app.inject({
+        method: 'GET',
+        url: url.pathname + url.search,
+        headers: cookieHeader(SHOPPER_COOKIE, cookie),
+      });
       expect(verify.statusCode).toBe(302);
       expect(verify.headers.location).toBe('/bids/123');
       const signedIn = cookiesFrom(verify)[SHOPPER_COOKIE]!;
@@ -413,6 +417,87 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
         headers: cookieHeader(SHOPPER_COOKIE, cookiesFrom(v2)[SHOPPER_COOKIE]!),
       });
       expect(me2.json().shopper.id).toBe(provisionalId);
+      await app.close();
+    });
+
+    it('a link requested by someone else never binds the email to the requester (takeover)', async () => {
+      const app = server();
+      // Attacker: provisional shopper A, asks for a link to the victim's address.
+      const attackerVisit = await app.inject({ method: 'GET', url: '/api/test/offer' });
+      const attackerCookie = cookiesFrom(attackerVisit)[SHOPPER_COOKIE]!;
+      const attackerId = attackerVisit.json().shopperId as string;
+      await app.inject({
+        method: 'POST',
+        url: '/api/auth/shopper/magic-link',
+        headers: { ...cookieHeader(SHOPPER_COOKIE, attackerCookie), ...k() },
+        payload: { email: 'victim@example.com' },
+      });
+      const link = new URL(links[0]!.url);
+
+      // Victim clicks the genuine email in their own browser (their own provisional cookie).
+      const victimVisit = await app.inject({ method: 'GET', url: '/api/test/offer' });
+      const victimCookie = cookiesFrom(victimVisit)[SHOPPER_COOKIE]!;
+      const verify = await app.inject({
+        method: 'GET',
+        url: link.pathname + link.search,
+        headers: cookieHeader(SHOPPER_COOKIE, victimCookie),
+      });
+      expect(verify.statusCode).toBe(302);
+      const victimMe = await app.inject({
+        method: 'GET',
+        url: '/api/me',
+        headers: cookieHeader(SHOPPER_COOKIE, cookiesFrom(verify)[SHOPPER_COOKIE]!),
+      });
+      expect(victimMe.json().shopper.email).toBe('victim@example.com');
+      expect(victimMe.json().shopper.id).not.toBe(attackerId);
+      expect(victimMe.json().shopper.id).not.toBe(victimVisit.json().shopperId);
+
+      // The attacker's cookie still points at a provisional shopper with no email.
+      const attackerMe = await app.inject({
+        method: 'GET',
+        url: '/api/me',
+        headers: cookieHeader(SHOPPER_COOKIE, attackerCookie),
+      });
+      expect(attackerMe.json().shopper).toMatchObject({ id: attackerId, email: null });
+      const owners = await tdb.db.pool.query(
+        `SELECT id FROM shoppers WHERE lower(email) = 'victim@example.com'`,
+      );
+      expect(owners.rows).toEqual([{ id: victimMe.json().shopper.id }]);
+
+      // Opened with no cookie at all: also a fresh shopper, never the requester's.
+      await app.inject({
+        method: 'POST',
+        url: '/api/auth/shopper/magic-link',
+        headers: { ...cookieHeader(SHOPPER_COOKIE, attackerCookie), ...k() },
+        payload: { email: 'other@example.com' },
+      });
+      const second = new URL(links[1]!.url);
+      const bare = await app.inject({ method: 'GET', url: second.pathname + second.search });
+      const bareMe = await app.inject({
+        method: 'GET',
+        url: '/api/me',
+        headers: cookieHeader(SHOPPER_COOKIE, cookiesFrom(bare)[SHOPPER_COOKIE]!),
+      });
+      expect(bareMe.json().shopper.id).not.toBe(attackerId);
+      expect(bareMe.json().shopper.email).toBe('other@example.com');
+      await app.close();
+    });
+
+    it('per-email limit: the 4th link for one address in a minute → 429', async () => {
+      const app = server();
+      const ask = (email: string) =>
+        app.inject({
+          method: 'POST',
+          url: '/api/auth/shopper/magic-link',
+          headers: k(),
+          payload: { email },
+        });
+      for (let i = 0; i < 3; i++) expect((await ask('bomb@example.com')).statusCode).toBe(202);
+      const limited = await ask('Bomb@Example.com');
+      expect(limited.statusCode).toBe(429);
+      expect(limited.json().error.code).toBe('RATE_LIMITED');
+      expect((await ask('someone-else@example.com')).statusCode).toBe(202);
+      expect(links.filter((l) => l.email === 'bomb@example.com')).toHaveLength(3);
       await app.close();
     });
 

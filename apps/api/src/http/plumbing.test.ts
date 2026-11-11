@@ -117,7 +117,7 @@ describe('log redaction', () => {
 describe('RateLimiter', () => {
   it('sliding window: the (limit+1)th call within 60 s is refused, then frees up', () => {
     let now = 1_000_000;
-    const rl = new RateLimiter({ mcp: 2, rest: 3, agent: 1 }, () => now);
+    const rl = new RateLimiter({ mcp: 2, rest: 3, agent: 1, magicLink: 1 }, () => now);
     expect(rl.hit('rest', 'u').allowed).toBe(true);
     now += 30_000;
     expect(rl.hit('rest', 'u').allowed).toBe(true);
