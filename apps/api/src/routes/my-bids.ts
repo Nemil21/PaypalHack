@@ -3,13 +3,14 @@ import {
   cancelBid,
   cancelBidResponse,
   getBidDetail,
+  getWonView,
   listMyBids,
   setReleaseIfCheaper,
   setReleaseIfCheaperResponse,
   type MoneyDeps,
 } from '@holdfast/core';
 import { patchBidRequestSchema } from '@holdfast/shared';
-import { ApiError, parse } from '../http/errors.js';
+import { ApiError, parse, stateConflict } from '../http/errors.js';
 
 export interface MyBidRoutesDeps {
   /** Database, PayPal client (void) and audit hook; the same deps the bid service uses. */
@@ -27,8 +28,8 @@ function bidIdOf(params: unknown): string {
 
 /**
  * HF-016 shopper bid routes (api.md): `POST /api/bids/:id/cancel`, `GET /api/bids/mine` and
- * `GET /api/bids/:id`, plus HF-020's `PATCH /api/bids/:id {releaseIfCheaper}`. Shopper session
- * required; everything is owner-scoped.
+ * `GET /api/bids/:id`, plus HF-020's `PATCH /api/bids/:id {releaseIfCheaper}` and HF-059a's
+ * `GET /api/bids/:id/won`. Shopper session required; everything is owner-scoped.
  *
  * Cancel is naturally idempotent (a second cancel returns the current state) and still runs inside
  * HF-003b's `idempotent()` store like every mutating route.
@@ -69,6 +70,15 @@ export function registerMyBidRoutes(app: FastifyInstance, deps: MyBidRoutesDeps)
   app.get('/api/bids/mine', { onRequest: app.guards.requireShopper }, async (req) =>
     listMyBids(deps.money.db.pool, req.auth.shopper!.id),
   );
+
+  // HF-059a W18 / M08: receipt and shipping progress for a won bid. Before `/:id` only for
+  // readability; the paths do not overlap.
+  app.get('/api/bids/:id/won', { onRequest: app.guards.requireShopper }, async (req) => {
+    const res = await getWonView(deps.money.db.pool, req.auth.shopper!.id, bidIdOf(req.params));
+    if (res.ok) return res.view;
+    if (res.code === 'NOT_WON') throw stateConflict('NOT_WON', 'This bid has not won.');
+    throw new ApiError('NOT_FOUND', 'Bid not found.');
+  });
 
   app.get('/api/bids/:id', { onRequest: app.guards.requireShopper }, async (req) => {
     const detail = await getBidDetail(

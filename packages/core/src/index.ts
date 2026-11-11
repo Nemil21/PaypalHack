@@ -31,6 +31,7 @@ export * from './bid-move.js';
 export * from './intents.js';
 export * from './rounds-buyer.js';
 export * from './bid-views.js';
+export * from './bid-won.js';
 export * from './mandates.js';
 export * from './brands/verify.js';
 export * from './brands/overview.js';
