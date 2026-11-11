@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
-import type { BrandListingView, ListingPhaseName } from '@holdfast/shared';
+import type { BookListing, BrandListingView, ListingPhaseName } from '@holdfast/shared';
 import {
   createKpiStore,
   KpiTile,
@@ -9,12 +9,20 @@ import {
 } from '../../components/console/KpiTiles';
 import { ClearAction } from '../../components/console/ClearModal';
 import { QuantitySlider } from '../../components/console/QuantitySlider';
+import { RoundsPanel } from '../../components/console/RoundsPanel';
 import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { cn } from '../../lib/cn';
 import { createBidRowTracker, type BidRowTracker } from '../../lib/console/bids-grid';
 import { buildCurveModel } from '../../lib/console/curve';
 import { consoleKpisAt, type ConsoleKpis } from '../../lib/console/kpis';
 import { navPhaseLabel, phaseView } from '../../lib/console/phase';
+import {
+  applyRoundEvent,
+  overlayFromState,
+  roundsEndedCopy,
+  withRoundsOverlay,
+  type RoundsOverlay,
+} from '../../lib/console/rounds';
 import { createSliderStore, SliderContext, type SliderStore } from '../../lib/console/slider-store';
 import { useConsoleBook } from '../../lib/console/use-console-book';
 import { paths } from '../../lib/routes';
@@ -40,7 +48,8 @@ function useNow(ms = 1000): number {
 /**
  * W06 listing console shell (HF-023): header, AG Studio KPI row and the live wiring later panels
  * plug into (curve + slider HF-024, grid HF-025, brand agent HF-051, rounds HF-037). Live: SSE
- * notices → one debounced book refetch; reconnect → refetch now.
+ * notices → one debounced book refetch; reconnect → refetch now. Every `round.*` and `bid.raised`
+ * notice re-reads the book, so the KPI row's expected gross follows the rounds (HF-037a).
  */
 export function ListingConsole() {
   const { listingId = '' } = useParams();
@@ -52,17 +61,34 @@ export function ListingConsole() {
   // The bids grid's row model (HF-025), per listing. `bid.raised` notices tell it which new bid
   // replaces which, so a raise updates its row in place when the refetched book lands.
   const tracker = useMemo(() => createBidRowTracker(), [listingId]);
+  // Rounds state newer than the last book (HF-037a): a rounds call's response, or a replayed
+  // `round.*` event. Merged forward-only on top of the book; see lib/console/rounds.ts.
+  const [rounds, setRounds] = useState<{ listingId: string; overlay: RoundsOverlay | null }>({
+    listingId,
+    overlay: null,
+  });
+  const overlay = rounds.listingId === listingId ? rounds.overlay : null;
   const live = useConsoleBook(listingId, {
     onPriceDrop: (t) => toast.show({ ...t, duration: 8000 }),
-    onNotice: (n) => {
+    onNotice: (n, event) => {
       if (n.type === 'bid.raised' && n.ids.bidId && n.ids.replacesBidId) {
         tracker.noteRaise(n.ids.bidId, n.ids.replacesBidId);
+      }
+      if (event?.type.startsWith('round.')) {
+        setRounds((r) => ({
+          listingId,
+          overlay: applyRoundEvent(r.listingId === listingId ? r.overlay : null, event),
+        }));
       }
     },
   });
   const { book } = live;
+  const listing: BookListing | null = useMemo(
+    () => (book ? withRoundsOverlay(book.listing, overlay) : null),
+    [book, overlay],
+  );
 
-  const phase = useMemo(() => (book ? phaseView(book.listing, now) : null), [book, now]);
+  const phase = useMemo(() => (listing ? phaseView(listing, now) : null), [listing, now]);
   const store = useMemo(createKpiStore, []);
   // One slider store per listing (HF-024). A new book re-ranks it once; the KPI row follows its
   // numbers through the store (no console re-render per drag step).
@@ -73,6 +99,11 @@ export function ListingConsole() {
     sync();
     return slider.subscribe(sync);
   }, [store, slider, book]);
+  // During rounds the slider (and the KPI row's expected gross) sits at the rounds' target.
+  const roundsTarget = listing?.status === 'ROUNDS' ? listing.targetQuantity : null;
+  useEffect(() => {
+    if (roundsTarget !== null) slider.setSliderQuantity(roundsTarget);
+  }, [slider, roundsTarget]);
 
   const viewer = me.role === 'VIEWER';
   const locked = phase?.locked ?? false;
@@ -122,6 +153,7 @@ export function ListingConsole() {
           phase={phase?.phase ?? null}
           viewer={viewer}
           listingId={listingId}
+          roundsEnded={phase?.phase === 'ROUNDS_ENDED' && listing ? roundsEndedCopy(listing) : null}
         />
 
         <section aria-label="Key numbers">
@@ -129,6 +161,22 @@ export function ListingConsole() {
             <ConsoleKpiStudio store={store} />
           </Suspense>
         </section>
+
+        {listing && phase && (
+          <SliderContext.Provider value={slider}>
+            <RoundsPanel
+              listingId={listingId}
+              listing={listing}
+              phase={phase.phase}
+              viewer={viewer}
+              now={now}
+              onChanged={(state) => {
+                if (state) setRounds({ listingId, overlay: overlayFromState(state) });
+                live.refresh();
+              }}
+            />
+          </SliderContext.Provider>
+        )}
 
         {empty && !locked && (
           <EmptyState
@@ -166,17 +214,27 @@ function StatusBanners({
   phase,
   viewer,
   listingId,
+  roundsEnded,
 }: {
   live: ReturnType<typeof useConsoleBook>;
   phase: string | null;
   viewer: boolean;
   listingId: string;
+  /** "Rounds ended. Press Clear by …" while ROUNDS_ENDED. */
+  roundsEnded: string | null;
 }) {
   const items: React.ReactNode[] = [];
   if (viewer) {
     items.push(
       <Note key="viewer" tone="neutral">
         View only. Your role can watch this window but not clear or cancel it.
+      </Note>,
+    );
+  }
+  if (roundsEnded) {
+    items.push(
+      <Note key="rounds-ended" tone="held">
+        <span data-testid="rounds-ended-banner">{roundsEnded}</span>
       </Note>,
     );
   }

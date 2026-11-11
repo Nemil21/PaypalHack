@@ -6,10 +6,12 @@
  *   npm run dev:rounds-replay                          # print SSE frames to stdout, 500 ms apart
  *   npm run dev:rounds-replay -- --serve 4036          # serve GET /api/listings/:id/events
  *   npm run dev:rounds-replay -- --delay 0 --raises 5 --bidders 20 --target 8
+ *   npm run dev:rounds-replay -- --serve 4036 --round-ms 300000 --end   # console (HF-037a)
  *
  * With `--serve`, every connection replays the sequence for the listing id in its URL, then
  * keeps the stream open with comment heartbeats. Point the web dev proxy's
- * `/api/listings/:id/events` at it. No database, no PayPal, no secrets.
+ * `/api/listings/:id/events` at it (`ROUNDS_REPLAY_PORT=4036 npm run dev -w @holdfast/web`).
+ * No database, no PayPal, no secrets.
  */
 import { createServer } from 'node:http';
 import { parseArgs } from 'node:util';
@@ -28,6 +30,8 @@ const { values } = parseArgs({
     target: { type: 'string' },
     raises: { type: 'string' },
     listing: { type: 'string' },
+    'round-ms': { type: 'string' },
+    end: { type: 'boolean', default: false },
   },
 });
 
@@ -37,6 +41,8 @@ const base: RoundsReplayOptions = {
   bidders: int(values.bidders),
   targetQuantity: int(values.target),
   raises: int(values.raises),
+  roundMs: int(values['round-ms']),
+  end: values.end,
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

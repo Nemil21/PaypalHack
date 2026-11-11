@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BookResponse, ListingEventNotice } from '@holdfast/shared';
+import type { BookResponse, ListingEvent, ListingEventNotice } from '@holdfast/shared';
 import { ApiError, api } from '../api';
 import { useListingEvents, type ListingEventsStatus } from '../listing-events';
 import { priceDropToast } from './kpis';
@@ -28,8 +28,11 @@ export interface ConsoleBookState {
 
 export interface ConsoleBookOptions {
   onPriceDrop?: (toast: { title: string; body?: string }) => void;
-  /** Every notice, before the refetch (e.g. the grid's row deltas). */
-  onNotice?: (notice: ListingEventNotice) => void;
+  /**
+   * Every notice, before the refetch (e.g. the grid's row deltas). `event` carries the details
+   * only for full events from the fixture replay (see listing-events.ts).
+   */
+  onNotice?: (notice: ListingEventNotice, event?: ListingEvent) => void;
 }
 
 export function useConsoleBook(listingId: string, opts: ConsoleBookOptions = {}): ConsoleBookState {
@@ -98,9 +101,9 @@ export function useConsoleBook(listingId: string, opts: ConsoleBookOptions = {})
   }, [refetch]);
 
   const onEvent = useCallback(
-    (notice: ListingEventNotice) => {
+    (notice: ListingEventNotice, event?: ListingEvent) => {
       if (notice.type === 'pricewatch.released') pendingPriceDrop.current = true;
-      optsRef.current.onNotice?.(notice);
+      optsRef.current.onNotice?.(notice, event);
       refetch.trigger();
     },
     [refetch],
