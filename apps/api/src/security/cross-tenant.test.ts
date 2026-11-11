@@ -67,6 +67,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
   let shopperA: string;
   let shopperB: string;
   let bidA: { id: string; paypal_authorization_id: string };
+  let bidB: string;
   let mandateA: string;
   let conversationA: string;
   let actionA: string;
@@ -185,7 +186,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
     mandateA = (await fx.mandate(shopperA)).id;
     bidA = await fx.heldBid(listingA.id, shopperA, { amountCents: 22_000 });
     // Shopper B has a bid of their own, so "B sees only B" is checked on a non-empty list.
-    await fx.heldBid(listingA.id, shopperB, { amountCents: 21_000 });
+    bidB = (await fx.heldBid(listingA.id, shopperB, { amountCents: 21_000 })).id;
     conversationA = (
       await one<{ id: string }>(
         `INSERT INTO agent_conversations (shopper_id, title) VALUES ($1, 'Headphones') RETURNING id`,
@@ -521,7 +522,16 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
         }),
       });
       expect(res.status).toBe(200);
-      expect(await res.text()).not.toContain(bidA.id);
+      // JSON-RPC and tool errors are HTTP 200 too: require a successful result listing B's bid.
+      const body = (await res.json()) as {
+        error?: unknown;
+        result?: { isError?: boolean; structuredContent?: unknown };
+      };
+      expect(body.error).toBeUndefined();
+      expect(body.result?.isError).toBeFalsy();
+      const listed = JSON.stringify(body.result);
+      expect(listed).toContain(bidB);
+      expect(listed).not.toContain(bidA.id);
     });
   });
 });
