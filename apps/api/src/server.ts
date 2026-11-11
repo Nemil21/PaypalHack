@@ -40,6 +40,7 @@ import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerOfferRoutes } from './routes/offers.js';
+import { registerShareRoutes } from './routes/share.js';
 import {
   registerPayPalWebhookRoute,
   type PayPalWebhookRouteDeps,
@@ -189,6 +190,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     });
   }
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
+  if (deps.sql) registerShareRoutes(app, { db: deps.sql });
   // W19 tokens and `/mcp` (HF-043): bearer token only, scopes checked per tool.
   if (deps.sql) registerMcpClientRoutes(app, { db: deps.sql });
   // HF-044a: the MCP server runs on the bid service's deps; without them, the placeholder.

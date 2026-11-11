@@ -18,6 +18,9 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => setOpen(false), [location.pathname]);
+  // `/o/:slug?embed=1` (HF-055): no header, nav or footer, for W10 previews. The widget itself
+  // opens a normal tab (PayPal approval can't be framed), so this is never the shopper's path.
+  const embed = isEmbed(location.pathname, location.search);
 
   // B → brand console, P → place a bid; guarded in lib/shortcuts.ts, can be turned off.
   const [shortcuts, setShortcuts] = useState(() => shortcutsEnabled(safeStorage()));
@@ -38,52 +41,58 @@ export function AppShell() {
 
   return (
     <div className="relative min-h-dvh">
-      <Guides />
-      <header className="relative z-10 mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8 lg:h-[88px] lg:px-18">
-        <Link to={paths.home} className="text-[23px] font-semibold tracking-headline text-ink">
-          Holdfast
-        </Link>
-        <nav aria-label="Main" className="hidden items-center gap-8 lg:flex">
-          <ul className="flex items-center gap-[30px]">
-            {links.map((l) => (
-              <li key={l.to}>
-                <NavLink
-                  to={l.to}
-                  className={({ isActive }) =>
-                    cn(
-                      'font-mono text-[13px] tracking-[0.02em] hover:text-ink',
-                      isActive ? 'text-ink' : 'text-body',
-                    )
-                  }
-                >
-                  {l.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center gap-2">
-            <ButtonLink to={paths.brand} variant="secondary" shortcut={shortcuts ? 'B' : undefined}>
-              For brands
-            </ButtonLink>
-            <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)} shortcut={shortcuts ? 'P' : undefined}>
-              Place a bid
-            </ButtonLink>
+      {!embed && <Guides />}
+      {!embed && (
+        <header className="relative z-10 mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8 lg:h-[88px] lg:px-18">
+          <Link to={paths.home} className="text-[23px] font-semibold tracking-headline text-ink">
+            Holdfast
+          </Link>
+          <nav aria-label="Main" className="hidden items-center gap-8 lg:flex">
+            <ul className="flex items-center gap-[30px]">
+              {links.map((l) => (
+                <li key={l.to}>
+                  <NavLink
+                    to={l.to}
+                    className={({ isActive }) =>
+                      cn(
+                        'font-mono text-[13px] tracking-[0.02em] hover:text-ink',
+                        isActive ? 'text-ink' : 'text-body',
+                      )
+                    }
+                  >
+                    {l.label}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center gap-2">
+              <ButtonLink
+                to={paths.brand}
+                variant="secondary"
+                shortcut={shortcuts ? 'B' : undefined}
+              >
+                For brands
+              </ButtonLink>
+              <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)} shortcut={shortcuts ? 'P' : undefined}>
+                Place a bid
+              </ButtonLink>
+            </div>
+          </nav>
+          <div className="flex items-center gap-2 lg:hidden">
+            <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)}>Place a bid</ButtonLink>
+            <button
+              type="button"
+              className="label h-9 rounded-sm border border-border px-3 text-[13px] text-charcoal"
+              aria-expanded={open}
+              aria-controls="mobile-nav"
+              onClick={() => setOpen((o) => !o)}
+            >
+              {open ? 'Close' : 'Menu'}
+            </button>
           </div>
-        </nav>
-        <div className="flex items-center gap-2 lg:hidden">
-          <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)}>Place a bid</ButtonLink>
-          <button
-            type="button"
-            className="label h-9 rounded-sm border border-border px-3 text-[13px] text-charcoal"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            onClick={() => setOpen((o) => !o)}
-          >
-            {open ? 'Close' : 'Menu'}
-          </button>
-        </div>
-      </header>
-      {open && (
+        </header>
+      )}
+      {!embed && open && (
         <nav
           id="mobile-nav"
           aria-label="Main"
@@ -105,19 +114,26 @@ export function AppShell() {
       </main>
       {/* Shown at every width: the listener is active everywhere (hardware keyboards on tablets,
           narrow or zoomed windows), so the opt-out and the key names must be too (WCAG 2.1.4). */}
-      <footer className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-8 sm:px-8 lg:px-18">
-        <button
-          type="button"
-          onClick={toggleShortcuts}
-          aria-pressed={shortcuts}
-          className="label text-[11px] text-muted hover:text-ink"
-        >
-          Keyboard shortcuts (B brands, P place a bid) {shortcuts ? 'on' : 'off'} · turn{' '}
-          {shortcuts ? 'off' : 'on'}
-        </button>
-      </footer>
+      {!embed && (
+        <footer className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-8 sm:px-8 lg:px-18">
+          <button
+            type="button"
+            onClick={toggleShortcuts}
+            aria-pressed={shortcuts}
+            className="label text-[11px] text-muted hover:text-ink"
+          >
+            Keyboard shortcuts (B brands, P place a bid) {shortcuts ? 'on' : 'off'} · turn{' '}
+            {shortcuts ? 'off' : 'on'}
+          </button>
+        </footer>
+      )}
     </div>
   );
+}
+
+/** Embed mode (HF-055): only offer pages honour `?embed=1`. */
+export function isEmbed(pathname: string, search: string): boolean {
+  return pathname.startsWith('/o/') && new URLSearchParams(search).get('embed') === '1';
 }
 
 /** The v3 thin vertical guide lines, 48 px in from the content column's edges. */

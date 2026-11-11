@@ -39,4 +39,9 @@ export default tseslint.config(
       'no-restricted-globals': ['error', 'process', 'Buffer', 'require', '__dirname', '__filename'],
     },
   },
+  {
+    // HF-055 embed widget: a plain browser script served as-is from apps/web/public.
+    files: ['apps/web/public/**/*.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.browser } },
+  },
 );

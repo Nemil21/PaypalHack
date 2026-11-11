@@ -79,6 +79,40 @@ export function parseSourceParam(raw: string | null): string | null {
   return raw && /^[a-z0-9_-]{1,32}$/i.test(raw) ? raw.toLowerCase() : null;
 }
 
+/**
+ * Attribution (HF-055): `?utm_source=` from a share link or the widget (`utm_medium=widget`),
+ * else `?src=agent|mcp`. The source goes into `POST /bids` as `utmSource`.
+ */
+export function attributionOf(params: URLSearchParams): {
+  source: string | null;
+  medium: string | null;
+} {
+  return {
+    source: parseSourceParam(params.get('utm_source')) ?? parseSourceParam(params.get('src')),
+    medium: parseSourceParam(params.get('utm_medium')),
+  };
+}
+
+/**
+ * Whether this tab should log a click for `slug` + `source` (`POST /api/offers/:slug/clicks`),
+ * marking it done: a reload, or coming back from PayPal, is the same visit. Storage that throws
+ * (private mode, blocked) still logs once per page load.
+ */
+export function claimClick(
+  storage: Pick<Storage, 'getItem' | 'setItem'> | null,
+  slug: string,
+  source: string,
+): boolean {
+  const key = `hf-click:${slug}:${source}`;
+  try {
+    if (!storage || storage.getItem(key)) return !storage;
+    storage.setItem(key, '1');
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 /** Starting price: the deep link, else the ~18%-below-public suggestion, else the band. */
 export function initialAmount(offer: OfferView, amountParam: number | null): number {
   return (

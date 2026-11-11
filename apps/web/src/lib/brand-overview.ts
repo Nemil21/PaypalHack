@@ -18,7 +18,7 @@ export const BRAND_NAV: ReadonlyArray<{ label: string; to: string; soon?: string
   { label: 'Overview', to: paths.brand },
   { label: 'Listings', to: `${paths.brand}#listings` },
   { label: 'Payouts', to: paths.brandPayouts, soon: 'HF-059b' },
-  { label: 'Embed', to: paths.brandEmbed, soon: 'HF-055' },
+  { label: 'Embed', to: paths.brandEmbed },
   { label: 'Settings', to: paths.brandSettings, soon: 'HF-056' },
 ];
 
