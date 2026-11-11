@@ -94,13 +94,21 @@ export function carrierTrackingUrl(
 }
 
 /**
- * Stage from the shipments row. Without carrier events we only know "has a tracking number"
- * (shipped) and DELIVERED; out for delivery is reached together with delivered.
+ * Shipment statuses whose tracking PayPal has accepted (HF-059b). A PENDING row (the `pp.track`
+ * call is in flight or must be retried) or a TRACKING_FAILED one (PayPal refused the number)
+ * carries the brand's typed carrier and number, but the parcel is not shipped as far as the
+ * winner is concerned: show neither.
+ */
+export const TRACKED_SHIPMENT_STATUSES: ReadonlySet<string> = new Set(['SHIPPED', 'DELIVERED']);
+
+/**
+ * Stage from the shipments row. Without carrier events we only know "PayPal has the tracking
+ * number" (shipped) and DELIVERED; out for delivery is reached together with delivered.
  */
 export function shippingStage(
   s: { status: string; tracking_number: string | null } | null,
 ): ShippingStage {
-  if (!s) return 'ORDERED';
+  if (!s || !TRACKED_SHIPMENT_STATUSES.has(s.status)) return 'ORDERED';
   if (s.status === 'DELIVERED') return 'DELIVERED';
   return s.tracking_number ? 'SHIPPED' : 'ORDERED';
 }
@@ -149,6 +157,8 @@ export async function getWonView(
   const captured = moneyCopyKey(bid.status) === 'charged';
   // INV-5: the authorization equals the bid; fall back to the bid for a row predating it.
   const chargedCents = row.authorized_amount_cents ?? row.amount_cents;
+  // Only tracking PayPal accepted is shown; an in-flight or refused number stays hidden.
+  const tracked = row.shipment_status != null && TRACKED_SHIPMENT_STATUSES.has(row.shipment_status);
   const shipment =
     row.shipment_status == null
       ? null
@@ -158,10 +168,10 @@ export async function getWonView(
             status: row.shipment_status,
             tracking_number: row.tracking_number,
           }),
-          carrier: row.carrier,
-          trackingNumber: row.tracking_number,
-          trackingUrl: carrierTrackingUrl(row.carrier, row.tracking_number),
-          shippedAt: row.shipped_at?.toISOString() ?? null,
+          carrier: tracked ? row.carrier : null,
+          trackingNumber: tracked ? row.tracking_number : null,
+          trackingUrl: tracked ? carrierTrackingUrl(row.carrier, row.tracking_number) : null,
+          shippedAt: tracked ? (row.shipped_at?.toISOString() ?? null) : null,
           updatedAt: (row.shipment_updated_at ?? new Date()).toISOString(),
         };
 
