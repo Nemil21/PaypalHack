@@ -278,7 +278,7 @@ Status at the freeze (Nov 12, 2026). **Merged** = on `main`. **In review** = PR 
 | Growth | Embed widget and share links | HF-055 | P1 | **Merged** |
 | Brand | Brand settings: DNS verification, team invites, retailer allowlist | HF-056 | P1 | **Merged** |
 | Growth | Marketing landing page | HF-057 | P1 | **Merged** |
-| Ops | Ops / audit screen, health, nightly capture reconcile | HF-058 | P1 | In review (#79) |
+| Ops | Ops / audit screen, health, nightly capture reconcile | HF-058 | P1 | **Merged** |
 | Shopper | Won page | HF-059a | P1 | **Merged** |
 | Brand | Payouts and reports; shipment tracking | HF-059b | P1 | **Merged** |
 | Brand console | Bryntum Gantt: settlement fan-out, then order timeline | HF-060 | P1 | Not started |
