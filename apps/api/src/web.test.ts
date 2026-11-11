@@ -145,7 +145,11 @@ describe('cookie and SSE on the SPA origin', () => {
     const page = await fetch(`${origin}/brand/listings/l1`, { headers: html });
     expect(await page.text()).toBe(INDEX);
 
-    const login = await fetch(`${origin}/api/test/session`, { method: 'POST' });
+    // Mutating calls need an Idempotency-Key (HF-006).
+    const login = await fetch(`${origin}/api/test/session`, {
+      method: 'POST',
+      headers: { 'Idempotency-Key': 'login-1' },
+    });
     const cookie = login.headers.get('set-cookie')?.split(';')[0] ?? '';
     expect(cookie).toBe('hf_session=s1');
 

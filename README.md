@@ -203,6 +203,8 @@ Notes:
 - **Wallet holds** (a PayPal account) need the buyer's approval in a browser.
 - **Reauthorization is untested.** The whole timeline stays inside PayPal's 3-day card-hold guarantee: a bidding window of at most 48 h, live rounds of at most 6 h, then Clear within 6 h. Clear releases any hold older than 66 h and refuses to run if a winner's hold would be that old.
 - **Simulated liquidity.** Most bidders in the demo are simulated and labelled SIM.
+- **One web instance.** Rate limits (REST 60/min per user, MCP 30/min per token, buyer agent 20 turns/min), used magic-link tokens, SSE fan-out and background jobs live in the one web process. That is correct only with a single instance, which is how the hackathon deploy runs. Several instances would need a shared store (Postgres or Redis) behind the same limiter interface.
+- **Shopper sign-in** is an email magic link; until email delivery ships (HF-054b) the link is printed to the server console locally and not sent in production. `DEMO_MODE` adds "Sign in as demo brand / demo shopper" for judges.
 - **Render Workflows:** TODO (HF-030b). State whether Workflows or the in-process coordinator settled the demo.
 - **PayPal webhooks:** TODO (HF-033). State whether webhooks are live and verified, or whether the payout and order polls are the only path.
 - **Not built (production path, described only):** disputes and refunds (refund the capture, claw back from the next payout), brand API keys, multiparty `platform_fees`.
@@ -222,7 +224,7 @@ Status as of this draft (Nov 11, 2026). **Merged** = on `main`. **In review** = 
 | Clearing | Pure pay-your-bid `clear()`, eligibility, `loadClearInput` | HF-005 | P0 | **Merged** |
 | Clearing | Clear transaction (locks, outbox, reserve, hold-age release) | HF-027 | P0 | Not started |
 | Clearing | Clear confirmation modal | HF-028 | P0 | Not started |
-| Auth | Sessions, anonymous shopper, `DEMO_MODE` logins, CSRF, rate limits | HF-006 | P0 | Not started |
+| Auth | Sessions, anonymous shopper, `DEMO_MODE` logins, CSRF, rate limits | HF-006 | P0 | In review |
 | Auth | Brand sign-in with Log in with PayPal | HF-010 | P0 | Not started |
 | Brand | Admin brand verification and publish guard | HF-011a | P0 | Not started |
 | Brand | Brand verification onboarding | HF-011b | P0 | Not started |

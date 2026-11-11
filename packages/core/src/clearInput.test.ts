@@ -28,6 +28,8 @@ describe.skipIf(!adminUrl)('loadClearInput (Postgres)', () => {
     url.pathname = `/${dbName}`;
     await migrate({ connectionString: url.toString() });
     pool = new pg.Pool({ connectionString: url.toString(), max: 4 });
+    // DROP DATABASE … WITH (FORCE) at teardown terminates connections that are still closing.
+    pool.on('error', () => {});
   });
 
   afterAll(async () => {
