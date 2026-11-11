@@ -1,4 +1,13 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
 import type { BookListing, BrandListingView, ListingPhaseName } from '@holdfast/shared';
 import {
@@ -15,6 +24,7 @@ import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../.
 import { cn } from '../../lib/cn';
 import { createBidRowTracker, type BidRowTracker } from '../../lib/console/bids-grid';
 import { buildCurveModel } from '../../lib/console/curve';
+import { m10State } from '../../lib/console/m10';
 import { consoleKpisAt, type ConsoleKpis } from '../../lib/console/kpis';
 import { navPhaseLabel, phaseView } from '../../lib/console/phase';
 import {
@@ -31,6 +41,7 @@ import { useRoundsActivity } from '../../lib/console/use-rounds-activity';
 import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
 import { ConsoleHeader, ShareButton } from './ConsoleHeader';
+import { MobileListing, useConsoleLayout } from './MobileListing';
 
 const ConsoleKpiStudio = lazy(() => import('../../components/ag/ConsoleKpiStudio'));
 const DemandCurveChart = lazy(() => import('../../components/ag/DemandCurveChart'));
@@ -61,6 +72,9 @@ export function ListingConsole() {
   const toast = useToast();
   const navigate = useNavigate();
   const now = useNow();
+  // M10 on a phone (HF-061): the same live book, stores and Clear flow, laid out for 375 px.
+  const mobile = useConsoleLayout() === 'mobile';
+  const [clearedHere, setClearedHere] = useState<string | null>(null);
 
   // The bids grid's row model (HF-025), per listing. `bid.raised` notices tell it which new bid
   // replaces which, so a raise updates its row in place when the refetched book lands.
@@ -126,14 +140,27 @@ export function ListingConsole() {
   const locked = phase?.locked ?? false;
 
   // A live switch into CLEARING (Clear from another tab, or HF-028's modal) hands over to W08.
+  // M10 stays put and shows progress in place.
   const lastPhase = useRef<string | null>(null);
   useEffect(() => {
     if (!phase) return;
-    if (lastPhase.current && lastPhase.current !== 'CLEARING' && phase.phase === 'CLEARING') {
+    if (
+      !mobile &&
+      lastPhase.current &&
+      lastPhase.current !== 'CLEARING' &&
+      phase.phase === 'CLEARING'
+    ) {
       navigate(paths.listingSettlement(listingId));
     }
     lastPhase.current = phase.phase;
-  }, [phase, listingId, navigate]);
+  }, [phase, listingId, navigate, mobile]);
+
+  const { refresh: refreshBook } = live;
+  const onMobileCleared = useCallback(() => {
+    setClearedHere(listingId);
+    refreshBook();
+    reloadListings();
+  }, [listingId, refreshBook, reloadListings]);
 
   if (live.error) {
     return (
@@ -147,6 +174,36 @@ export function ListingConsole() {
           />
         </div>
       </ConsoleFrame>
+    );
+  }
+
+  if (mobile) {
+    const settling = phase && ['clearing', 'done'].includes(m10State(phase.phase));
+    return (
+      <SliderContext.Provider value={slider}>
+        <MobileListing
+          book={book}
+          phase={phase}
+          now={now}
+          viewer={viewer}
+          store={store}
+          slider={slider}
+          clearedHere={clearedHere === listingId}
+          onCleared={onMobileCleared}
+          banners={
+            <StatusBanners
+              live={live}
+              // M10 shows clearing progress and the cleared state itself.
+              phase={settling ? null : (phase?.phase ?? null)}
+              viewer={false}
+              listingId={listingId}
+              roundsEnded={
+                phase?.phase === 'ROUNDS_ENDED' && listing ? roundsEndedCopy(listing) : null
+              }
+            />
+          }
+        />
+      </SliderContext.Provider>
     );
   }
 

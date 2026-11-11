@@ -3,6 +3,26 @@ import { recommendationView, type RecommendationChoice } from '../../lib/console
 import { useSlider, useSliderStore } from '../../lib/console/slider-store';
 import { Button } from '../ui';
 
+export interface ApplyLabels {
+  apply: string;
+  applyAlternative: string;
+  /** The quantity is already the one applied. */
+  current: string;
+}
+
+const SLIDER_LABELS: ApplyLabels = {
+  apply: 'Apply to slider',
+  applyAlternative: 'Apply',
+  current: 'On the slider',
+};
+
+/** M10 (HF-061): no slider on the phone; the card sets the quantity "Review & clear" uses. */
+export const M10_LABELS: ApplyLabels = {
+  apply: 'Use this',
+  applyAlternative: 'Use',
+  current: 'Selected',
+};
+
 /**
  * W06 brand agent panel, code-only part (HF-051a, features/09 §Logic 4): the recommendation card
  * and "Apply to slider". Applying sets the slider store's quantity (exact `clear()` at once); it
@@ -13,10 +33,13 @@ export function RecommendationCard({
   recommendation,
   disabled = false,
   prose = null,
+  labels = SLIDER_LABELS,
 }: {
   recommendation: Recommendation;
   disabled?: boolean;
   prose?: string | null;
+  /** Button copy: W06 applies to the slider; M10 (HF-061) to the quantity it will clear. */
+  labels?: ApplyLabels;
 }) {
   const store = useSliderStore();
   const slider = useSlider();
@@ -54,7 +77,7 @@ export function RecommendationCard({
             disabled={disabled || onSlider(view.primary.quantity)}
             data-testid="apply-recommendation"
           >
-            {onSlider(view.primary.quantity) ? 'On the slider' : 'Apply to slider'}
+            {onSlider(view.primary.quantity) ? labels.current : labels.apply}
           </Button>
         </div>
       )}
@@ -72,6 +95,7 @@ export function RecommendationCard({
               key={a.quantity}
               choice={a}
               current={onSlider(a.quantity)}
+              labels={labels}
               disabled={disabled}
               onApply={() => apply(a.quantity)}
             />
@@ -85,11 +109,13 @@ export function RecommendationCard({
 function Alternative({
   choice,
   current,
+  labels,
   disabled,
   onApply,
 }: {
   choice: RecommendationChoice;
   current: boolean;
+  labels: ApplyLabels;
   disabled: boolean;
   onApply(): void;
 }) {
@@ -101,7 +127,7 @@ function Alternative({
         {choice.warning && <span className="text-[12px] text-orange">{choice.warning}</span>}
       </div>
       <Button variant="ghost" onClick={onApply} disabled={disabled || current}>
-        {current ? 'On the slider' : 'Apply'}
+        {current ? labels.current : labels.applyAlternative}
       </Button>
     </li>
   );
