@@ -1,5 +1,5 @@
 /**
- * HF-044a `/mcp`: the four tools through the MCP client SDK (Streamable HTTP) against the real
+ * HF-044a/b `/mcp`: the five tools through the MCP client SDK (Streamable HTTP) against the real
  * server (HF-043 token guard + scope gate, real `mcp_clients` tokens) on Postgres with the
  * `FakePayPal` stub. Needs TEST_DATABASE_URL; skipped when unset.
  *   TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres npx vitest run apps/api/src/mcp/server.test.ts
@@ -146,7 +146,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-044a MCP server', () => {
 
   // -------------------------------------------------------------------------------------------
 
-  it('lists the four tools with plain-money descriptions and cents schemas', async () => {
+  it('lists the five tools with plain-money descriptions and cents schemas', async () => {
     const s = await fx.shopper();
     const { c } = await connect(s.id);
     const { tools } = await c.listTools();
@@ -155,6 +155,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-044a MCP server', () => {
       'get_book',
       'my_bids',
       'place_bid',
+      'raise_bid',
     ]);
     const place = tools.find((t) => t.name === 'place_bid')!;
     expect(place.description).toContain(
@@ -601,6 +602,360 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-044a MCP server', () => {
         cutoffCents: 24_000,
         cutoffFormatted: '$240',
       });
+    });
+  });
+
+  describe('raise_bid (HF-044b)', () => {
+    /** Brand starts live rounds (D7): new bids stop, raises run until `rounds_end_at`. */
+    async function startRounds(listingId: string, roundsEndInMinutes = 60) {
+      await q(
+        `UPDATE listings SET status = 'ROUNDS', window_closes_at = least(window_closes_at, now()),
+                rounds_started_at = now(), current_round = 1,
+                rounds_end_at = now() + make_interval(mins => $2)
+          WHERE id = $1`,
+        [listingId, roundsEndInMinutes],
+      );
+    }
+
+    /** A ready shopper's $219 MCP bid on a listing now in live rounds, nudged at a $240 cutoff. */
+    async function nudgedBid(mandate: { maxPriceCents?: number; capCents?: number } = {}) {
+      const l = await listing();
+      const shopperId = await readyShopper(mandate);
+      const conn = await connect(shopperId);
+      const placed = await conn.call('place_bid', {
+        listingSlug: l.slug,
+        amountCents: 21_900,
+        idempotencyKey: `place-${randomUUID()}`,
+      });
+      expect(data(placed).status).toBe('HELD');
+      const bidId = data(placed).bidId as string;
+      await startRounds(l.id);
+      await q(
+        `INSERT INTO nudges (listing_id, round, shopper_id, bid_id, cutoff_cents, target_cents,
+                             your_bid_cents, sent_at)
+         VALUES ($1, 1, $2, $3, 24_000, 24_100, 21_900, now())`,
+        [l.id, shopperId, bidId],
+      );
+      return { l, shopperId, bidId, ...conn };
+    }
+
+    const orderCreates = () => fake.calls.filter((x) => x.op === 'order_create').length;
+
+    it('during ROUNDS: a nudged bid is raised with a new hold, the old one released, source MCP on the feed', async () => {
+      const { l, bidId, call, clientId, shopperId } = await nudgedBid();
+      const auth0 = (await fx.bid(bidId)).paypal_authorization_id as string;
+      // The bid was placed elsewhere (offer page): the raise itself still shows as MCP.
+      await q(`UPDATE bids SET source = 'OFFER_PAGE' WHERE id = $1`, [bidId]);
+
+      const mine = data(await call('my_bids')).bids as Array<Record<string, unknown>>;
+      expect(mine.find((b) => b.bidId === bidId)).toMatchObject({
+        belowCutoff: true,
+        cutoffCents: 24_000,
+      });
+
+      const listener = new pg.Client({ connectionString: tdb.url });
+      await listener.connect();
+      await listener.query(`LISTEN ${LISTING_EVENTS_CHANNEL}`);
+      const raisedEvent = new Promise<Record<string, unknown>>((resolve) => {
+        listener.on('notification', (n) => {
+          const p = JSON.parse(n.payload ?? '{}') as Record<string, unknown>;
+          if (p.listingId === l.id && p.type === 'bid.raised') resolve(p);
+        });
+      });
+      try {
+        const r = await call('raise_bid', {
+          bidId,
+          amountCents: 24_100,
+          idempotencyKey: 'raise-1',
+        });
+        expect(r.isError).toBeFalsy();
+        expect(data(r)).toMatchObject({
+          status: 'HELD',
+          amountCents: 24_100,
+          amountFormatted: '$241',
+          previousBidId: bidId,
+          previousAmountCents: 21_900,
+          previousAmountFormatted: '$219',
+          previousStatus: 'VOIDED',
+          listingSlug: l.slug,
+          raiseCount: 1,
+          message: 'New $241 hold placed · $219 hold released',
+        });
+        const newId = data(r).bidId as string;
+        expect(newId).not.toBe(bidId);
+
+        // The notice carries ids; the SSE layer rebuilds `bid.raised` (and its `source`) from
+        // the new bid row, which is tagged MCP below.
+        expect(await raisedEvent).toMatchObject({ ids: { bidId: newId, replacesBidId: bidId } });
+
+        const fresh = await fx.bid(newId);
+        expect(fresh).toMatchObject({
+          status: 'HELD',
+          source: 'MCP',
+          payment_method: 'VAULT',
+          replaces_bid_id: bidId,
+          shopper_id: shopperId,
+        });
+        expect(fake.authorization(fresh.paypal_authorization_id as string)?.status).toBe('CREATED');
+        const old = await fx.bid(bidId);
+        expect(old).toMatchObject({ status: 'VOIDED', void_reason: 'REPLACED' });
+        expect(fake.authorization(auth0)?.status).toBe('VOIDED');
+
+        const audits = await q<{ actor_type: string; actor_id: string; action: string }>(
+          `SELECT actor_type, actor_id, action FROM audit_events WHERE entity_id = $1`,
+          [newId],
+        );
+        expect(audits.map((a) => a.action)).toEqual(
+          expect.arrayContaining(['BID_RAISE_REQUESTED', 'BID_RAISED']),
+        );
+        for (const a of audits) {
+          expect(a).toMatchObject({ actor_type: 'MCP_CLIENT', actor_id: clientId });
+        }
+      } finally {
+        await listener.end();
+      }
+    });
+
+    it('same key + same args → same result, one hold; same key + different amount → DUPLICATE', async () => {
+      const { bidId, call } = await nudgedBid();
+      const args = { bidId, amountCents: 24_100, idempotencyKey: 'raise-dup' };
+      const first = await call('raise_bid', args);
+      expect(data(first).status).toBe('HELD');
+      const before = orderCreates();
+
+      const again = await call('raise_bid', args);
+      expect(again.isError).toBeFalsy();
+      expect(data(again)).toEqual(data(first));
+
+      const diff = await call('raise_bid', { ...args, amountCents: 25_000 });
+      expect(diff.isError).toBe(true);
+      expect(text(diff)).toBe(
+        'DUPLICATE: This idempotencyKey was used for a raise to $241. Use a new key for each raise.',
+      );
+      // A place_bid key can't be reused for a raise either.
+      const l2 = await listing();
+      await call('place_bid', { listingSlug: l2.slug, amountCents: 21_000, idempotencyKey: 'pk' });
+      const reused = await call('raise_bid', {
+        bidId: data(first).bidId,
+        amountCents: 26_000,
+        idempotencyKey: 'pk',
+      });
+      expect(text(reused)).toMatch(/^DUPLICATE: /);
+      expect(orderCreates()).toBe(before + 1); // only the place_bid on l2
+    });
+
+    it('after rounds_end_at → WINDOW_CLOSED; a lower or equal amount and a sub-minimum raise are refused', async () => {
+      const { l, bidId, call } = await nudgedBid();
+      const before = orderCreates();
+
+      for (const amountCents of [20_000, 21_900]) {
+        const low = await call('raise_bid', { bidId, amountCents, idempotencyKey: randomUUID() });
+        expect(low.isError).toBe(true);
+        expect(text(low)).toMatch(/^VALIDATION_ERROR: raise_bid only raises\. Your bid is \$219/);
+        expect(data(low).error).toMatchObject({
+          currentAmountCents: 21_900,
+          minAmountCents: 22_119,
+        });
+      }
+      const tiny = await call('raise_bid', {
+        bidId,
+        amountCents: 22_000,
+        idempotencyKey: randomUUID(),
+      });
+      expect(text(tiny)).toMatch(/^VALIDATION_ERROR: Raise to at least \$221\.19/);
+
+      await q(`UPDATE listings SET rounds_end_at = now() - interval '1 second' WHERE id = $1`, [
+        l.id,
+      ]);
+      const late = await call('raise_bid', {
+        bidId,
+        amountCents: 24_100,
+        idempotencyKey: randomUUID(),
+      });
+      expect(late.isError).toBe(true);
+      expect(text(late)).toBe(
+        'WINDOW_CLOSED: Rounds ended. Waiting for the brand to clear. Your $219 bid still stands.',
+      );
+      expect(data(late).error).toMatchObject({ code: 'WINDOW_CLOSED', roundsEnded: true });
+      expect(orderCreates()).toBe(before);
+      expect((await fx.bid(bidId)).status).toBe('HELD');
+    });
+
+    it('above the mandate max → ABOVE_MANDATE_MAX tool error with the bid-page link, no hold', async () => {
+      const { bidId, call } = await nudgedBid({ maxPriceCents: 23_000 });
+      const before = orderCreates();
+      const r = await call('raise_bid', { bidId, amountCents: 24_100, idempotencyKey: 'max' });
+      expect(r.isError).toBe(true);
+      expect(text(r)).toMatch(/^ABOVE_MANDATE_MAX: \$241 is above .* max price of \$230/);
+      expect(data(r).error).toMatchObject({
+        maxPriceCents: 23_000,
+        bidUrl: `https://holdfast.example/bids/${bidId}?raise=24100&src=mcp`,
+      });
+      expect(orderCreates()).toBe(before);
+      expect(await q(`SELECT 1 FROM bids WHERE replaces_bid_id = $1`, [bidId])).toHaveLength(0);
+    });
+
+    it('no covering mandate (bid not under one, mandate paused, over cap) → bid-page link, no hold', async () => {
+      const cases: Array<[string, (bidId: string, shopperId: string) => Promise<unknown>]> = [
+        ['BID_NOT_UNDER_MANDATE', (b) => q(`UPDATE bids SET mandate_id = NULL WHERE id = $1`, [b])],
+        [
+          'MANDATE_INACTIVE',
+          (_b, s) => q(`UPDATE mandates SET status = 'PAUSED' WHERE shopper_id = $1`, [s]),
+        ],
+        [
+          'MANDATE_EXCEEDED',
+          (_b, s) =>
+            q(`UPDATE mandates SET total_hold_cap_cents = 23_000 WHERE shopper_id = $1`, [s]),
+        ],
+      ];
+      for (const [reason, setup] of cases) {
+        const { bidId, shopperId, call } = await nudgedBid();
+        await setup(bidId, shopperId);
+        const before = orderCreates();
+        const r = await call('raise_bid', { bidId, amountCents: 24_100, idempotencyKey: 'link' });
+        expect(r.isError).toBeFalsy();
+        expect(data(r)).toMatchObject({
+          bidId,
+          status: 'NEEDS_APPROVAL',
+          reason,
+          amountCents: 24_100,
+          currentAmountCents: 21_900,
+          bidUrl: `https://holdfast.example/bids/${bidId}?raise=24100&src=mcp`,
+        });
+        expect(data(r).message).toContain('No new hold was placed; your $219 bid still stands.');
+        expect(orderCreates()).toBe(before);
+        expect(await q(`SELECT 1 FROM bids WHERE replaces_bid_id = $1`, [bidId])).toHaveLength(0);
+      }
+    });
+
+    it('wallet bid, no saved payment method → HF-018 approveUrl, no new hold; the old bid stands', async () => {
+      const l = await listing();
+      const s = await fx.shopper();
+      await fx.mandate(s.id);
+      const old = await fx.heldBid(l.id, s.id, { amountCents: 21_900 });
+      await q(`UPDATE bids SET payment_method = 'PAYPAL', source = 'OFFER_PAGE' WHERE id = $1`, [
+        old.id,
+      ]);
+      await startRounds(l.id);
+      const { call } = await connect(s.id);
+      const args = { bidId: old.id, amountCents: 24_100, idempotencyKey: 'wallet' };
+      const r = await call('raise_bid', args);
+      expect(r.isError).toBeFalsy();
+      expect(data(r)).toMatchObject({
+        status: 'PENDING_APPROVAL',
+        previousBidId: old.id,
+        amountFormatted: '$241',
+        approveUrl: expect.stringContaining('checkoutnow?token='),
+      });
+      expect(data(r).message).toContain('your $219 bid stands until then');
+      const fresh = await fx.bid(data(r).bidId);
+      expect(fresh).toMatchObject({
+        status: 'PENDING_APPROVAL',
+        source: 'MCP',
+        authorized_at: null,
+      });
+      expect((await fx.bid(old.id)).status).toBe('HELD');
+
+      // Not stored: the same key answers again from the bid row (same order, same link).
+      const before = orderCreates();
+      const again = await call('raise_bid', args);
+      expect(data(again)).toMatchObject({ bidId: data(r).bidId, approveUrl: data(r).approveUrl });
+      expect(orderCreates()).toBe(before);
+    });
+
+    it('a replaced bidId points at the live bid; junk, foreign and read-only calls are refused', async () => {
+      const { bidId, call, shopperId } = await nudgedBid();
+      const raised = await call('raise_bid', { bidId, amountCents: 24_100, idempotencyKey: 'r1' });
+      const stale = await call('raise_bid', { bidId, amountCents: 25_000, idempotencyKey: 'r2' });
+      expect(stale.isError).toBe(true);
+      expect(text(stale)).toBe(
+        `STATE_CONFLICT: This bid was already raised. Your live bid is $241 (bidId ${data(raised).bidId}); raise that one.`,
+      );
+
+      const other = await connect((await fx.shopper()).id);
+      for (const id of [data(raised).bidId as string, randomUUID(), 'nope']) {
+        const r = await other.call('raise_bid', {
+          bidId: id,
+          amountCents: 30_000,
+          idempotencyKey: randomUUID(),
+        });
+        expect(text(r)).toMatch(/^NOT_FOUND: /);
+      }
+      const ro = await connect(shopperId, ['read']);
+      const forbidden = await ro.call('raise_bid', {
+        bidId: data(raised).bidId,
+        amountCents: 30_000,
+        idempotencyKey: 'ro',
+      });
+      expect(text(forbidden)).toMatch(/^FORBIDDEN: /);
+    });
+
+    it('race: the same key fired 5× at once makes one PayPal order and one raise', async () => {
+      const { bidId, call } = await nudgedBid();
+      fake.latencyMs = 150;
+      const before = orderCreates();
+      const args = { bidId, amountCents: 24_100, idempotencyKey: 'race-raise' };
+      const results = await Promise.all(Array.from({ length: 5 }, () => call('raise_bid', args)));
+      fake.latencyMs = 0;
+
+      expect(orderCreates() - before).toBe(1);
+      const raises = await q<{ id: string; status: string }>(
+        `SELECT id, status FROM bids WHERE replaces_bid_id = $1`,
+        [bidId],
+      );
+      expect(raises).toEqual([{ id: expect.any(String), status: 'HELD' }]);
+      for (const r of results) {
+        if (r.isError) expect(text(r)).toMatch(/^IN_PROGRESS: /);
+        else expect(data(r).bidId).toBe(raises[0]!.id);
+      }
+      expect(results.filter((r) => !r.isError).length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('race: different raises of one bid at once → exactly one lands, one live bid, old released', async () => {
+      const { l, bidId, call, shopperId } = await nudgedBid();
+      fake.latencyMs = 100;
+      const results = await Promise.all(
+        [24_100, 24_500, 25_000, 26_000].map((amountCents, i) =>
+          call('raise_bid', { bidId, amountCents, idempotencyKey: `race-diff-${i}` }),
+        ),
+      );
+      fake.latencyMs = 0;
+
+      const ok = results.filter((r) => !r.isError);
+      expect(ok).toHaveLength(1);
+      expect(data(ok[0]!).status).toBe('HELD');
+      for (const r of results.filter((x) => x.isError)) {
+        expect(text(r)).toMatch(/^STATE_CONFLICT: /);
+      }
+      const live = await q<{ id: string }>(
+        `SELECT id FROM bids WHERE shopper_id = $1 AND listing_id = $2
+            AND status IN ('PENDING_APPROVAL', 'HELD')`,
+        [shopperId, l.id],
+      );
+      expect(live).toEqual([{ id: data(ok[0]!).bidId }]);
+      expect((await fx.bid(bidId)).status).toBe('VOIDED');
+    });
+
+    it('race: a raise against rounds ending → either it lands before the end or WINDOW_CLOSED, never both', async () => {
+      const { l, bidId, call } = await nudgedBid();
+      fake.latencyMs = 100;
+      const [r] = await Promise.all([
+        call('raise_bid', { bidId, amountCents: 24_100, idempotencyKey: 'vs-end' }),
+        q(`UPDATE listings SET rounds_end_at = now() WHERE id = $1`, [l.id]),
+      ]);
+      fake.latencyMs = 0;
+      const live = await q<{ id: string; amount_cents: number }>(
+        `SELECT id, amount_cents FROM bids WHERE listing_id = $1 AND status = 'HELD'
+            AND (id = $2 OR replaces_bid_id = $2)`,
+        [l.id, bidId],
+      );
+      expect(live).toHaveLength(1);
+      if (r!.isError) {
+        expect(text(r!)).toMatch(/^(WINDOW_CLOSED|STATE_CONFLICT): /);
+        expect(live[0]!.id).toBe(bidId);
+      } else {
+        expect(live[0]).toEqual({ id: data(r!).bidId, amount_cents: 24_100 });
+      }
     });
   });
 });

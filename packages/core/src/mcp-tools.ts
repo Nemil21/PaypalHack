@@ -1,5 +1,15 @@
-import { formatUsd, isBiddable } from '@holdfast/shared';
+import { formatUsd, isBiddable, isRaisable, roundsRaisedMessage } from '@holdfast/shared';
 import { isUuid } from './agent/history.js';
+import {
+  aboveRaisePriceGuard,
+  minRaiseTargetCents,
+  raiseAmountProblem,
+  raiseBid,
+  raiseBidResponse,
+  type RaiseBidError,
+  type RaiseBidResult,
+  type RaisedBidBody,
+} from './bid-raise.js';
 import { cancelBid, cancelMessage } from './bid-cancel.js';
 import { listMyBids } from './bid-views.js';
 import {
@@ -15,10 +25,11 @@ import type { Queryable } from './db.js';
 import { runIdempotent, shouldStoreResponse, type IdempotentResponse } from './idempotency.js';
 import { checkMandateLimits, liveHoldCents, type MandateDenial } from './mandates.js';
 import type { Actor } from './money/deps.js';
+import type { BidRow } from './money/rows.js';
 import { publicBookBands } from './offers/public-book.js';
 
 /**
- * MCP tools (HF-044a; features/07 §Logic 2–6, api.md §MCP server). Transport-free: `apps/api`
+ * MCP tools (HF-044a, `raise_bid` HF-044b; features/07 §Logic 2–6, api.md §MCP server). Transport-free: `apps/api`
  * registers these with the MCP SDK; each tool calls the same service as REST (`placeBid`,
  * `cancelBid`, `listMyBids`), so mandate checks, idempotency and audit are shared. Audit rows
  * carry `actor_type = MCP_CLIENT` with the token's `mcp_clients.id`.
@@ -414,10 +425,19 @@ function placeError(error: PlaceBidError, input: McpPlaceBidInput): McpToolOutco
   }
 }
 
-/** `DUPLICATE`: "this key was used for a $215 bid". */
-async function duplicateKey(q: Queryable, shopperId: string, key: string): Promise<McpToolOutcome> {
+/**
+ * `DUPLICATE`: "this key was used for a $215 bid" (or "a raise to $241" when the key's bid row is
+ * a raise). `tail` tells the agent what to do next.
+ */
+async function duplicateKey(
+  q: Queryable,
+  shopperId: string,
+  key: string,
+  tail = 'Use a new key for a new bid.',
+): Promise<McpToolOutcome> {
   const bid = await findByKey(q, shopperId, key);
   let amountCents = bid?.amount_cents ?? null;
+  const wasRaise = !!bid && Number(bid.raise_count ?? 0) > 0;
   if (amountCents == null) {
     const stored = await q.query(
       `SELECT response FROM idempotency_keys
@@ -429,11 +449,17 @@ async function duplicateKey(q: Queryable, shopperId: string, key: string): Promi
       ?.amountCents;
     if (typeof fromBody === 'number') amountCents = fromBody;
   }
+  const used =
+    amountCents == null
+      ? null
+      : wasRaise
+        ? `a raise to ${formatUsd(amountCents)}`
+        : `a ${formatUsd(amountCents)} bid`;
   return toolError(
     'DUPLICATE',
-    amountCents == null
-      ? 'This idempotencyKey was already used for a different request. Use a new key for a new bid.'
-      : `This idempotencyKey was used for a ${formatUsd(amountCents)} bid. Use a new key for a new bid.`,
+    used == null
+      ? `This idempotencyKey was already used for a different request. ${tail}`
+      : `This idempotencyKey was used for ${used}. ${tail}`,
     amountCents == null ? {} : { amountCents, amountFormatted: formatUsd(amountCents) },
   );
 }
@@ -458,6 +484,427 @@ function fromResponse(response: IdempotentResponse): McpToolOutcome {
 function isOfferLink(response: IdempotentResponse): boolean {
   const o = fromResponse(response);
   return o.ok && o.result.status === 'NEEDS_APPROVAL';
+}
+
+// ---------------------------------------------------------------------------------------------
+// raise_bid (HF-044b)
+// ---------------------------------------------------------------------------------------------
+
+export interface McpRaiseBidInput {
+  bidId: string;
+  /** The new total amount (not the increment). */
+  amountCents: number;
+  idempotencyKey: string;
+}
+
+/** Idempotency route for MCP `raise_bid` (part of the request hash, M3). */
+export const MCP_RAISE_BID_ROUTE = 'MCP raise_bid';
+
+/** Why `raise_bid` answered with the bid-page link instead of holding. */
+export type RaiseLinkReason = 'NO_SAVED_PAYMENT_METHOD' | 'BID_NOT_UNDER_MANDATE' | MandateDenial;
+
+const RAISE_LINK_NOTES: Record<RaiseLinkReason, string> = {
+  NO_SAVED_PAYMENT_METHOD: "You don't have a saved payment method on Holdfast yet.",
+  BID_NOT_UNDER_MANDATE: "This bid wasn't placed under your agent mandate.",
+  ABOVE_MANDATE_MAX: "This raise is above your agent mandate's max price.",
+  MANDATE_EXCEEDED: "This raise would go over your agent mandate's total hold limit.",
+  PRODUCT_NOT_ALLOWED: "Your agent mandate doesn't cover this product.",
+  MANDATE_INACTIVE: "Your agent mandate isn't active.",
+  MANDATE_EXPIRED: 'Your agent mandate has expired.',
+  MANDATE_NOT_FOUND: "This bid's agent mandate wasn't found.",
+};
+
+/** Our bid page with the raise prefilled (M23), never a PayPal link we made up. */
+export function mcpBidUrl(bidId: string, amountCents: number, appBaseUrl?: string): string {
+  const path = `/bids/${encodeURIComponent(bidId)}?raise=${amountCents}&src=mcp`;
+  return appBaseUrl ? new URL(path, appBaseUrl).toString() : path;
+}
+
+interface OwnBid extends BidRow {
+  listing_slug: string;
+}
+
+interface RaiseListingRef {
+  status: string;
+  window_closes_at: Date | null;
+  rounds_end_at: Date | null;
+  product_id: string;
+  best_public_price_cents: number | null;
+  db_now: Date;
+}
+
+/**
+ * `raise_bid` → HF-018 `raiseBid` with `source = MCP` (the same `landHold` swap as REST): the new
+ * hold lands, the old one is released.
+ *
+ * - Vaulted shopper and the bid's own mandate covers the new amount (old hold excluded, D12) →
+ *   new VAULT hold now: "New $241 hold placed · $219 hold released".
+ * - No saved payment method and a PayPal wallet bid → HF-018's wallet raise: a PENDING_APPROVAL
+ *   bid and the PayPal `approveUrl`; nothing new is held until the shopper approves.
+ * - Otherwise → our bid-page link (`/bids/:id?raise=…&src=mcp`); no bid row, no PayPal call.
+ *
+ * Tool errors: lowering or an equal amount (`VALIDATION_ERROR`), below the minimum raise,
+ * `WINDOW_CLOSED` (not raisable per D7, incl. after `rounds_end_at`), `ABOVE_MANDATE_MAX`,
+ * `PRICE_DROPPED`, `DUPLICATE` (same key, different arguments), plus `raiseBid`'s own failures.
+ *
+ * Idempotency as `place_bid`: per shopper, route `MCP raise_bid`, hash of `{bidId, amountCents}`;
+ * answers that wait on the shopper (link, approveUrl) are not stored, so the same key finishes
+ * the raise later. `raiseBid`'s bid-row key check replays an unstored attempt.
+ */
+export async function mcpRaiseBid(
+  deps: McpPlaceBidDeps,
+  caller: McpCaller,
+  input: McpRaiseBidInput,
+): Promise<McpToolOutcome> {
+  if (!isUuid(input.bidId)) return bidNotFound();
+  const outcome = await runIdempotent(
+    deps.db,
+    {
+      principal: { type: 'SHOPPER', id: caller.shopperId },
+      key: input.idempotencyKey,
+      route: MCP_RAISE_BID_ROUTE,
+      body: { bidId: input.bidId, amountCents: input.amountCents },
+    },
+    async () => toResponse(await decideRaise(deps, caller, input)),
+    (r) => shouldStoreResponse(r) && !awaitsShopper(r),
+  );
+  switch (outcome.kind) {
+    case 'MISMATCH':
+      return duplicateKey(
+        deps.db.pool,
+        caller.shopperId,
+        input.idempotencyKey,
+        'Use a new key for each raise.',
+      );
+    case 'IN_PROGRESS':
+      return toolError(
+        'IN_PROGRESS',
+        'A raise_bid with this idempotencyKey is still running. Wait a moment and retry with the same key.',
+      );
+    default:
+      return fromResponse(outcome.response);
+  }
+}
+
+const bidNotFound = () =>
+  toolError('NOT_FOUND', 'No bid of yours has that bidId. Use my_bids to list your bids.');
+
+async function decideRaise(
+  deps: McpPlaceBidDeps,
+  caller: McpCaller,
+  input: McpRaiseBidInput,
+): Promise<McpToolOutcome> {
+  const pool = deps.db.pool;
+  const old = await loadOwnBid(pool, caller.shopperId, input.bidId);
+  if (!old) return bidNotFound();
+
+  const raise = async () =>
+    raisedOutcome(
+      deps,
+      caller,
+      input,
+      old,
+      await raiseBid(deps, {
+        bidId: old.id,
+        amountCents: input.amountCents,
+        shopperId: caller.shopperId,
+        idempotencyKey: input.idempotencyKey,
+        actor: actorOf(caller),
+        // The shopper asked their assistant for this exact raise: customer-initiated, not one
+        // of the M11-capped agent auto-raises (same as place_bid).
+        agentInitiated: false,
+        initiator: 'CUSTOMER',
+        source: 'MCP',
+      }),
+    );
+
+  // The key already made a raise (an earlier answer that wasn't stored): `raiseBid` replays it.
+  if (await findByKey(pool, caller.shopperId, input.idempotencyKey)) return raise();
+
+  if (input.amountCents <= old.amount_cents) return notARaise(old, input.amountCents);
+  if (old.status !== 'HELD') return notHeld(pool, old);
+
+  const listing = await loadRaiseListing(pool, old.listing_id);
+  if (!listing || !raisableListing(listing)) {
+    return refusal(old, {
+      code: 'WINDOW_CLOSED',
+      bidId: null,
+      amountCents: input.amountCents,
+      released: false,
+      roundsEnded: listing?.status === 'ROUNDS',
+    });
+  }
+  const problem = raiseAmountProblem(old.amount_cents, input.amountCents);
+  if (problem) {
+    const min = minRaiseTargetCents(old.amount_cents);
+    return toolError('VALIDATION_ERROR', `${problem} The minimum raise is $1 or 1%.`, {
+      field: 'amountCents',
+      bidId: old.id,
+      minAmountCents: min,
+      minAmountFormatted: formatUsd(min),
+    });
+  }
+  if (
+    aboveRaisePriceGuard(
+      Boolean(old.release_if_cheaper),
+      input.amountCents,
+      listing.best_public_price_cents,
+    )
+  ) {
+    return refusal(old, {
+      code: 'PRICE_DROPPED',
+      bidId: old.id,
+      publicPriceCents: listing.best_public_price_cents!,
+    });
+  }
+
+  const shopper = await pool.query(`SELECT paypal_vault_id FROM shoppers WHERE id = $1`, [
+    caller.shopperId,
+  ]);
+  const vaulted = !!(shopper.rows[0] as { paypal_vault_id: string | null } | undefined)
+    ?.paypal_vault_id;
+  if (!vaulted) {
+    // HF-018's wallet raise: a new order the shopper approves on PayPal; no hold until then.
+    if (old.payment_method === 'PAYPAL') return raise();
+    return raiseLink(deps, old, input.amountCents, 'NO_SAVED_PAYMENT_METHOD');
+  }
+  if (!old.mandate_id) return raiseLink(deps, old, input.amountCents, 'BID_NOT_UNDER_MANDATE');
+
+  const res = await pool.query(
+    `SELECT id, status, expires_at, max_price_cents, total_hold_cap_cents, allowed_product_ids
+       FROM mandates WHERE id = $1 AND shopper_id = $2`,
+    [old.mandate_id, caller.shopperId],
+  );
+  const mandate = res.rows[0] as
+    | {
+        id: string;
+        status: 'ACTIVE';
+        expires_at: Date | null;
+        max_price_cents: number;
+        total_hold_cap_cents: number;
+        allowed_product_ids: string[];
+      }
+    | undefined;
+  if (!mandate) return raiseLink(deps, old, input.amountCents, 'MANDATE_NOT_FOUND');
+  const denial = checkMandateLimits(mandate, {
+    newHoldCents: input.amountCents,
+    liveCents: await liveHoldCents(pool, mandate.id, [old.id]),
+    productId: listing.product_id,
+    now: listing.db_now,
+  });
+  if (denial === 'ABOVE_MANDATE_MAX') {
+    return aboveMandateMax(deps, old, input.amountCents, mandate.max_price_cents);
+  }
+  if (denial) return raiseLink(deps, old, input.amountCents, denial);
+
+  // `raiseBid` re-checks everything under its locks (window, HELD, mandate, parallel raises).
+  return raise();
+}
+
+async function loadOwnBid(q: Queryable, shopperId: string, bidId: string): Promise<OwnBid | null> {
+  const res = await q.query(
+    `SELECT b.*, l.slug AS listing_slug
+       FROM bids b JOIN listings l ON l.id = b.listing_id
+      WHERE b.id = $1 AND b.shopper_id = $2`,
+    [bidId, shopperId],
+  );
+  return (res.rows[0] as OwnBid | undefined) ?? null;
+}
+
+async function loadRaiseListing(q: Queryable, listingId: string): Promise<RaiseListingRef | null> {
+  const res = await q.query(
+    `SELECT l.status, l.window_closes_at, l.rounds_end_at, l.product_id,
+            p.best_public_price_cents, clock_timestamp() AS db_now
+       FROM listings l JOIN products p ON p.id = l.product_id
+      WHERE l.id = $1`,
+    [listingId],
+  );
+  return (res.rows[0] as RaiseListingRef | undefined) ?? null;
+}
+
+const raisableListing = (l: RaiseListingRef) =>
+  !!l.window_closes_at &&
+  isRaisable(
+    { status: l.status as never, windowClosesAt: l.window_closes_at, roundsEndAt: l.rounds_end_at },
+    l.db_now,
+  );
+
+function notARaise(old: OwnBid, amountCents: number): McpToolOutcome {
+  const min = minRaiseTargetCents(old.amount_cents);
+  return toolError(
+    'VALIDATION_ERROR',
+    `raise_bid only raises. Your bid is ${formatUsd(old.amount_cents)}, so ${formatUsd(amountCents)} isn't a raise (raise to at least ${formatUsd(min)}). To lower a bid, cancel_bid and place a new bid.`,
+    {
+      field: 'amountCents',
+      bidId: old.id,
+      currentAmountCents: old.amount_cents,
+      currentAmountFormatted: formatUsd(old.amount_cents),
+      minAmountCents: min,
+      minAmountFormatted: formatUsd(min),
+    },
+  );
+}
+
+/** Not HELD: point a replaced bid at the live one, so the agent raises the right bidId. */
+async function notHeld(q: Queryable, old: OwnBid): Promise<McpToolOutcome> {
+  if (old.void_reason === 'REPLACED') {
+    const live = await q.query(
+      `SELECT id, amount_cents FROM bids
+        WHERE shopper_id = $1 AND listing_id = $2 AND status IN ('PENDING_APPROVAL', 'HELD')
+        ORDER BY placed_at DESC LIMIT 1`,
+      [old.shopper_id, old.listing_id],
+    );
+    const next = live.rows[0] as { id: string; amount_cents: number } | undefined;
+    if (next) {
+      return toolError(
+        'STATE_CONFLICT',
+        `This bid was already raised. Your live bid is ${formatUsd(next.amount_cents)} (bidId ${next.id}); raise that one.`,
+        {
+          bidId: old.id,
+          reason: 'BID_REPLACED',
+          liveBidId: next.id,
+          liveAmountCents: next.amount_cents,
+          liveAmountFormatted: formatUsd(next.amount_cents),
+        },
+      );
+    }
+  }
+  const status = String(old.status);
+  return toolError(
+    'STATE_CONFLICT',
+    status === 'PENDING_APPROVAL'
+      ? "This bid isn't held yet, so it can't be raised. Approve its PayPal hold first."
+      : `This bid is ${status.toLowerCase().replace(/_/g, ' ')} and can't be raised.`,
+    { bidId: old.id, reason: `BID_${status}` },
+  );
+}
+
+/** A refusal before any hold, in `raiseBidResponse`'s words (frozen-book copy, "still stands"). */
+function refusal(old: OwnBid, error: RaiseBidError): McpToolOutcome {
+  return errorOutcome(
+    raiseBidResponse({ ok: false, error, bid: null, oldBid: old, replayed: false }),
+  );
+}
+
+function errorOutcome(response: IdempotentResponse): McpToolOutcome {
+  const { code, message, ...details } = (
+    response.body as { error: { code: string; message: string } & Record<string, unknown> }
+  ).error;
+  return toolError(code, message, details);
+}
+
+function aboveMandateMax(
+  deps: McpPlaceBidDeps,
+  old: OwnBid,
+  amountCents: number,
+  maxPriceCents: number,
+): McpToolOutcome {
+  return toolError(
+    'ABOVE_MANDATE_MAX',
+    `${formatUsd(amountCents)} is above your agent mandate's max price of ${formatUsd(maxPriceCents)}. Nothing new was held; your ${formatUsd(old.amount_cents)} bid still stands. The shopper can raise it themselves on the bid page (bidUrl).`,
+    {
+      bidId: old.id,
+      maxPriceCents,
+      maxPriceFormatted: formatUsd(maxPriceCents),
+      bidUrl: mcpBidUrl(old.id, amountCents, deps.appBaseUrl),
+    },
+  );
+}
+
+function raiseLink(
+  deps: McpPlaceBidDeps,
+  old: OwnBid,
+  amountCents: number,
+  reason: RaiseLinkReason,
+): McpToolOutcome {
+  return ok({
+    bidId: old.id,
+    status: 'NEEDS_APPROVAL',
+    amountCents,
+    amountFormatted: formatUsd(amountCents),
+    currentAmountCents: old.amount_cents,
+    currentAmountFormatted: formatUsd(old.amount_cents),
+    listingSlug: old.listing_slug,
+    bidUrl: mcpBidUrl(old.id, amountCents, deps.appBaseUrl),
+    reason,
+    message: `${RAISE_LINK_NOTES[reason]} No new hold was placed; your ${formatUsd(old.amount_cents)} bid still stands. Open this link to raise it yourself.`,
+  });
+}
+
+async function raisedOutcome(
+  deps: McpPlaceBidDeps,
+  caller: McpCaller,
+  input: McpRaiseBidInput,
+  old: OwnBid,
+  result: RaiseBidResult,
+): Promise<McpToolOutcome> {
+  if (!result.ok) {
+    const { error } = result;
+    if (error.code === 'IDEMPOTENCY_MISMATCH') {
+      return duplicateKey(
+        deps.db.pool,
+        caller.shopperId,
+        input.idempotencyKey,
+        'Use a new key for each raise.',
+      );
+    }
+    if (error.code === 'ABOVE_MANDATE_MAX') {
+      return aboveMandateMax(deps, old, input.amountCents, error.maxPriceCents);
+    }
+    const outcome = errorOutcome(raiseBidResponse(result));
+    if (!outcome.ok && (error.code === 'PAYPAL_ERROR' || error.code === 'IN_PROGRESS')) {
+      outcome.message = `${outcome.message} Retry with the same idempotencyKey in a moment.`;
+    }
+    return outcome;
+  }
+
+  const body = raiseBidResponse(result).body as RaisedBidBody;
+  const shared = {
+    bidId: body.bidId,
+    status: body.status,
+    amountCents: body.amountCents,
+    amountFormatted: formatUsd(body.amountCents),
+    previousBidId: body.replacesBidId,
+    previousAmountCents: body.previousAmountCents,
+    previousAmountFormatted: formatUsd(body.previousAmountCents),
+    previousStatus: body.previousStatus,
+    listingSlug: old.listing_slug,
+    raiseCount: body.raiseCount,
+    replayed: result.replayed,
+  };
+  if (body.status === 'HELD') {
+    return ok({
+      ...shared,
+      // 19 §Data: "New $241 hold placed · $219 hold released" ("releasing" until VOIDED, D14).
+      message: roundsRaisedMessage(
+        body.previousAmountCents,
+        body.amountCents,
+        body.previousStatus === 'VOIDED',
+      ),
+      warnSeveralHolds: body.warnSeveralHolds,
+      warnPendingHolds: body.warnPendingHolds,
+    });
+  }
+  // Waiting for the shopper (wallet raise): nothing new is held yet.
+  const stands = `your ${formatUsd(body.previousAmountCents)} bid stands until then`;
+  return ok({
+    ...shared,
+    ...(body.approveUrl
+      ? {
+          approveUrl: body.approveUrl,
+          message: `No new hold yet. Open approveUrl to approve the new ${formatUsd(body.amountCents)} PayPal hold; ${stands}.`,
+        }
+      : {
+          bidUrl: mcpBidUrl(body.replacesBidId, body.amountCents, deps.appBaseUrl),
+          message: `No new hold yet. Open bidUrl to approve the new ${formatUsd(body.amountCents)} hold; ${stands}.`,
+        }),
+  });
+}
+
+/** Answers that wait on the shopper: not stored, so the same key can finish the raise later. */
+function awaitsShopper(response: IdempotentResponse): boolean {
+  const o = fromResponse(response);
+  return o.ok && (o.result.status === 'NEEDS_APPROVAL' || o.result.status === 'PENDING_APPROVAL');
 }
 
 // ---------------------------------------------------------------------------------------------

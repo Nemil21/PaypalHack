@@ -93,6 +93,11 @@ export interface RaiseBidInput {
    * (no shopper present) and `CUSTOMER` otherwise.
    */
   initiator?: 'CUSTOMER' | 'MERCHANT';
+  /**
+   * The channel the raise came through (HF-044b: `MCP` for `raise_bid`), so the console's raises
+   * feed and `bid.raised` show it. Default: the old bid's source.
+   */
+  source?: PlaceBidInput['source'];
 }
 
 export type RaiseBidError =
@@ -333,7 +338,7 @@ async function placeInputFor(
     mandateId: old.mandate_id,
     intentId: old.intent_id,
     releaseIfCheaper: Boolean(old.release_if_cheaper),
-    source: (old.source ?? 'OFFER_PAGE') as PlaceBidInput['source'],
+    source: input.source ?? ((old.source ?? 'OFFER_PAGE') as PlaceBidInput['source']),
     idempotencyKey: input.idempotencyKey,
     initiator: input.initiator ?? (agentInitiated ? 'MERCHANT' : 'CUSTOMER'),
     actor: input.actor ?? { type: 'SHOPPER', id: old.shopper_id },
@@ -441,14 +446,14 @@ async function insertRaise(
                        source, public_price_at_placement, release_if_cheaper, raise_count,
                        nudges_muted, utm_source, idempotency_key, replaces_bid_id, placed_at)
      SELECT o.listing_id, o.shopper_id, o.intent_id, o.mandate_id, $2, $3,
-            o.source, p.best_public_price_cents, o.release_if_cheaper, o.raise_count + 1,
+            coalesce($5, o.source), p.best_public_price_cents, o.release_if_cheaper, o.raise_count + 1,
             o.nudges_muted, o.utm_source, $4, o.id, clock_timestamp()
        FROM bids o
        JOIN listings l ON l.id = o.listing_id
        JOIN products p ON p.id = l.product_id
       WHERE o.id = $1
      RETURNING *`,
-    [old.id, input.amountCents, paymentMethod, input.idempotencyKey],
+    [old.id, input.amountCents, paymentMethod, input.idempotencyKey, input.source ?? null],
   );
   const bid = res.rows[0] as BidRow;
 
