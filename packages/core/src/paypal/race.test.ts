@@ -294,6 +294,62 @@ describe('create / authorize timeouts (M6)', () => {
     expect(fake.authorizations().filter((x) => x.orderId === order.orderId)).toHaveLength(1);
   });
 
+  it('authorize response lost, replay TRANSACTION_REFUSED, order GET 5xx → unknown, never denied', async () => {
+    const fake = new FakePayPal();
+    const client = fake.client({ timeoutMs: 50 });
+    const bidId = uid('bid');
+    const order = await client.createAuthOrder({
+      requestId: orderRequestId(bidId),
+      amountCents: 22900,
+      paymentSource: {
+        kind: 'card_fields',
+        returnUrl: 'https://h.example/r',
+        cancelUrl: 'https://h.example/c',
+      },
+    });
+    if (order.kind !== 'needs_approval') throw new Error('expected needs_approval');
+    fake.approve(order.orderId);
+    fake.failNext('authorize', { kind: 'drop_response' });
+    fake.failNext('authorize', { kind: 'status', http: 422, issue: 'TRANSACTION_REFUSED' });
+    fake.failNext('get_order', { kind: 'status', http: 503 });
+    const r = await client.authorizeOrder(order.orderId, authorizeRequestId(bidId));
+    expect(r).toEqual({
+      kind: 'unknown',
+      orderId: order.orderId,
+      code: 'TRANSACTION_REFUSED',
+      errorClass: 'RECONCILE',
+    });
+    // The hold really exists at PayPal: the sweeper's replay finds it.
+    expect(fake.authorizations().filter((a) => a.orderId === order.orderId)).toHaveLength(1);
+    expect((await client.authorizeOrder(order.orderId, authorizeRequestId(bidId))).kind).toBe(
+      'held',
+    );
+  });
+
+  it('authorize TRANSACTION_REFUSED with an order GET showing no authorization → denied', async () => {
+    const fake = new FakePayPal();
+    const client = fake.client();
+    const bidId = uid('bid');
+    const order = await client.createAuthOrder({
+      requestId: orderRequestId(bidId),
+      amountCents: 22900,
+      paymentSource: {
+        kind: 'card_fields',
+        returnUrl: 'https://h.example/r',
+        cancelUrl: 'https://h.example/c',
+      },
+    });
+    if (order.kind !== 'needs_approval') throw new Error('expected needs_approval');
+    fake.approve(order.orderId);
+    fake.failNext('authorize', { kind: 'status', http: 422, issue: 'TRANSACTION_REFUSED' });
+    const r = await client.authorizeOrder(order.orderId, authorizeRequestId(bidId));
+    expect(r).toMatchObject({
+      kind: 'denied',
+      code: 'TRANSACTION_REFUSED',
+      errorClass: 'TERMINAL',
+    });
+  });
+
   it('wallet: approve → authorize → held with a vault; MIT from the wallet vault is held', async () => {
     const { fake, client } = racing();
     const bidId = uid('bid');
