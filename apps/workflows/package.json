@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Render Workflows service: the HF-048a hello-world task now; the settlement adapter over packages/core (HF-030b) next.",
+  "description": "Render Workflows service: the HF-048a hello-world task and the HF-030b settlement adapter over packages/core.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

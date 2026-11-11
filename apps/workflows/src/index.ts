@@ -1,6 +1,6 @@
 /**
- * Render Workflows entry point. HF-030b registers the settlement tasks from `@holdfast/core`
- * here; the default runner stays in-process (`SETTLEMENT_RUNNER=inprocess`, D9/M17).
+ * Render Workflows entry point. The settlement tasks (HF-030b) run the `@holdfast/core`
+ * coordinator; the default runner stays in-process (`SETTLEMENT_RUNNER=inprocess`, D9/M17).
  */
 import type { Config } from '@holdfast/core';
 

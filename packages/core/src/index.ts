@@ -21,6 +21,7 @@ export * from './settlement/promote.js';
 export * from './settlement/settle-bid.js';
 export * from './settlement/settle-listing.js';
 export * from './settlement/retry.js';
+export * from './settlement/workflow-runs.js';
 export * from './payouts/index.js';
 export * from './rounds/index.js';
 export * from './bid-cancel.js';

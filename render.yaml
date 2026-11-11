@@ -25,7 +25,7 @@ envVarGroups:
         value: sandbox
       - key: PAYPAL_MODE
         value: sandbox
-      # In-process settlement until HF-030b's Render smoke is green (D9 / M17).
+      # In-process settlement until HF-030b's Render smoke is green (D9 / M17); then `workflows`.
       - key: SETTLEMENT_RUNNER
         value: inprocess
       # Judges get the one-click demo sign-ins (HF-006, D13).
@@ -94,8 +94,9 @@ services:
       - key: RENDER_API_KEY
         sync: false
 
-  # Render Workflows: the hello-world task now (HF-048a), settlement tasks in HF-030b.
-  # Compute plan, retries and timeouts are set per task in apps/workflows/src/tasks.ts.
+  # Render Workflows: the hello-world task (HF-048a) and the settlement tasks `settleListing` /
+  # `settleBid` (HF-030b). Compute plan, retries (0) and timeouts are set per task in
+  # apps/workflows/src/tasks.ts. The settlement tasks load the same config as the web service.
   - type: workflow
     name: holdfast-workflows
     runtime: node
@@ -112,4 +113,10 @@ services:
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      # loadConfig requires it; the workflow service never signs sessions.
+      - key: SESSION_SECRET
+        generateValue: true
+      # The 1-decline run needs PayPal-Mock-Response on the capture (sandbox + DEMO_MODE + this).
+      - key: ALLOW_MOCK_DECLINE
         sync: false

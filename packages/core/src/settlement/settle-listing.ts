@@ -5,7 +5,7 @@ import { emit } from '../money/emit.js';
 import { claim, release, renew, type Lease } from '../money/lease.js';
 import { SQL_NOW, transition } from '../money/transition.js';
 import type { KickSettlement } from './outbox.js';
-import { settleBid, type SettleBidDeps, type SettleBidResult } from './settle-bid.js';
+import { settleBid, type SettleBidDeps } from './settle-bid.js';
 
 /**
  * `settleListing(listingId)` (HF-030a; features/11 §Workflow design, D9): the coordinator that
@@ -77,6 +77,12 @@ export interface SettleListingDeps extends SettleBidDeps {
   payoutBrand?: PayoutBrand;
   /** Default 10. */
   concurrency?: number;
+  /**
+   * Runs one settlement row. Default: `settleBid(deps, id)` in this process. The Render Workflows
+   * adapter (HF-030b) passes `id => ctx.run(settleBidTask, id)` so each row is its own child task
+   * run; the phases, leases and the conditional `CLEARING → SETTLED` stay here.
+   */
+  runSettlement?: (settlementId: string) => Promise<unknown>;
   /** Lease on the `settlement_runs` row; renewed every third of it. Default 60 s. */
   runLeaseSeconds?: number;
   maxRunMs?: number;
@@ -385,11 +391,12 @@ async function runTask(
   deps: SettleListingDeps,
   settlementId: string,
   listingId: string,
-): Promise<SettleBidResult | null> {
+): Promise<unknown> {
   try {
-    return await settleBid(deps, settlementId);
+    return await (deps.runSettlement ?? ((id) => settleBid(deps, id)))(settlementId);
   } catch (err) {
-    // A DB error mid-task leaves the row RUNNING; its lease expires and the next pass retries it.
+    // A DB error mid-task (or a failed child task run) leaves the row RUNNING; its lease expires
+    // and the next pass retries it.
     deps.onError?.(err, { settlementId, bidId: '', step: `settleListing:${listingId}` });
     return null;
   }
