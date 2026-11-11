@@ -26,6 +26,7 @@ export * from './payouts/index.js';
 export * from './rounds/index.js';
 export * from './bid-cancel.js';
 export * from './bid-raise.js';
+export * from './rounds-buyer.js';
 export * from './bid-views.js';
 export * from './mandates.js';
 export * from './brands/verify.js';

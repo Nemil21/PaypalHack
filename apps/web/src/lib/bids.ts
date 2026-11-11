@@ -1,6 +1,8 @@
 import {
   BANK_PENDING_NOTE,
   formatUsd,
+  minRaiseCents,
+  PENDING_HOLDS_WARNING,
   releasedHoldMessage,
   releasingHoldMessage,
   ROUNDS_ENDED_COPY,
@@ -8,6 +10,7 @@ import {
   roundsRaisedMessage,
   wonMessage,
   type BidStatus,
+  type NudgeAgentDecision,
 } from '@holdfast/shared';
 import type { BadgeTone } from '../components/ui';
 import { countdownText } from './offer';
@@ -69,6 +72,8 @@ export interface MyBidNudge {
   text: string;
   sentAt: string;
   roundEndsAt: string | null;
+  /** HF-038b: what the buyer agent did with this nudge; `ASKED` opens the M07 raise sheet. */
+  agent?: NudgeAgentDecision | null;
 }
 
 export interface TimelineEvent {
@@ -373,7 +378,18 @@ export { ROUNDS_ENDED_COPY };
  *  - null: not in rounds, not a live bid, or above the cutoff.
  */
 export type RoundsAction =
-  | { kind: 'nudge'; text: string; suggestedCents: number; cutoffCents: number; round: number }
+  | {
+      kind: 'nudge';
+      text: string;
+      suggestedCents: number;
+      cutoffCents: number;
+      round: number;
+      nudgeId: string;
+      /** HF-038b: the agent asked instead of raising (M07 opens by itself, once per nudge). */
+      agentAsked: boolean;
+      /** Why the agent asked ("$241 is above your agent's max of $230, …"); null if no reason to show. */
+      agentMessage: string | null;
+    }
   | { kind: 'frozen'; text: string };
 
 export function roundsAction(bid: MyBid): RoundsAction | null {
@@ -388,7 +404,60 @@ export function roundsAction(bid: MyBid): RoundsAction | null {
     suggestedCents: n.suggestedCents,
     cutoffCents: n.cutoffCents,
     round: n.round,
+    nudgeId: n.id,
+    agentAsked: n.agent?.outcome === 'ASKED',
+    agentMessage: n.agent?.outcome === 'ASKED' ? n.agent.message : null,
   };
+}
+
+// ---------------------------------------------------------------------------------------------
+// HF-038b M07 raise sheet
+// ---------------------------------------------------------------------------------------------
+
+/** The lowest amount the sheet's stepper allows: the current bid + the minimum raise. */
+export function raiseSheetMinCents(currentCents: number): number {
+  return currentCents + minRaiseCents(currentCents);
+}
+
+/** One stepper step: $1, or 1% of the bid when that is larger (whole dollars). */
+export function raiseSheetStepCents(currentCents: number): number {
+  return Math.ceil(minRaiseCents(currentCents) / 100) * 100;
+}
+
+/** The stepper value after a step, never below the minimum raise. */
+export function stepRaise(currentCents: number, valueCents: number, dir: 1 | -1): number {
+  const next = valueCents + dir * raiseSheetStepCents(currentCents);
+  return Math.max(raiseSheetMinCents(currentCents), next);
+}
+
+/** M07 primary button: "Raise to $241 (new hold, old one released)". */
+export function raiseSheetConfirm(amountCents: number): string {
+  return `Raise to ${formatUsd(amountCents)} (new hold, old one released)`;
+}
+
+/** M07 secondary button: "Keep $219". */
+export function raiseSheetKeep(currentCents: number): string {
+  return `Keep ${formatUsd(currentCents)}`;
+}
+
+/**
+ * The toast body after a raise: the bank note once the old hold is released, then the warning
+ * the raise carries. The 5-raise warning (once per chain) replaces the from-the-2nd-raise one.
+ */
+export function raiseToastBody(res: RaiseResponse): string {
+  const released = res.previousStatus === 'VOIDED';
+  return [released ? BANK_PENDING_NOTE : null, res.warnPendingHolds ?? res.warnSeveralHolds]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Session-scoped memory of nudges whose M07 sheet already opened by itself. */
+const autoOpened = new Set<string>();
+export function shouldAutoOpenSheet(action: RoundsAction | null): boolean {
+  return action?.kind === 'nudge' && action.agentAsked && !autoOpened.has(action.nudgeId);
+}
+export function markSheetAutoOpened(nudgeId: string): void {
+  autoOpened.add(nudgeId);
 }
 
 /** `POST /api/bids/:id/raise` 201 body (core `RaisedBidBody`). */
@@ -401,6 +470,8 @@ export interface RaiseResponse {
   previousStatus?: string;
   message: string | null;
   warnSeveralHolds: string | null;
+  /** HF-038b: on the 5th raise of a chain only. */
+  warnPendingHolds?: string | null;
   approveUrl?: string | null;
 }
 
@@ -529,10 +600,11 @@ export function timelineRows(detail: BidDetail): TimelineRow[] {
         const old = e.fromBidId ? byId.get(e.fromBidId) : undefined;
         const from = formatUsd(e.fromCents ?? old?.amountCents ?? 0);
         const oldDone = old?.status === 'VOIDED';
+        const byAgent = e.actorType === 'BUYER_AGENT' || e.actorType === 'SIM';
         rows.push({
           key,
           at: e.at,
-          title: `Raised to ${amount}`,
+          title: byAgent ? `Your agent raised to ${amount}` : `Raised to ${amount}`,
           detail: oldDone
             ? `New ${amount} hold placed · ${from} hold released. ${BANK_PENDING_NOTE}`
             : `New ${amount} hold placed · ${from} hold releasing`,
@@ -624,6 +696,9 @@ export function timelineRows(detail: BidDetail): TimelineRow[] {
           detail: 'Your hold is released within minutes unless a unit opens up.',
           tone: 'neutral',
         });
+        return;
+      case 'RAISE_HOLDS_WARNED':
+        rows.push({ key, at: e.at, title: PENDING_HOLDS_WARNING, tone: 'neutral' });
         return;
       case 'BID_RELEASE_IF_CHEAPER_SET':
         rows.push({

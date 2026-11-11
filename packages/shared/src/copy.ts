@@ -193,3 +193,17 @@ export const SEVERAL_HOLDS_WARNING =
 export function severalHoldsWarning(raiseCount: number): string | null {
   return raiseCount >= 2 ? SEVERAL_HOLDS_WARNING : null;
 }
+
+/** The raise count on one bid chain at which the agent warns about pending holds (19 §Logic 5). */
+export const PENDING_HOLDS_WARNING_AT = 5;
+
+/** Shown once per bid chain, on the 5th raise (HF-038b, 05 §Logic 4). */
+export const PENDING_HOLDS_WARNING = 'Your bank may show several pending holds for a few days.';
+
+/**
+ * The once-per-chain warning for a new bid with this `raise_count`: only the raise that makes it
+ * exactly 5 carries it (raise_count is inherited +1 per raise, HF-018), so it shows once.
+ */
+export function pendingHoldsWarning(raiseCount: number): string | null {
+  return raiseCount === PENDING_HOLDS_WARNING_AT ? PENDING_HOLDS_WARNING : null;
+}

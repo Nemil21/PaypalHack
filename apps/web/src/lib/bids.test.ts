@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BANK_PENDING_NOTE, BID_STATUSES, type BidStatus } from '@holdfast/shared';
+import {
+  BANK_PENDING_NOTE,
+  BID_STATUSES,
+  PENDING_HOLDS_WARNING,
+  SEVERAL_HOLDS_WARNING,
+  type BidStatus,
+  type NudgeAgentDecision,
+} from '@holdfast/shared';
 import {
   belowHint,
   bidsInTab,
@@ -8,6 +15,13 @@ import {
   raiseErrorCopy,
   ROUNDS_ENDED_COPY,
   roundsAction,
+  markSheetAutoOpened,
+  raiseSheetConfirm,
+  raiseSheetKeep,
+  raiseSheetMinCents,
+  raiseToastBody,
+  shouldAutoOpenSheet,
+  stepRaise,
   chainHeads,
   detailErrorCode,
   ERROR_VARIANTS,
@@ -406,6 +420,22 @@ describe('timeline + money box (W15 / M04) across a raise chain', () => {
       detail: BANK_PENDING_NOTE,
     });
   });
+
+  // HF-038b
+  it('timeline: agent raises say so; the 5-raise warning is one row', () => {
+    const base = chainDetail({ oldStatus: 'VOIDED', headStatus: 'HELD' });
+    const raisedEvent = base.timeline.find((e) => e.step === 'RAISED');
+    expect(raisedEvent).toBeDefined();
+    const rows = timelineRows({
+      ...base,
+      timeline: [
+        ...base.timeline.map((e) => (e.step === 'RAISED' ? { ...e, actorType: 'BUYER_AGENT' } : e)),
+        { ...raisedEvent!, step: 'RAISE_HOLDS_WARNED', action: 'RAISE_HOLDS_WARNED' },
+      ],
+    });
+    expect(rows.some((r) => r.title.startsWith('Your agent raised to'))).toBe(true);
+    expect(rows.filter((r) => r.title === PENDING_HOLDS_WARNING)).toHaveLength(1);
+  });
 });
 
 describe('declined at clearing', () => {
@@ -548,6 +578,9 @@ describe('HF-038a live rounds on the bid page', () => {
       suggestedCents: 24_240,
       cutoffCents: 24_000,
       round: 2,
+      nudgeId: 'n1',
+      agentAsked: false,
+      agentMessage: null,
     });
   });
 
@@ -612,6 +645,73 @@ describe('HF-038a live rounds on the bid page', () => {
     expect(raiseErrorCopy('WINDOW_CLOSED', 'Raising is closed.', b)).toBe(ROUNDS_ENDED_COPY);
     expect(raiseErrorCopy('STATE_CONFLICT', "This bid can't be raised.", b)).toBe(
       "This bid can't be raised.",
+    );
+  });
+});
+
+describe('HF-038b auto-raise and the M07 raise sheet', () => {
+  const nudge = {
+    id: 'n-38b',
+    round: 1,
+    cutoffCents: 24_000,
+    suggestedCents: 24_240,
+    text: "You're out at $219. The cutoff is $240. Raise to $242.40?",
+    sentAt: at(1),
+    roundEndsAt: null,
+  };
+  const nudged = (agent: NudgeAgentDecision | null) =>
+    bid({
+      amountCents: 21_900,
+      listing: { ...bid().listing, status: 'ROUNDS', roundsEndAt: at(60), raisable: true },
+      belowCutoff: true,
+      cutoffCents: 24_000,
+      nudge: { ...nudge, agent },
+    });
+
+  it('the agent asked: M07 opens by itself once per nudge, with the agent’s reason', () => {
+    const message = "$242.40 is above your agent's max of $230, so it's asking you.";
+    const action = roundsAction(nudged({ outcome: 'ASKED', reason: 'ABOVE_MANDATE_MAX', message }));
+    expect(action).toMatchObject({ kind: 'nudge', agentAsked: true, agentMessage: message });
+    expect(shouldAutoOpenSheet(action)).toBe(true);
+    markSheetAutoOpened('n-38b');
+    expect(shouldAutoOpenSheet(action)).toBe(false);
+  });
+
+  it('not asked (not handled yet, or raised): no auto-open', () => {
+    expect(shouldAutoOpenSheet(roundsAction(nudged(null)))).toBe(false);
+    expect(
+      shouldAutoOpenSheet(roundsAction(nudged({ outcome: 'RAISED', reason: null, message: null }))),
+    ).toBe(false);
+  });
+
+  it('stepper: never below current + minimum raise; $1 steps, or 1% when larger', () => {
+    expect(raiseSheetMinCents(21_900)).toBe(22_119);
+    expect(stepRaise(21_900, 24_240, 1)).toBe(24_540); // 1% of $219 → $3 step
+    expect(stepRaise(21_900, 22_200, -1)).toBe(22_119);
+    expect(stepRaise(5_000, 6_000, -1)).toBe(5_900);
+  });
+
+  it('M07 buttons', () => {
+    expect(raiseSheetConfirm(24_100)).toBe('Raise to $241 (new hold, old one released)');
+    expect(raiseSheetKeep(21_900)).toBe('Keep $219');
+  });
+
+  it('raise toast: the 5-raise warning replaces the several-holds one', () => {
+    const res = {
+      bidId: 'b2',
+      status: 'HELD',
+      amountCents: 24_100,
+      replacesBidId: 'b1',
+      previousAmountCents: 21_900,
+      previousStatus: 'VOIDED',
+      message: null,
+      warnSeveralHolds: SEVERAL_HOLDS_WARNING,
+    };
+    expect(raiseToastBody({ ...res, warnPendingHolds: PENDING_HOLDS_WARNING })).toBe(
+      `${BANK_PENDING_NOTE} ${PENDING_HOLDS_WARNING}`,
+    );
+    expect(raiseToastBody({ ...res, warnPendingHolds: null })).toBe(
+      `${BANK_PENDING_NOTE} ${SEVERAL_HOLDS_WARNING}`,
     );
   });
 });
