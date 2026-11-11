@@ -140,3 +140,20 @@ describe('requestFingerprint', () => {
     ).toBe(requestFingerprint({ method: 'POST', path: '/a', body: { b: { d: 3, c: 2 }, a: 1 } }));
   });
 });
+
+describe('ApiError details (HF-028)', () => {
+  it('keeps the rest of the error envelope, e.g. a 409 reason and its new numbers', async () => {
+    const numbers = { cutoffCents: 21_900, grossCents: 5_400_000, winners: 240, bookVersion: '7' };
+    const { a } = action([
+      {
+        status: 409,
+        body: {
+          error: { code: 'STATE_CONFLICT', message: 'changed', reason: 'BOOK_CHANGED', numbers },
+        },
+      },
+    ]);
+    const err = (await a.run(hold).catch((e: unknown) => e)) as ApiError;
+    expect(err.code).toBe('STATE_CONFLICT');
+    expect(err.details).toEqual({ reason: 'BOOK_CHANGED', numbers });
+  });
+});

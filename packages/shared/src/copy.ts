@@ -123,16 +123,38 @@ export function promotedMessage(bidCents: number, opts: { captured: boolean }): 
  * Brand-side summary of what winners pay under pay-your-bid:
  * "Each winner is charged their own bid (lowest $219, average $226)."
  * The average is rounded to whole dollars; it is a summary, not an amount anyone is charged.
+ * `preCapture` (the W07 Clear modal, before anything is captured) says "will be charged".
  */
-export function winnersChargedSummary(winningBidsCents: readonly number[]): string {
+export function winnersChargedSummary(
+  winningBidsCents: readonly number[],
+  opts: { preCapture?: boolean } = {},
+): string {
   if (winningBidsCents.length === 0) throw new RangeError('no winning bids');
-  if (winningBidsCents.length === 1) {
-    return `The winner is charged their own bid of ${formatUsd(winningBidsCents[0]!)}.`;
+  return winnersChargedLine(
+    {
+      winners: winningBidsCents.length,
+      lowestCents: Math.min(...winningBidsCents),
+      grossCents: winningBidsCents.reduce((sum, c) => sum + c, 0),
+    },
+    opts,
+  );
+}
+
+/**
+ * `winnersChargedSummary` from aggregates (`/simulate`: winners, cutoff = lowest winning bid,
+ * gross = sum of winners' bids), so the modal need not hold every winning amount.
+ */
+export function winnersChargedLine(
+  w: { winners: number; lowestCents: number; grossCents: number },
+  opts: { preCapture?: boolean } = {},
+): string {
+  if (w.winners < 1) throw new RangeError('no winning bids');
+  const charged = opts.preCapture ? 'will be charged' : 'is charged';
+  if (w.winners === 1) {
+    return `The winner ${charged} their own bid of ${formatUsd(w.grossCents)}.`;
   }
-  const lowest = Math.min(...winningBidsCents);
-  const total = winningBidsCents.reduce((sum, c) => sum + c, 0);
-  const averageDollars = Math.round(total / winningBidsCents.length / 100);
-  return `Each winner is charged their own bid (lowest ${formatUsd(lowest)}, average ${formatUsd(averageDollars * 100)}).`;
+  const averageDollars = Math.round(w.grossCents / w.winners / 100);
+  return `Each winner ${charged} their own bid (lowest ${formatUsd(w.lowestCents)}, average ${formatUsd(averageDollars * 100)}).`;
 }
 
 /**

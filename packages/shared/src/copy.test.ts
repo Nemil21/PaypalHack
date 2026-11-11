@@ -7,6 +7,7 @@ import {
   promotedMessage,
   releasedHoldMessage,
   releasingHoldMessage,
+  winnersChargedLine,
   winnersChargedSummary,
   wonMessage,
 } from './copy.js';
@@ -52,6 +53,25 @@ describe('money copy (D14)', () => {
     );
     expect(winnersChargedSummary([22_900])).toBe('The winner is charged their own bid of $229.');
     expect(() => winnersChargedSummary([])).toThrow(RangeError);
+  });
+
+  it('pre-capture (W07) says "will be charged"; the aggregate form matches the list form', () => {
+    const bids = [21_900, 22_500, 22_900, 23_100];
+    expect(winnersChargedSummary(bids, { preCapture: true })).toBe(
+      'Each winner will be charged their own bid (lowest $219, average $226).',
+    );
+    expect(
+      winnersChargedLine(
+        { winners: 4, lowestCents: 21_900, grossCents: 90_400 },
+        { preCapture: true },
+      ),
+    ).toBe(winnersChargedSummary(bids, { preCapture: true }));
+    expect(winnersChargedLine({ winners: 1, lowestCents: 22_900, grossCents: 22_900 })).toBe(
+      'The winner is charged their own bid of $229.',
+    );
+    expect(() => winnersChargedLine({ winners: 0, lowestCents: 0, grossCents: 0 })).toThrow(
+      RangeError,
+    );
   });
 });
 

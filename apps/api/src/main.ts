@@ -92,6 +92,17 @@ const app = buildServer(config, {
   rounds,
   // HF-012b: listing cancel voids every hold through the same PayPal client.
   listings: { money: { db: sql, paypal, audit: auditHook } },
+  // HF-027/028: Clear behind the brand session (OWNER/MANAGER); COMMIT kicks the settlement
+  // runner, and the outbox kicker re-kicks a lost kick.
+  clear: {
+    money: {
+      db: sql,
+      paypal,
+      audit: auditHook,
+      kickSettlement: settlement?.kick,
+      demoMode: config.DEMO_MODE,
+    },
+  },
   bids: {
     money: {
       db: sql,

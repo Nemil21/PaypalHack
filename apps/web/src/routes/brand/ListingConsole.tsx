@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
-import type { BrandListingView } from '@holdfast/shared';
+import type { BrandListingView, ListingPhaseName } from '@holdfast/shared';
 import {
   createKpiStore,
   KpiTile,
   type KpiKind,
   type KpiStore,
 } from '../../components/console/KpiTiles';
+import { ClearAction } from '../../components/console/ClearModal';
 import { QuantitySlider } from '../../components/console/QuantitySlider';
 import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { cn } from '../../lib/cn';
@@ -133,7 +134,15 @@ export function ListingConsole() {
             aria-disabled={locked || undefined}
             data-testid="console-panels"
           >
-            {book && !empty && <DemandPanel book={book} slider={slider} locked={locked} />}
+            {book && !empty && phase && (
+              <DemandPanel
+                book={book}
+                slider={slider}
+                locked={locked}
+                phase={phase.phase}
+                viewer={viewer}
+              />
+            )}
           </div>
         </SliderContext.Provider>
       </div>
@@ -245,16 +254,21 @@ function Note({
 
 /**
  * Demand curve and quantity slider (HF-024, features/08 §Layout 3–4). The curve model changes
- * with the book only; the slider and the curve's cutoff marker read the slider store.
+ * with the book only; the slider and the curve's cutoff marker read the slider store. The Clear
+ * button (HF-028) sits under the slider and clears at its committed quantity.
  */
 function DemandPanel({
   book,
   slider,
   locked,
+  phase,
+  viewer,
 }: {
   book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
   slider: SliderStore;
   locked: boolean;
+  phase: ListingPhaseName;
+  viewer: boolean;
 }) {
   const model = useMemo(() => buildCurveModel(book), [book]);
   return (
@@ -276,6 +290,7 @@ function DemandPanel({
         </p>
       )}
       <QuantitySlider disabled={locked} />
+      <ClearAction listingId={book.listing.id} phase={phase} viewer={viewer} />
     </section>
   );
 }

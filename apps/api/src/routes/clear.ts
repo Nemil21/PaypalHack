@@ -24,8 +24,17 @@ export interface SessionPrincipal {
 
 export interface ClearRouteDeps {
   money: ClearListingDeps;
-  /** Resolve the session principal (HF-006 `requireBrandUser`); null when unauthenticated. */
-  authenticate(req: FastifyRequest): Promise<SessionPrincipal | null> | SessionPrincipal | null;
+  /**
+   * Resolve the session principal; null when unauthenticated. Default: the HF-006 brand session
+   * (`requireBrandUser()` runs first; the role check below turns a VIEWER away with 403).
+   */
+  authenticate?(req: FastifyRequest): Promise<SessionPrincipal | null> | SessionPrincipal | null;
+}
+
+/** The brand session HF-006's `requireBrandUser()` loaded onto the request. */
+function sessionPrincipal(req: FastifyRequest): SessionPrincipal | null {
+  const user = req.auth?.brandUser;
+  return user ? { type: 'BRAND_USER', id: user.id, brandId: user.brandId, role: user.role } : null;
 }
 
 type ClearRequest = FastifyRequest<{ Params: { id: string } }>;
@@ -115,8 +124,12 @@ export function registerClearRoute(app: FastifyInstance, deps: ClearRouteDeps): 
     },
   );
 
-  app.post<{ Params: { id: string } }>('/api/listings/:id/clear', async (req, reply) => {
-    const principal = await deps.authenticate(req);
+  const authenticate = deps.authenticate ?? sessionPrincipal;
+  // Without a custom `authenticate`, the session guard answers 401 before the body is parsed.
+  const opts = deps.authenticate ? {} : { onRequest: app.guards.requireBrandUser() };
+
+  app.post<{ Params: { id: string } }>('/api/listings/:id/clear', opts, async (req, reply) => {
+    const principal = await authenticate(req);
     if (!principal) {
       return reply.code(401).send(errorBody('UNAUTHENTICATED', 'Sign in to continue.'));
     }
