@@ -8,6 +8,7 @@ import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
 import { BrandIndex } from './routes/brand/BrandIndex';
+import { CreateListingWizard } from './routes/brand/CreateListingWizard';
 import { ListingConsole } from './routes/brand/ListingConsole';
 import { SettlementFixture } from './routes/brand/SettlementFixture';
 import { SettlementPage } from './routes/brand/SettlementPage';
@@ -44,14 +45,12 @@ const router = createBrowserRouter([
         element: <ScreenPlaceholder screen="Brand verification (W03)" ticket="HF-011b" />,
       },
       {
-        path: 'brand/listings/new',
-        element: <ScreenPlaceholder screen="Create listing (W05)" ticket="HF-013" />,
-      },
-      {
         // HF-023: brand session + listings; `/brand` opens the newest console until W04 (HF-026).
         element: <BrandGate />,
         children: [
           { path: 'brand', element: <BrandIndex /> },
+          // W05 create listing wizard (HF-013); before `:listingId` so "new" is not an id.
+          { path: 'brand/listings/new', element: <CreateListingWizard /> },
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },
           // W08 settlement live view (HF-035).
           { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
