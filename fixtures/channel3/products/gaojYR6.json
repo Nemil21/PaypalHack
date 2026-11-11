@@ -1,0 +1,307 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "gaojYR6",
+    "title": "JBL Vibe Beam 2 True Wireless Noise Cancelling Earbuds",
+    "description": "The JBL Vibe Beam 2 are true wireless Bluetooth earbuds designed for everyday use, featuring JBL Pure Bass Sound for a rich audio experience. They come equipped with Active Noise Cancelling (ANC) and Smart Ambient technology, allowing users to control how much environmental noise they hear. With up to 40 hours of total playback time (with ANC off), multipoint connectivity for seamless switching between devices, and a water and dust resistant build, these earbuds are a versatile companion for music and calls. They are compatible with the JBL Headphones app for sound customization and voice prompt language settings.",
+    "brands": [
+      {
+        "id": "4AJV",
+        "name": "JBL"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/6a528964-3f14-4722-b60e-2930757c1acf?aid=01M75E6A7M87RGQR7N62H0TC31&mid=K6RA",
+        "cleaned_url": null,
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black charging case for JBL Vibe Beam 2 earbuds."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/ef0a44f4-7382-4227-b748-b5b961a7256c?aid=01M75E6A7M87RGQR7N62H0TC31&mid=K6RA",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Black charging case with one earbud connected."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/4dd74ce7-f890-4a4d-9307-83316dea45f9?aid=01M75E6A7M87RGQR7N62H0TC31&mid=K6RA",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "JBL Vibe Beam 2 earbuds and spare earbud."
+      }
+    ],
+    "category": {
+      "slug": "in-ear-headphones",
+      "title": "In-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "in-ear-headphones",
+          "title": "In-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [
+      "plastic"
+    ],
+    "key_features": [
+      "8mm Dynamic Driver",
+      "Up To 10 Hours Battery Life with BT on and ANC Off",
+      "Ergonomic Design",
+      "Smart Ambient Technology",
+      "IP54 Certified",
+      "Bluetooth 5.3",
+      "JBL Headphones App Compatible",
+      "Active Noise Cancelling",
+      "Multi-Point Connection",
+      "Fast Pair by Google and Swift Pair by Microsoft"
+    ],
+    "colors": [
+      {
+        "hex": "#1c1c1c",
+        "percentage": 0.9381
+      },
+      {
+        "hex": "#515251",
+        "percentage": 0.0619
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-K6RA-S666bu?o=01M1Q3J1QC0D0K8J9ZASFC32A3&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "macys.com",
+        "price": {
+          "price": 39.95,
+          "compare_at_price": 64.95,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-DO3T-S666bu?o=01M2K5FGA38J72MFBV9HW4C6SW&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "abt.com",
+        "price": {
+          "price": 39.95,
+          "compare_at_price": 64.95,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-DyQi-S666bu?o=01M37QRHC1101YRTAZ1EG9P7ZB&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "bloomingdales.com",
+        "price": {
+          "price": 39.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-Bteb-S666bu?o=01M5YHVYJ1345N90KREG2Y45XQ&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "dell.com",
+        "price": {
+          "price": 39.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 0.3,
+            "unit": "oz"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-Fn95-S666bu?o=01KJ9SBZGSG5Y6TS5A7087HB7W&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "crutchfield.com",
+        "price": {
+          "price": 39.95,
+          "compare_at_price": 64.95,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-WPap-S666bu?o=01KVSN1V1APB1QVV9G3BTQZ8RR&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "cabelas.com",
+        "price": {
+          "price": 64.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-qzpY-S666bu?o=01KVGGTVJ4RW0CQSA7JANYG0YQ&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "basspro.com",
+        "price": {
+          "price": 64.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-wAe3-S666bu?o=01M737TGZ60345H006D4G6YDT2&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "acehardware.com",
+        "price": {
+          "price": 64.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-DEoc-S666bu?o=01M1EH8GKA56DDM9TT1NVWD53S&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "academy.com",
+        "price": {
+          "price": 64.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/gaojYR6-c4cn-S666bu?o=01M6KXRAC5JDPQ0WRZ0WMEMQE5&aid=01M75E6A7M87RGQR7N62H0TC31",
+        "domain": "big5sportinggoods.com",
+        "price": {
+          "price": 64.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "audio-connectivity": [
+        "Bluetooth",
+        "USB",
+        "Wi-Fi"
+      ],
+      "headphone-style": [
+        "Canal",
+        "Earbuds"
+      ],
+      "microphone-type": [
+        "Built-in",
+        "Noise-canceling"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "USB",
+        "Battery-powered"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "earphone-features": [
+        "Awareness mode",
+        "Built-in microphone",
+        "Noise cancellation",
+        "Waterproof",
+        "Volume control",
+        "AI-powered"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "ingress-protection-ip-rating": [
+        "IP54",
+        "IPX7"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wireless",
+        "Wi-Fi",
+        "USB"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "battery-type": [
+        "Rechargeable",
+        "Contained-undetachable"
+      ],
+      "charging-interface-type": [
+        "Micro USB",
+        "USB type-C"
+      ],
+      "audio-component-form-factor": [
+        "Desktop"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "device-interface": [
+        "Micro USB",
+        "Bluetooth",
+        "USB"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ]
+    },
+    "ratings": {
+      "value": 3.7,
+      "count": 535,
+      "source_count": 7
+    }
+  }
+}

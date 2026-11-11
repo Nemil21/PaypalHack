@@ -1,0 +1,201 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "tQvaezt",
+    "title": "Vibe Beam 2 True Wireless Noise Cancelling Earbuds",
+    "description": "Experience immersive sound with the JBL Vibe Beam 2 True Wireless Noise Cancelling Earbuds. Featuring JBL Pure Bass Sound and Active Noise Cancelling with Smart Ambient technology, these earbuds allow you to control your audio environment. Enjoy crisp, clear calls with four microphones and stay aware of your surroundings when needed. They are water and dust resistant (IP54) and the charging case is IPX2 resistant, making them perfect for everyday use. Connect seamlessly with up to 8 Bluetooth devices and enjoy up to 40 hours of total playback time with speed charging. Customize your sound and access useful Voice Prompts through the JBL Headphones app. The earbuds also feature seamless Bluetooth pairing with Google Fast Pair and Microsoft Swift Pair.",
+    "brands": [
+      {
+        "id": "RFDs",
+        "name": "HARMAN"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/31c8455b-b1f9-44a4-982c-bf22d21b39db?aid=01M75E69W50BZ3P8Y9H6TNEETM&mid=Bteb",
+        "cleaned_url": null,
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "White JBL Vibe Beam 2 charging case with earbuds inside."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/9b593cc0-1755-4f7a-bf94-59306801852c?aid=01M75E69W50BZ3P8Y9H6TNEETM&mid=Bteb",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "White JBL Vibe Beam 2 earbuds shown from the side."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/76b6fa2f-d484-4742-8eda-ae827fec89ec?aid=01M75E69W50BZ3P8Y9H6TNEETM&mid=Bteb",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "lifestyle",
+        "alt_text": "JBL Vibe Beam 2 earbuds in the charging case."
+      }
+    ],
+    "category": {
+      "slug": "in-ear-headphones",
+      "title": "In-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "in-ear-headphones",
+          "title": "In-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "JBL Pure Bass sound",
+      "Active Noise Cancelling with Smart Ambient",
+      "4 mics for crisp, clear calls",
+      "Water and dust resistant",
+      "JBL Headphones app",
+      "40 total hours of playback time, plus speed charging",
+      "Multi-point connection",
+      "Seamless Bluetooth pairing",
+      "Dynamic Driver",
+      "Equalizer"
+    ],
+    "colors": [
+      {
+        "hex": "#d6d7d4",
+        "percentage": 0.6238
+      },
+      {
+        "hex": "#bab9b5",
+        "percentage": 0.3762
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/tQvaezt-Bteb-S666bu?o=01KNTGPZ2X8C20EB38817AV88Q&aid=01M75E69W50BZ3P8Y9H6TNEETM",
+        "domain": "dell.com",
+        "price": {
+          "price": 64.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 0.3,
+            "unit": "oz"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/tQvaezt-p1PB-S666bu?o=01M413N71DY4VGQBCY55ZESH2W&aid=01M75E69W50BZ3P8Y9H6TNEETM",
+        "domain": "bestbuy.com",
+        "price": {
+          "price": 64.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "power-source": [
+        "Rechargeable",
+        "USB",
+        "Battery-powered"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "ingress-protection-ip-rating": [
+        "IP54",
+        "IPX4"
+      ],
+      "headphone-style": [
+        "Earbuds",
+        "Canal"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)",
+        "Passive noise isolation"
+      ],
+      "device-interface": [
+        "Bluetooth",
+        "USB"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "earphone-features": [
+        "Awareness mode",
+        "Built-in microphone",
+        "Waterproof",
+        "Noise cancellation"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wired",
+        "Wireless"
+      ],
+      "audio-connectivity": [
+        "Bluetooth",
+        "USB"
+      ],
+      "microphone-type": [
+        "Built-in",
+        "Noise-canceling"
+      ],
+      "charging-interface-type": [
+        "USB type-C",
+        "Wireless charging"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ]
+    },
+    "ratings": {
+      "value": 4.5,
+      "count": 1023,
+      "source_count": 2
+    }
+  }
+}

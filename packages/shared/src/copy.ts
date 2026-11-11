@@ -17,11 +17,25 @@ export const BANK_PENDING_NOTE = 'Your bank may show it as pending for a few day
 export const RESERVE_LIST_LABEL = 'On the reserve list';
 
 /**
- * Affiliate disclosure for Channel3 links (HF-009 owns the list of screens that must show it).
- * Defined here so the web app can render it before HF-009 lands; HF-009 should import this.
+ * Affiliate disclosure for Channel3 links (Channel3 terms; HF-009). Every screen that shows a
+ * Channel3 buy link renders it next to the link: see `AFFILIATE_DISCLOSURE_SCREENS`.
  */
 export const AFFILIATE_DISCLOSURE =
   'We may earn a commission when you buy through links on this page.';
+
+/**
+ * Screens (screens.md ids) that show a Channel3 buy link and so must render `AFFILIATE_DISCLOSURE`:
+ * the offer page's public-offer anchor (`publicOffer`), the price-drop sheet, the "price dropped"
+ * error state and the bid timeline's price-drop event.
+ */
+export const AFFILIATE_DISCLOSURE_SCREENS = [
+  { screen: 'W12', surface: 'Offer page: public-offer anchor (`publicOffer` link)' },
+  { screen: 'M01', surface: 'Offer page (mobile): public-offer anchor (`publicOffer` link)' },
+  { screen: 'M06', surface: 'Price-drop released notification and sheet ("Buy there")' },
+  { screen: 'W21', surface: 'Error state: price dropped ("Buy there")' },
+  { screen: 'W15', surface: 'Bid timeline: price-drop release event link' },
+  { screen: 'M04', surface: 'Bid timeline (mobile): price-drop release event link' },
+] as const;
 
 /** What has happened to the shopper's money for a bid in this status. */
 export type MoneyState = 'held' | 'charged' | 'released' | 'none';

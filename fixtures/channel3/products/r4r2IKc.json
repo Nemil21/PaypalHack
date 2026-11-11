@@ -1,0 +1,350 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "r4r2IKc",
+    "title": "QuietComfort Ultra Headphones",
+    "description": "Immerse yourself in every note with the Bose QuietComfort Ultra Headphones (2nd Gen), featuring Bose's most advanced noise cancellation and spatialized audio that makes music and dialogue feel expansive and three-dimensional. Crafted from premium materials for exceptional comfort, these headphones let you lose yourself completely in your favorite songs, movies, and shows. Experience sound that doesn't just play—it surrounds you. Designed with soft ear cushions and a lightweight frame for all-day comfort, these headphones allow you to stay focused without distractions. Easily control music, calls, and voice assistants with intuitive touch controls. The Bose QuietComfort Ultra Headphones (2nd Gen) also feature reliable connectivity and seamless device switching, empowering you to stay connected to your world effortlessly.",
+    "brands": [
+      {
+        "id": "qHHu",
+        "name": "Bose"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/d03066a2-b2c9-4cd3-885c-4438fb952a05?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/65ffaead-f0f5-47f6-814e-bcce67e45242?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Bose QuietComfort Ultra Headphones in white smoke, shown at a 3/4 angle."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/84c4a539-90bc-4cd8-aad9-b113bd8360cf?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/eb03b0e8-6984-47d7-b1bd-bd78b7ca7c6f?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "is_main_image": false,
+        "shot_type": "on_model",
+        "alt_text": "A man wearing white Bose QuietComfort Ultra Headphones."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/80c0b3f2-1b5c-4e27-b2f5-44e691766715?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "cleaned_url": "https://cdn.trychannel3.com/87d75a39-6dce-4aac-8ac6-dcf7f4c114c2?aid=01M75E5VEF1JBWHYPJY21H87HS&mid=n0yg",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Front view of white Bose QuietComfort Ultra Headphones."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": "adult",
+    "materials": [
+      "Plastic",
+      "Synthetic"
+    ],
+    "key_features": [
+      "Bose’s best noise cancellation for headphones",
+      "Spatialized audio for immersive listening with Cinema Mode",
+      "CustomTune technology for personalized sound",
+      "USB audio for crystal-clear, lossless sound",
+      "Up to 30 hours of play time on a single charge",
+      "Noise-rejecting mics with AI-based background noise suppression",
+      "Advanced Bluetooth with single or multi-point pairing",
+      "Control via the Bose app with Adjustable EQ settings",
+      "Comfortable headphone feel",
+      "Bluetooth 5.3 wireless technology"
+    ],
+    "colors": [
+      {
+        "hex": "#dbd2d1",
+        "percentage": 0.514
+      },
+      {
+        "hex": "#fdfcfc",
+        "percentage": 0.2417
+      },
+      {
+        "hex": "#b5acac",
+        "percentage": 0.1457
+      },
+      {
+        "hex": "#8c8383",
+        "percentage": 0.0985
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-n0yg-S666bu?o=01M379XT6Y5BZ027HWT2YP707N&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "backmarket.com",
+        "price": {
+          "price": 285,
+          "compare_at_price": 799,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "used",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 8,
+            "unit": "oz"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-ZQQu-S666bu?o=01M694X263XP4A444XWB1NNPPS&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "focuscamera.com",
+        "price": {
+          "price": 449,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-Bteb-S666bu?o=01M5Z4VRZM48ECKFVDG2WRNYHQ&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "dell.com",
+        "price": {
+          "price": 449,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": {
+            "number": 8.1,
+            "unit": "in"
+          },
+          "width": {
+            "number": 6.3,
+            "unit": "in"
+          },
+          "height": {
+            "number": 1.8,
+            "unit": "in"
+          },
+          "weight": {
+            "number": 9.28,
+            "unit": "oz"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-p1PB-S666bu?o=01M1M6KQYW9S16J6WRX25P540N&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "bestbuy.com",
+        "price": {
+          "price": 449,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-mn23-S666bu?o=01KV2K6AQ10X93C3DP1NNCBW5W&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "qvc.com",
+        "price": {
+          "price": 249.98,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": {
+            "number": 2.34,
+            "unit": "in"
+          },
+          "width": {
+            "number": 2.61,
+            "unit": "in"
+          },
+          "height": {
+            "number": 1.05,
+            "unit": "in"
+          },
+          "weight": null
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-oOY7-S666bu?o=01M3FNBTYG6HECD4T1YY9S4AJ2&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "hsn.com",
+        "price": {
+          "price": 449,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": {
+            "number": 8.41,
+            "unit": "in"
+          },
+          "width": {
+            "number": 6.12,
+            "unit": "in"
+          },
+          "height": {
+            "number": 2.19,
+            "unit": "in"
+          },
+          "weight": {
+            "number": 1.06,
+            "unit": "lb"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/r4r2IKc-Pu5r-S666bu?o=01KR7CY2XP3GQ47J4SVP65Y4QK&aid=01M75E5VEF1JBWHYPJY21H87HS",
+        "domain": "pcrichard.com",
+        "price": {
+          "price": 449,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": {
+            "number": 5.5,
+            "unit": "in"
+          },
+          "height": {
+            "number": 7.7,
+            "unit": "in"
+          },
+          "weight": {
+            "number": 1,
+            "unit": "lb"
+          }
+        }
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "charging-interface-type": [
+        "USB type-C",
+        "Micro USB"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "Volume control"
+      ],
+      "battery-type": [
+        "Rechargeable",
+        "Contained-undetachable"
+      ],
+      "audio-component-form-factor": [
+        "Desktop",
+        "Portable/Field"
+      ],
+      "headphone-style": [
+        "Canal",
+        "Open-back",
+        "Closed-back"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "USB",
+        "Battery-powered"
+      ],
+      "battery-size": [
+        "≤100Wh",
+        "Built-in battery"
+      ],
+      "microphone-type": [
+        "Built-in",
+        "Noise-canceling"
+      ],
+      "device-interface": [
+        "6.35 mm",
+        "USB",
+        "2.5 mm",
+        "3.5 mm",
+        "Bluetooth",
+        "TRS"
+      ],
+      "material": [
+        "Plastic",
+        "Aluminum",
+        "Leather",
+        "Nylon",
+        "Polyester",
+        "Plush",
+        "Metal"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "Wired",
+        "Wi-Fi",
+        "Wireless",
+        "USB"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "audio-connectivity": [
+        "6.35 mm",
+        "USB",
+        "2.5 mm",
+        "Bluetooth",
+        "3.5 mm"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ]
+    },
+    "ratings": {
+      "value": 4.59,
+      "count": 702,
+      "source_count": 2
+    }
+  }
+}

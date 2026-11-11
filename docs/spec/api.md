@@ -54,11 +54,13 @@ Client results are `held | pending | denied | needs_approval`, judged by the res
 
 ### `POST /brands/verification/check` → `{ "verificationStatus": "VERIFIED" }` (checks the DNS TXT record; demo: admin approve)
 
-### `GET /products/search?q=aurel+a7` (Channel3 proxy; needs a session; rate-limited)
+### `GET /products/search?q=aurel+a7` (Channel3 proxy; brand or shopper session, else 401; shared REST rate limit)
 ```json
-{ "results": [ { "channel3Id": "c3_123", "variant": "Midnight", "title": "Aurel A7 Wireless — Midnight", "gtin": "0012345678905", "mpn": "A7-MID",
-  "imageUrl": "…", "bestPublicPriceCents": 27900, "offerCount": 14, "condition": "NEW" } ] }
+{ "results": [ { "channel3Id": "r4bivjG", "variant": "Color=Green", "variantLabel": "Green", "title": "…", "brandName": "JBL",
+  "gtin": null, "mpn": null, "imageUrl": "…", "bestPublicPriceCents": 13900, "offerCount": 3, "condition": "NEW",
+  "brandMatch": true } ] }
 ```
+`variant` is the `products.channel3_variant` key (`variants.selected` as `Name=Label;…`, null without variants). `gtin` / `mpn` come from `structured_attributes` and are usually null (none of the recorded fixtures have them): the wizard asks for them by hand. `bestPublicPriceCents` is the cheapest new, in-stock USD offer on any domain (display only). `brandMatch` is set for brand sessions ("Not your brand" when false), null for shoppers. `?limit=1..30`. Channel3 down → `502 CHANNEL3_ERROR { fallback: "MANUAL_IDENTIFIER" }`. Real shapes: `fixtures/channel3/` (HF-009).
 
 ### `POST /listings`
 ```json
@@ -179,13 +181,16 @@ Tool descriptions say plainly: "Places a real PayPal hold. If you win, you're ch
 ## Webhooks
 
 ### `POST /webhooks/channel3`: price change on a subscribed product
-Channel3's model: offers carry no GTIN and no merchant name; an offer is `{url, domain, price{price, currency}, availability, condition}`, and a subscription is pinned to one product **variant `selection`** and up to 25 domains. Shape (confirm against the live fixture recorded in HF-009 before coding):
+Channel3's model: offers carry no GTIN and no merchant name; an offer is `{url, domain, price{price, compare_at_price, currency}, availability, condition}` (`condition` is `new`, `used` or null), and a subscription is pinned to one product **variant `selection`** and up to 25 domains. Shape from Channel3's OpenAPI `OfferPriceChangedEvent` (HF-009; fixture `fixtures/channel3/webhooks/offer.price.changed.json`, schema-derived until HF-042b records a live delivery):
 ```json
-{ "id": "evt_…", "type": "offer.price.changed", "subscription_id": "sub_…",
-  "data": { "product_id": "c3_123", "selection": { "color": "Midnight" },
-    "offer": { "url": "…", "domain": "retailer.example", "price": { "price": 219.0, "currency": "USD" },
-               "availability": "InStock", "condition": "new" } } }
+{ "id": "evt_…", "timestamp": "2026-11-11T14:00:00Z", "type": "offer.price.changed",
+  "data": { "subscription_id": "sub_…",
+    "subject": { "product_id": "r4bivjG", "domain": "jcpenney.com", "selection": [ { "name": "Color", "label": "Green" } ],
+                 "locale": { "language": "en", "country": "US", "currency": "USD" } },
+    "previous": { "price": 139.0, "compare_at_price": null, "currency": "USD" },
+    "current": { "price": 119.99, "compare_at_price": 139.0, "currency": "USD" } } }
 ```
+The event carries **no condition or availability**: hydrate them from the free detail endpoint (the offer on the same domain) before the gate (`observePriceChangedEvent(event, detail)` in `channel3/match.ts`); without them the event is ignored as `CONDITION_UNKNOWN`.
 Logic:
 1. Verify the HMAC signature (`CHANNEL3_WEBHOOK_SECRET`, constant-time).
 2. Insert into `webhook_events`; skip only if already processed. Return 2xx within 15 s; process async (unprocessed rows are retried every minute).

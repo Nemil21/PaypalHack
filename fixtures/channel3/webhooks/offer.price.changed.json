@@ -1,0 +1,23 @@
+{
+  "_recording": {
+    "source": "schema-derived: Channel3 OpenAPI OfferPriceChangedEvent (https://channel3.mintlify.dev/docs/openapi/openapi.json), filled with the recorded product r4bivjG / jcpenney.com offer. Not a live delivery: HF-042b records one.",
+    "note": "The event carries no condition; the handler hydrates condition and availability from the free detail endpoint (offer on the same domain) before the match gate."
+  },
+  "headers": {},
+  "body": {
+    "id": "evt_fixture_r4bivjG_jcpenney_1",
+    "timestamp": "2026-11-11T14:00:00Z",
+    "type": "offer.price.changed",
+    "data": {
+      "subscription_id": "sub_fixture_r4bivjG_green",
+      "subject": {
+        "product_id": "r4bivjG",
+        "domain": "jcpenney.com",
+        "locale": { "language": "en", "country": "US", "currency": "USD" },
+        "selection": [{ "name": "Color", "label": "Green" }]
+      },
+      "previous": { "price": 139.0, "compare_at_price": null, "currency": "USD" },
+      "current": { "price": 119.99, "compare_at_price": 139.0, "currency": "USD" }
+    }
+  }
+}

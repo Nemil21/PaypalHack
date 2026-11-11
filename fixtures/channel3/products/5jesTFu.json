@@ -1,0 +1,250 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "5jesTFu",
+    "title": "WH-1000XM4C Wireless Noise Cancelling Over-Ear Headphones with USB-C",
+    "description": "The Sony WH-1000XM4C Wireless Noise Cancelling Over-Ear Headphones feature a foldable design and the legendary 1000X noise cancelling technology. Powered by the HD Noise Cancelling Processor QN1 and Dual Noise Sensor technology, these headphones effectively reduce environmental noise. They include a Personal Noise Cancellation Optimizer to tune noise cancellation based on individual factors like head size and glasses. For audio performance, 40 mm drivers with Liquid Crystal Polymer diaphragms deliver deep bass, while LDAC and DSEE Extreme™ ensure high-resolution wireless audio and restored detail in compressed files. The headphones offer up to 27 hours of battery life, with a quick charge feature providing one hour of playback from just 3 minutes of charging. Additional features include multipoint connection for two Bluetooth devices, Speak-to-Chat, Adaptive Sound Control, and an IR sensor that pauses playback when removed. The device is lightweight at approximately 253g and includes soft oval earpads for all-day comfort.",
+    "brands": [
+      {
+        "id": "PURH",
+        "name": "Sony"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/49aa0ae0-482b-42ea-8937-dc8cb026abb4?aid=01M75E5TPMYY0E12GRZACZJV0Y&mid=PfSj",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/49aa0ae0-482b-42ea-8937-dc8cb026abb4?aid=01M75E5TPMYY0E12GRZACZJV0Y&mid=PfSj",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black Sony WH-1000XM4C headphones on a white background."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/9e7a08a9-87c8-4e62-9eb0-8a8f7265db97?aid=01M75E5TPMYY0E12GRZACZJV0Y&mid=PfSj",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Key features list for Sony WH-1000XM4C headphones."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/51417222-ca72-488f-9f01-f798dcd450c6?aid=01M75E5TPMYY0E12GRZACZJV0Y&mid=PfSj",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "lifestyle",
+        "alt_text": "Woman wearing black headphones while working in an office."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [
+      "liquid crystal polymer"
+    ],
+    "key_features": [
+      "Legendary 1000X Noise Cancelling with HD Noise Cancelling Processor QN1",
+      "Hi-Res Audio support with LDAC and 40mm LCP drivers",
+      "Up to 27 hours of battery life (NC ON) or 34 hours (NC OFF)",
+      "User-replaceable lithium-ion battery",
+      "Bluetooth 6.0 with Multipoint connection",
+      "DSEE Extreme™ real-time file restoration",
+      "10-band Equalizer via Sony | Sound Connect app",
+      "Speak-to-Chat and Quick Attention modes",
+      "Adaptive Sound Control",
+      "Lightweight, foldable design (approx. 253g)"
+    ],
+    "colors": [
+      {
+        "hex": "#3a3e40",
+        "percentage": 0.443
+      },
+      {
+        "hex": "#202326",
+        "percentage": 0.3356
+      },
+      {
+        "hex": "#fbfbfb",
+        "percentage": 0.1374
+      },
+      {
+        "hex": "#626567",
+        "percentage": 0.084
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/5jesTFu-PfSj-S666bu?o=01M4C8CXRSBMP0B3HJHFXXHG8C&aid=01M75E5TPMYY0E12GRZACZJV0Y",
+        "domain": "worldwidestereo.com",
+        "price": {
+          "price": 298,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 253,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/5jesTFu-RnUy-S666bu?o=01M5GXHS9ZNMZDPBDQZX6R2SG5&aid=01M75E5TPMYY0E12GRZACZJV0Y",
+        "domain": "beachcamera.com",
+        "price": {
+          "price": 298,
+          "compare_at_price": 299.99,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 253,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/5jesTFu-oHaU-S666bu?o=01M38JHAYKJXQZF2QYNJD5JS0S&aid=01M75E5TPMYY0E12GRZACZJV0Y",
+        "domain": "bhphotovideo.com",
+        "price": {
+          "price": 298,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 0.6,
+            "unit": "lb"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/5jesTFu-HT4o-S666bu?o=01M65CDC5K6E0QZ1P5CV8D25E8&aid=01M75E5TPMYY0E12GRZACZJV0Y",
+        "domain": "skybygramophone.com",
+        "price": {
+          "price": 298,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "OutOfStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 0.56,
+            "unit": "lb"
+          }
+        }
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "connectivity-technology": [
+        "Bluetooth",
+        "USB",
+        "Wired",
+        "Wireless"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "microphone-type": [
+        "Built-in",
+        "Noise-canceling"
+      ],
+      "battery-type": [
+        "Rechargeable",
+        "Contained-detachable",
+        "Contained-undetachable"
+      ],
+      "device-interface": [
+        "USB",
+        "3.5 mm"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "battery-size": [
+        "Built-in battery",
+        "≤100Wh"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "High fidelity audio",
+        "Volume control"
+      ],
+      "headphone-style": [
+        "Closed-back"
+      ],
+      "power-source": [
+        "Rechargeable",
+        "USB",
+        "Battery-powered"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "audio-connectivity": [
+        "USB",
+        "3.5 mm",
+        "Bluetooth"
+      ]
+    },
+    "ratings": null
+  }
+}

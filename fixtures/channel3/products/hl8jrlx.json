@@ -1,0 +1,192 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "hl8jrlx",
+    "title": "JVC True Wireless Portable Bluetooth Speaker",
+    "description": "The JVC Portable Bluetooth Speaker is a powerful audio solution featuring a 120-watt max output for high-quality sound anywhere. It offers wireless connectivity via Bluetooth, hands-free voice control for volume and track adjustments, and IPX6 water resistance for outdoor use. Added flair is provided by LED illumination, and versatility is enhanced by AUX and USB inputs, USB-C recharging, and a built-in 5-volt power bank function.",
+    "brands": [
+      {
+        "id": "s08C",
+        "name": "JVC"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/c13cac32-129d-453d-bdd1-7f7238d9cc46?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "cleaned_url": "https://cdn.trychannel3.com/7330f533-d80c-4c73-a696-f7216a56c434?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Black JVC portable Bluetooth speaker showing control panel."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/44bcae4d-0456-4292-a155-b743ea1fd3c3?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "cleaned_url": "https://cdn.trychannel3.com/5a7214b4-5aa7-4bd9-8381-d6112271c181?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Front view of the black JVC portable Bluetooth speaker."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/2584d08c-c9aa-46fb-af30-1c639b7c2485?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "cleaned_url": "https://cdn.trychannel3.com/50fea786-b68d-4f13-94a9-89ec1bd4cbc8?aid=01M75E628DW5SWPG68QHDS9SFZ&mid=DEoc",
+        "is_main_image": false,
+        "shot_type": "detail",
+        "alt_text": "Bottom view of JBL speaker showing USB port and cable."
+      }
+    ],
+    "category": {
+      "slug": "portable-bluetooth-speakers",
+      "title": "Portable Bluetooth Speakers",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "speakers",
+          "title": "Speakers"
+        },
+        {
+          "slug": "portable-bluetooth-speakers",
+          "title": "Portable Bluetooth Speakers"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": "adult",
+    "materials": [],
+    "key_features": [
+      "120-watt max output",
+      "Bluetooth wireless connectivity",
+      "Hands-free voice support for volume and track adjustment",
+      "IPX6 water resistance",
+      "LED illumination",
+      "AUX and USB inputs",
+      "USB-C recharging",
+      "Integrated 5-volt power bank",
+      "Frequency response: 90 Hz to 20 kHz",
+      "Bluetooth v5.3 with multi-link up to 100 speakers (sold separately)"
+    ],
+    "colors": [
+      {
+        "hex": "#28282f",
+        "percentage": 0.5942
+      },
+      {
+        "hex": "#5e6066",
+        "percentage": 0.1457
+      },
+      {
+        "hex": "#4e4751",
+        "percentage": 0.12
+      },
+      {
+        "hex": "#868d92",
+        "percentage": 0.1156
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/hl8jrlx-DEoc-S666bu?o=01M1KEXH0J288W92VYTZMRJ2A6&aid=01M75E628DW5SWPG68QHDS9SFZ",
+        "domain": "academy.com",
+        "price": {
+          "price": 179.95,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": {
+            "number": 5.5,
+            "unit": "in"
+          },
+          "width": null,
+          "height": null,
+          "weight": null
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/hl8jrlx-LFnL-S666bu?o=01KMVXS6BQRH4DMNRKFETAJ95P&aid=01M75E628DW5SWPG68QHDS9SFZ",
+        "domain": "staples.com",
+        "price": {
+          "price": 194.49,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "speaker-features": [
+        "Built-in amplifier",
+        "Voice control",
+        "Volume control",
+        "Weather resistant"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "power-source": [
+        "Battery-powered",
+        "USB",
+        "Batteries",
+        "Rechargeable"
+      ],
+      "speaker-design": [
+        "Portable"
+      ],
+      "device-interface": [
+        "AUX",
+        "USB",
+        "3.5 mm"
+      ],
+      "audio-purpose": [
+        "Portable audio",
+        "Professional audio"
+      ],
+      "mounting-type": [
+        "Portable"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "USB",
+        "Wired"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "compatible-voice-assistant": [
+        "Apple Siri"
+      ],
+      "material": [
+        "Plastic"
+      ],
+      "speaker-technology": [
+        "Smart"
+      ],
+      "audio-component-form-factor": [
+        "Portable/Field"
+      ]
+    },
+    "ratings": null
+  }
+}

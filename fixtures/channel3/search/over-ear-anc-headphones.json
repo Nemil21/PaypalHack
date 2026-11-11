@@ -1,0 +1,513 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "POST /v1/search",
+    "recordedAt": "2026-11-11T13:53:45.509Z",
+    "role": "Aurel A7 comparison"
+  },
+  "request": {
+    "query": "wireless noise cancelling over-ear headphones"
+  },
+  "response": {
+    "products": [
+      {
+        "id": "c17VkZV",
+        "title": "JBL Live 770NC Wireless Over-Ear Noise Cancelling Headphones",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/e02ef919-29e0-4132-8e47-a5e48530e356?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=QetO",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e02ef919-29e0-4132-8e47-a5e48530e356?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=QetO",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black over-ear headphones shown from the front view."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/515d36c7-a551-4eef-b52b-2d3336fad188?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=QetO",
+            "cleaned_url": null,
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Black over-ear headphones with headband and earcups shown."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/c17VkZV-QetO-S666bu?o=01KH89P8AD2BMST9825J3DCKNM&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "urbanoutfitters.com",
+            "price": {
+              "price": 219.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 0.56,
+                "unit": "lb"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/c17VkZV-p1PB-S666bu?o=01KXT810TJ9H8MPMJQK5Z7GTVZ&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 219.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "2bBSI3U",
+        "title": "W820NB Plus Gen 2 Wireless Over-ear Noise Cancelling Headphones",
+        "brands": [
+          {
+            "id": "rQJH",
+            "name": "Edifier"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/cd64656d-4689-459c-9dc6-d9e6ec8fb3ca?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=LPzf",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/cd64656d-4689-459c-9dc6-d9e6ec8fb3ca?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=LPzf",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Navy blue over-ear headphones shown in a studio shot."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/e124bbeb-93e2-439c-baf4-03a6f937520c?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=LPzf",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e124bbeb-93e2-439c-baf4-03a6f937520c?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=LPzf",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Matte black over-ear headphones shown in a studio shot."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/2bBSI3U-LPzf-S666bu?o=01M63WEVPD1V9VH54BZNS84F3N&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "newegg.com",
+            "price": {
+              "price": 80.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 247,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/2bBSI3U-S6S1-S666bu?o=01M0Z1F5MYDY2V7Q9DDPQTQKPH&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "edifier-online.com",
+            "price": {
+              "price": 89.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "5jesTFu",
+        "title": "WH-1000XM4C Wireless Noise Cancelling Over-Ear Headphones with USB-C",
+        "brands": [
+          {
+            "id": "PURH",
+            "name": "Sony"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/49aa0ae0-482b-42ea-8937-dc8cb026abb4?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=PfSj",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/49aa0ae0-482b-42ea-8937-dc8cb026abb4?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=PfSj",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black Sony WH-1000XM4C headphones on a white background."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/9e7a08a9-87c8-4e62-9eb0-8a8f7265db97?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=PfSj",
+            "cleaned_url": null,
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Key features list for Sony WH-1000XM4C headphones."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/5jesTFu-PfSj-S666bu?o=01M4C8CXRSBMP0B3HJHFXXHG8C&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "worldwidestereo.com",
+            "price": {
+              "price": 298,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 253,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/5jesTFu-RnUy-S666bu?o=01M5GXHS9ZNMZDPBDQZX6R2SG5&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "beachcamera.com",
+            "price": {
+              "price": 298,
+              "compare_at_price": 299.99,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 253,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/5jesTFu-oHaU-S666bu?o=01M38JHAYKJXQZF2QYNJD5JS0S&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "bhphotovideo.com",
+            "price": {
+              "price": 298,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 0.6,
+                "unit": "lb"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "r4r2IKc",
+        "title": "QuietComfort Ultra Headphones",
+        "brands": [
+          {
+            "id": "qHHu",
+            "name": "Bose"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/65ffaead-f0f5-47f6-814e-bcce67e45242?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=ZQQu",
+            "cleaned_url": "https://cdn.trychannel3.com/65ffaead-f0f5-47f6-814e-bcce67e45242?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=ZQQu",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Bose QuietComfort Ultra Headphones in white smoke, shown at a 3/4 angle."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/eb03b0e8-6984-47d7-b1bd-bd78b7ca7c6f?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=ZQQu",
+            "cleaned_url": "https://cdn.trychannel3.com/eb03b0e8-6984-47d7-b1bd-bd78b7ca7c6f?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=ZQQu",
+            "is_main_image": false,
+            "shot_type": "on_model",
+            "alt_text": "A man wearing white Bose QuietComfort Ultra Headphones."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/r4r2IKc-ZQQu-S666bu?o=01M3VX8JRDSM97F6YC6216GHKX&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "focuscamera.com",
+            "price": {
+              "price": 449,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/r4r2IKc-Bteb-S666bu?o=01M5Z4VRZM48ECKFVDG2WRNYHQ&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "dell.com",
+            "price": {
+              "price": 449,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": {
+                "number": 8.1,
+                "unit": "in"
+              },
+              "width": {
+                "number": 6.3,
+                "unit": "in"
+              },
+              "height": {
+                "number": 1.8,
+                "unit": "in"
+              },
+              "weight": {
+                "number": 9.28,
+                "unit": "oz"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/r4r2IKc-p1PB-S666bu?o=01M1M6KQYW9S16J6WRX25P540N&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 449,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "r4bivjG",
+        "title": "JBL Live 780NC Wireless Noise Cancelling Headphones",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/32b0b4f5-50b1-4543-9ed2-2ed6d43af7c7?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qoqa",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/32b0b4f5-50b1-4543-9ed2-2ed6d43af7c7?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qoqa",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "JBL Live 780NC headphones on a plain background."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/9c04ec90-3847-4e22-92c8-e3ac033bf224?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qoqa",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/9c04ec90-3847-4e22-92c8-e3ac033bf224?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qoqa",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "JBL Live 780NC headphones shown from a three-quarter angle."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/r4bivjG-Qoqa-S666bu?o=01M6T5HX56RX04R1AF6Q0WRE9V&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "jcpenney.com",
+            "price": {
+              "price": 139,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/r4bivjG-7lFu-S666bu?o=01M3X3RDY9N3BJM0SHRD543Y83&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "jbl.com",
+            "price": {
+              "price": 249.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 260,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/r4bivjG-Bteb-S666bu?o=01M61MYX49MZ8D24SSP9WEB8GY&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "dell.com",
+            "price": {
+              "price": 249.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": {
+                "number": 3.94,
+                "unit": "ft"
+              },
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 9.17,
+                "unit": "oz"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "SnUlX6P",
+        "title": "Beats Studio Pro Wireless Noise Cancelling Over-the-Ear Headphones + Power Adapter",
+        "brands": [
+          {
+            "id": "ainn",
+            "name": "Beats"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/d79f0b10-e145-4856-b505-195f0572018c?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=DyQi",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/d79f0b10-e145-4856-b505-195f0572018c?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=DyQi",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black Beats Studio Pro headphones and power adapter on white background."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/5d153cbd-bf4a-4a9e-8e62-785e04d4ef39?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=DyQi",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/5d153cbd-bf4a-4a9e-8e62-785e04d4ef39?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=DyQi",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Black Beats Studio Pro headphones and power adapter on white background."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/SnUlX6P-DyQi-S666bu?o=01M32005Z2N8SJPR3APQY7V1BF&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "bloomingdales.com",
+            "price": {
+              "price": 240.01,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/SnUlX6P-Qqxu-S666bu?o=01M3EWCCGHVCDR799H1VJPEWSZ&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "lowes.com",
+            "price": {
+              "price": 264.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "6uTCfJN",
+        "title": "Bose QuietComfort Ultra Wireless Over-Ear Headphones Black & White, & Power Bank",
+        "brands": [
+          {
+            "id": "qHHu",
+            "name": "Bose"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/b6f06132-3485-44a9-9f8a-7dba3d603409?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=T9Fg",
+            "cleaned_url": null,
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Bose QuietComfort Ultra headphones and power bank in white and black."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/6uTCfJN-T9Fg-S666bu?o=01M6HTPPN0602PKXCCCV5YS49K&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "adorama.com",
+            "price": {
+              "price": 858,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "q6CVy5d",
+        "title": "Beats Studio Pro Wireless Noise Cancelling Over-the-Ear Headphones + Power Adapter",
+        "brands": [
+          {
+            "id": "ainn",
+            "name": "Beats"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/897063c3-3334-4ac5-a21f-4a8d19cbe645?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qqxu",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/897063c3-3334-4ac5-a21f-4a8d19cbe645?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qqxu",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Over-the-ear headphones in dark blue and black on a white background."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/5849268f-5a44-4f30-8c9d-6bd9b2a524dc?aid=01M75E5RBSQYPKRTDBM7KAGZR5&mid=Qqxu",
+            "cleaned_url": null,
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Over-the-ear headphones in dark blue and black on a white background."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/q6CVy5d-Qqxu-S666bu?o=01M3068KW4P0HHEZ6MR2ZEAMP8&aid=01M75E5RM06QD4V6PVSV8SDS8Z",
+            "domain": "lowes.com",
+            "price": {
+              "price": 264.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      }
+    ],
+    "next_page_token": null
+  }
+}

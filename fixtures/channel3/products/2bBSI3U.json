@@ -1,0 +1,207 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "2bBSI3U",
+    "title": "W820NB Plus Gen 2 Wireless Over-ear Noise Cancelling Headphones",
+    "description": "The Edifier W820NB Plus Gen 2 is a pair of wireless over-ear headphones in Navy Blue, featuring advanced -49 dB Hybrid Active Noise Cancellation (ANC) with multiple modes for various environments. They deliver Hi-Res Audio through 40mm titanium-coated drivers and support LDAC and SBC codecs. With an impressive battery life of up to 88 hours (49 hours with ANC enabled), they also support fast charging, providing 15 hours of playback from a 15-minute charge. Additional features include spatial sound technology, volume guard for hearing protection, Bluetooth V6.1 with multipoint pairing for two devices, and a lightweight foldable design for portability.",
+    "brands": [
+      {
+        "id": "rQJH",
+        "name": "Edifier"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/cd64656d-4689-459c-9dc6-d9e6ec8fb3ca?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/cd64656d-4689-459c-9dc6-d9e6ec8fb3ca?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Navy blue over-ear headphones shown in a studio shot."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/e124bbeb-93e2-439c-baf4-03a6f937520c?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e124bbeb-93e2-439c-baf4-03a6f937520c?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Matte black over-ear headphones shown in a studio shot."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/563bb774-1531-4ce3-8ba7-7ea71ec9ddc5?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/563bb774-1531-4ce3-8ba7-7ea71ec9ddc5?aid=01M75E5TARXGDCSZD5P5TN9675&mid=LPzf",
+        "is_main_image": false,
+        "shot_type": "flat_lay",
+        "alt_text": "Pair of black over-ear headphones shown flat lay."
+      }
+    ],
+    "category": {
+      "slug": "over-ear-headphones",
+      "title": "Over-Ear Headphones",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "headphones-headsets",
+          "title": "Headphones & Headsets"
+        },
+        {
+          "slug": "headphones",
+          "title": "Headphones"
+        },
+        {
+          "slug": "over-ear-headphones",
+          "title": "Over-Ear Headphones"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [
+      "plastic",
+      "memory foam"
+    ],
+    "key_features": [
+      "Up to 88 hours of playback (ANC OFF)",
+      "Advanced hybrid active noise cancellation up to -49dB",
+      "40mm titanium-coated composite driver for Hi-Res sound",
+      "Supports wired and wireless Hi-Res audio (up to 96kHz/24bit)",
+      "Spatial sound mode for immersive audio",
+      "AI-powered noise-canceling for clear hands-free calls",
+      "Multipoint connection for seamless switching between two devices",
+      "Bluetooth V6.1 connectivity",
+      "Gaming Mode for reduced audio latency",
+      "Custom EQ settings via EDIFIER ConneX App"
+    ],
+    "colors": [
+      {
+        "hex": "#3c4e63",
+        "percentage": 0.4002
+      },
+      {
+        "hex": "#ffffff",
+        "percentage": 0.1903
+      },
+      {
+        "hex": "#78879b",
+        "percentage": 0.1395
+      },
+      {
+        "hex": "#5b6a7e",
+        "percentage": 0.1313
+      },
+      {
+        "hex": "#212f40",
+        "percentage": 0.102
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/2bBSI3U-LPzf-S666bu?o=01M63WEVPD1V9VH54BZNS84F3N&aid=01M75E5TARXGDCSZD5P5TN9675",
+        "domain": "newegg.com",
+        "price": {
+          "price": 80.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 247,
+            "unit": "g"
+          }
+        }
+      },
+      {
+        "url": "https://buy.trychannel3.com/2bBSI3U-S6S1-S666bu?o=01M0Z1F5MYDY2V7Q9DDPQTQKPH&aid=01M75E5TARXGDCSZD5P5TN9675",
+        "domain": "edifier-online.com",
+        "price": {
+          "price": 89.99,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "microphone-type": [
+        "Noise-canceling"
+      ],
+      "earphone-features": [
+        "Built-in microphone",
+        "Noise cancellation",
+        "High fidelity audio",
+        "Volume control"
+      ],
+      "driver-technology": [
+        "Dynamic driver"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "USB",
+        "Wired",
+        "Wireless"
+      ],
+      "noise-cancellation-technology": [
+        "Active noise cancellation (ANC)"
+      ],
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "headphone-style": [
+        "Closed-back"
+      ],
+      "charging-interface-type": [
+        "USB type-C"
+      ],
+      "audio-connectivity": [
+        "Bluetooth",
+        "USB"
+      ],
+      "headphone-driver-technology": [
+        "Dynamic"
+      ],
+      "power-source": [
+        "Rechargeable"
+      ],
+      "device-interface": [
+        "USB",
+        "Bluetooth"
+      ],
+      "maximum-bit-depth": [
+        "24-bit"
+      ],
+      "material": [
+        "Plastic",
+        "Foam"
+      ]
+    },
+    "ratings": null
+  }
+}

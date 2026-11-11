@@ -1,0 +1,577 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "POST /v1/search",
+    "recordedAt": "2026-11-11T13:53:45.509Z",
+    "role": "third demo product"
+  },
+  "request": {
+    "query": "true wireless noise cancelling earbuds"
+  },
+  "response": {
+    "products": [
+      {
+        "id": "qE1D14e",
+        "title": "Jbl Tour Pro 2",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/b52c0043-b3a6-4451-a9d1-eb00f8d27797?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/b52c0043-b3a6-4451-a9d1-eb00f8d27797?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Front view of the JBL Tour Pro 2 portable speaker."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/11500438-9753-4bee-a7b0-b3d7cde08d07?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/11500438-9753-4bee-a7b0-b3d7cde08d07?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Front view of the JBL Tour Pro 2 portable speaker with branding."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/qE1D14e-mDEv-S666bu?o=01M2GQK6YA0FC8KZNZAH84YR0R&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "audioadvice.com",
+            "price": {
+              "price": 249.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 268,
+                "unit": "g"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "OtS0To9",
+        "title": "Tour Pro 2 True Wireless Noise Cancelling Earbuds",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/66fe1dd1-ec00-4337-950a-ad8a48837cee?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/66fe1dd1-ec00-4337-950a-ad8a48837cee?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black JBL Tour Pro 2 earbuds case open, showing earbuds inside."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/b6d95706-88c9-435d-a2d6-29d10b9bfa73?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/b6d95706-88c9-435d-a2d6-29d10b9bfa73?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=mDEv",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Silver JBL Tour Pro 2 earbuds case open, showing earbuds inside."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/OtS0To9-mDEv-S666bu?o=01KRSK6H0G1ADRJMP2Z65FK55H&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "audioadvice.com",
+            "price": {
+              "price": 249.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "Ft39C5h",
+        "title": "Tune Beam 2 True Wireless Noise Cancelling Earbuds",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/451d116e-d710-4869-b274-27518edc767c?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=aiyf",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/451d116e-d710-4869-b274-27518edc767c?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=aiyf",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "JBL Tune Beam 2 charging case with earbuds in open."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/4ce0925c-c6d2-460a-9dc2-433be13c3e08?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=aiyf",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/4ce0925c-c6d2-460a-9dc2-433be13c3e08?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=aiyf",
+            "is_main_image": false,
+            "shot_type": "lifestyle",
+            "alt_text": "Pair of white JBL Tune Beam 2 earbuds."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/Ft39C5h-aiyf-S666bu?o=01M4CNEJM5N5XAD0H02MFMAA5A&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "jbl.com",
+            "price": {
+              "price": 109.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 52.4,
+                "unit": "g"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/Ft39C5h-7lFu-S666bu?o=01M3XEAGVBSXWFBP0DDQ7QW0HV&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "jbl.com",
+            "price": {
+              "price": 109.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 52.4,
+                "unit": "g"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "CYYBtPX",
+        "title": "Jbl Tune Buds 2",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/c3dfc7b0-e0af-4ca0-b613-19ba2333defd?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Pu5r",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/c3dfc7b0-e0af-4ca0-b613-19ba2333defd?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Pu5r",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "JBL Tune Buds 2 earbud in black, front view."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/e39efb74-e6f4-4932-9b85-3cb816874b01?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Pu5r",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/e39efb74-e6f4-4932-9b85-3cb816874b01?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Pu5r",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "JBL Tune Buds 2 earbuds in black, three-quarter view."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/CYYBtPX-Pu5r-S666bu?o=01KR8PF91CP9B8P69C5A5F3F67&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "pcrichard.com",
+            "price": {
+              "price": 109.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 1,
+                "unit": "lb"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/CYYBtPX-Fn95-S666bu?o=01KJ9TD5331XV769X0X9K0M34A&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "crutchfield.com",
+            "price": {
+              "price": 109.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "1fndDdt",
+        "title": "Vibe Buds 2",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/fd04daf3-3b07-416d-b697-ed3aa1e059a3?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=DO3T",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/fd04daf3-3b07-416d-b697-ed3aa1e059a3?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=DO3T",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Pair of white JBL wireless earbuds shown from above on white."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/772bc172-4d9b-4b6d-96ed-df48db8a578e?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=DO3T",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/772bc172-4d9b-4b6d-96ed-df48db8a578e?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=DO3T",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "White JBL charging case with one earbud shown from the side."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/1fndDdt-DO3T-S666bu?o=01KZ6B1YAZ9KNMWTE2Q97GEN6T&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "abt.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": {
+                "number": 0.62,
+                "unit": "in"
+              },
+              "width": {
+                "number": 0.8,
+                "unit": "in"
+              },
+              "height": {
+                "number": 0.85,
+                "unit": "in"
+              },
+              "weight": {
+                "number": 0.1,
+                "unit": "lb"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/1fndDdt-p3xj-S666bu?o=01KZ6BKFRQDZ21RMTR393XXKNX&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "sweetwater.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "tQvaezt",
+        "title": "Vibe Beam 2 True Wireless Noise Cancelling Earbuds",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/fbce7536-1461-49bf-835f-b3db6bc378ea?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Bteb",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/fbce7536-1461-49bf-835f-b3db6bc378ea?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Bteb",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "White JBL Vibe Beam 2 charging case open with earbuds inside."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/31c8455b-b1f9-44a4-982c-bf22d21b39db?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=Bteb",
+            "cleaned_url": null,
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "White JBL Vibe Beam 2 charging case with earbuds inside."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/tQvaezt-Bteb-S666bu?o=01KNTGPZ2X8C20EB38817AV88Q&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "dell.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 0.3,
+                "unit": "oz"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/tQvaezt-p1PB-S666bu?o=01M413N71DY4VGQBCY55ZESH2W&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "gaojYR6",
+        "title": "JBL Vibe Beam 2 True Wireless Noise Cancelling Earbuds",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/eb8ae23a-8c07-4adf-93d5-933a3cc1e404?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=K6RA",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/eb8ae23a-8c07-4adf-93d5-933a3cc1e404?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=K6RA",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Side view of a black wireless earbud."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/6a528964-3f14-4722-b60e-2930757c1acf?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=K6RA",
+            "cleaned_url": null,
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black charging case for JBL Vibe Beam 2 earbuds."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-K6RA-S666bu?o=01M1Q3J1QC0D0K8J9ZASFC32A3&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "macys.com",
+            "price": {
+              "price": 39.95,
+              "compare_at_price": 64.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-DO3T-S666bu?o=01M2K5FGA38J72MFBV9HW4C6SW&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "abt.com",
+            "price": {
+              "price": 39.95,
+              "compare_at_price": 64.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-DyQi-S666bu?o=01M37QRHC1101YRTAZ1EG9P7ZB&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "bloomingdales.com",
+            "price": {
+              "price": 39.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-Bteb-S666bu?o=01M5YHVYJ1345N90KREG2Y45XQ&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "dell.com",
+            "price": {
+              "price": 39.95,
+              "compare_at_price": 64.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 0.3,
+                "unit": "oz"
+              }
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-Fn95-S666bu?o=01KJ9SBZGSG5Y6TS5A7087HB7W&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "crutchfield.com",
+            "price": {
+              "price": 39.95,
+              "compare_at_price": 64.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-WPap-S666bu?o=01KVSN1V1APB1QVV9G3BTQZ8RR&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "cabelas.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-qzpY-S666bu?o=01KVGGTVJ4RW0CQSA7JANYG0YQ&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "basspro.com",
+            "price": {
+              "price": 64.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-DEoc-S666bu?o=01M1EH8GKA56DDM9TT1NVWD53S&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "academy.com",
+            "price": {
+              "price": 64.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-wAe3-S666bu?o=01M737TGZ60345H006D4G6YDT2&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "acehardware.com",
+            "price": {
+              "price": 64.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/gaojYR6-c4cn-S666bu?o=01M6KXRAC5JDPQ0WRZ0WMEMQE5&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "big5sportinggoods.com",
+            "price": {
+              "price": 64.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "DDkJdE4",
+        "title": "Tune Buds 2 True Wireless Noise Cancelling Earbuds",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/1e7b4555-30a9-4a7d-b03d-a1a5945a0146?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=p1PB",
+            "cleaned_url": "https://cdn.trychannel3.com/1e7b4555-30a9-4a7d-b03d-a1a5945a0146?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=p1PB",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "White JBL earbud, showing the body and touch control."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/3729410d-6dcd-4d7d-b0c4-a968906ef4f5?aid=01M75E6759QRG3RXJ9T15Z25AQ&mid=p1PB",
+            "cleaned_url": null,
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "White JBL Tune Buds 2 earbuds shown individually."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/DDkJdE4-p1PB-S666bu?o=01KXPJ94W4D360QCXJBVWGPN34&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 59.95,
+              "compare_at_price": 109.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          },
+          {
+            "url": "https://buy.trychannel3.com/DDkJdE4-Pu5r-S666bu?o=01KR3SN3NVW7RBPR0FMHVC7YBZ&aid=01M75E67FKXTCDRRY01T3X1Q3Z",
+            "domain": "pcrichard.com",
+            "price": {
+              "price": 109.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": null,
+              "width": null,
+              "height": null,
+              "weight": {
+                "number": 1,
+                "unit": "lb"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "next_page_token": null
+  }
+}

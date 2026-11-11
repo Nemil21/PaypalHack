@@ -1,0 +1,328 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "POST /v1/search",
+    "recordedAt": "2026-11-11T13:53:45.509Z",
+    "role": "second demo product"
+  },
+  "request": {
+    "query": "portable bluetooth speaker waterproof"
+  },
+  "response": {
+    "products": [
+      {
+        "id": "bbyEXs2",
+        "title": "Nayman SP700 Portable Bluetooth Speaker",
+        "brands": [
+          {
+            "id": "gzxw",
+            "name": "Nautica"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/5c83454b-3701-476a-8846-aeb77881e489?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/5c83454b-3701-476a-8846-aeb77881e489?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Red waterproof portable Bluetooth speaker splashing water."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/bbyEXs2-p1PB-S666bu?o=01KYQHT9QVCTPXA0KQN4Z625B6&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 39.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "aVAyYlu",
+        "title": "Nayman SP700 Portable Bluetooth Speaker",
+        "brands": [
+          {
+            "id": "gzxw",
+            "name": "Nautica"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/51ac5308-b774-4634-96a7-b48147dbfe7e?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/51ac5308-b774-4634-96a7-b48147dbfe7e?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Green waterproof speaker being splashed with water."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/aVAyYlu-p1PB-S666bu?o=01KYQHSQ8T28PQNRJ70FXNVG5T&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 39.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "p3avE81",
+        "title": "Bose SoundLink Micro Bluetooth Portable Waterproof Speaker",
+        "brands": [
+          {
+            "id": "qHHu",
+            "name": "Bose"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/d0760511-bee9-44a3-97ef-aeab7a93cfe3?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=K6RA",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/d0760511-bee9-44a3-97ef-aeab7a93cfe3?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=K6RA",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Light blue portable Bluetooth speaker on white background."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/999e2e84-e5e7-47df-afd6-896e9a605aba?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=K6RA",
+            "cleaned_url": null,
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Top-down view of the portable speaker with carrying strap."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/p3avE81-K6RA-S666bu?o=01M6H232ZS0XRZG8SEW2MYKFJF&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "macys.com",
+            "price": {
+              "price": 129,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "hl8jrlx",
+        "title": "JVC True Wireless Portable Bluetooth Speaker",
+        "brands": [
+          {
+            "id": "s08C",
+            "name": "JVC"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/7330f533-d80c-4c73-a696-f7216a56c434?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DEoc",
+            "cleaned_url": "https://cdn.trychannel3.com/7330f533-d80c-4c73-a696-f7216a56c434?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DEoc",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Black JVC portable Bluetooth speaker showing control panel."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/5a7214b4-5aa7-4bd9-8381-d6112271c181?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DEoc",
+            "cleaned_url": "https://cdn.trychannel3.com/5a7214b4-5aa7-4bd9-8381-d6112271c181?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DEoc",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Front view of the black JVC portable Bluetooth speaker."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/hl8jrlx-DEoc-S666bu?o=01M1KEXH0J288W92VYTZMRJ2A6&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "academy.com",
+            "price": {
+              "price": 179.95,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": {
+              "length": {
+                "number": 5.5,
+                "unit": "in"
+              },
+              "width": null,
+              "height": null,
+              "weight": null
+            }
+          },
+          {
+            "url": "https://buy.trychannel3.com/hl8jrlx-LFnL-S666bu?o=01KMVXS6BQRH4DMNRKFETAJ95P&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "staples.com",
+            "price": {
+              "price": 194.49,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "XzDh2Nq",
+        "title": "Nayman SP700 Portable Bluetooth Speaker",
+        "brands": [
+          {
+            "id": "gzxw",
+            "name": "Nautica"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/33b4edf3-f6ba-44f0-91fd-10c82d20971b?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "cleaned_url": null,
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Two black, waterproof, portable Bluetooth speakers splashing water."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/XzDh2Nq-p1PB-S666bu?o=01KYY7PT3FCY5JY6VAGZ8X5KPA&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 69.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "29C6zIk",
+        "title": "JBL Charge 6 Portable Bluetooth Speaker, Waterproof, Drop-Proof - White",
+        "brands": [
+          {
+            "id": "4AJV",
+            "name": "JBL"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/308bad47-8ab2-4865-b7e5-bab93cad29b7?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=Qoqa",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/308bad47-8ab2-4865-b7e5-bab93cad29b7?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=Qoqa",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Front view of the red JBL Charge 6 speaker body."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/9e54d547-7d2f-4620-8fae-b83cc04e31a0?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=Qoqa",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/9e54d547-7d2f-4620-8fae-b83cc04e31a0?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=Qoqa",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Front view of the red JBL Charge 6 speaker body with logo."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/29C6zIk-Qoqa-S666bu?o=01M65WD7G7X1J68WTJ3YTNF8HB&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "jcpenney.com",
+            "price": {
+              "price": 159,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "K2vyAlH",
+        "title": "Nautica Nayman SP700 Portable Bluetooth Speaker",
+        "brands": [
+          {
+            "id": "gzxw",
+            "name": "Nautica"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/400ef10d-2972-4ed3-8daa-172ad87899b5?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "cleaned_url": "https://cdn.trychannel3.com/400ef10d-2972-4ed3-8daa-172ad87899b5?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=p1PB",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Two red Nautica Nayman SP700 portable Bluetooth speakers."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/K2vyAlH-p1PB-S666bu?o=01KXZS06FYZ7A7Y23N01Q5P77Q&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "bestbuy.com",
+            "price": {
+              "price": 69.99,
+              "compare_at_price": null,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      },
+      {
+        "id": "9c8cHaU",
+        "title": "Charge 6 Portable Bluetooth Speaker Waterproof with AI Sound Boost",
+        "brands": [
+          {
+            "id": "RFDs",
+            "name": "HARMAN"
+          }
+        ],
+        "images": [
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/abd92510-e949-4ce5-a857-ea89cd385294?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DO3T",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/abd92510-e949-4ce5-a857-ea89cd385294?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DO3T",
+            "is_main_image": true,
+            "shot_type": "hero",
+            "alt_text": "Front view of a red JBL portable Bluetooth speaker."
+          },
+          {
+            "url": "https://cdn.trychannel3.com/cleaned/v1/ca63ea15-ba2c-40d4-aabc-06b5a2de99da?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DO3T",
+            "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/ca63ea15-ba2c-40d4-aabc-06b5a2de99da?aid=01M75E60QD0DJZ7C617CE8AQ52&mid=DO3T",
+            "is_main_image": false,
+            "shot_type": "hero",
+            "alt_text": "Red JBL portable Bluetooth speaker with a handle."
+          }
+        ],
+        "offers": [
+          {
+            "url": "https://buy.trychannel3.com/9c8cHaU-DO3T-S666bu?o=01KBP9F59H73AWAHJJMDPGTT3Z&aid=01M75E60QZSYGHPAQM0A6QEGXH",
+            "domain": "abt.com",
+            "price": {
+              "price": 149.95,
+              "compare_at_price": 199.95,
+              "currency": "USD"
+            },
+            "availability": "InStock",
+            "condition": "new",
+            "dimensions": null
+          }
+        ]
+      }
+    ],
+    "next_page_token": null
+  }
+}

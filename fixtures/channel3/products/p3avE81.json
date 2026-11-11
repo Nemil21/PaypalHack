@@ -1,0 +1,162 @@
+{
+  "_recording": {
+    "source": "mcp.trychannel3.com keyless free tier",
+    "endpoint": "GET /v1/products/{id}",
+    "recordedAt": "2026-11-11T13:53:45.509Z"
+  },
+  "response": {
+    "id": "p3avE81",
+    "title": "Bose SoundLink Micro Bluetooth Portable Waterproof Speaker",
+    "description": "The Bose SoundLink Micro is a durable, ultra-portable Bluetooth speaker designed for any adventure. It features a pocketable size, an integrated utility strap for easy attachment to gear, and is IP67 dustproof and waterproof. With up to 12 hours of battery life, advanced Bluetooth connectivity with a range of 30 feet, and USB-C charging, it provides powerful audio in a compact frame. Users can customize their sound via the Bose app and pair two compatible speakers for Stereo or Party Mode.",
+    "brands": [
+      {
+        "id": "qHHu",
+        "name": "Bose"
+      }
+    ],
+    "images": [
+      {
+        "url": "https://cdn.trychannel3.com/d0760511-bee9-44a3-97ef-aeab7a93cfe3?aid=01M75E61W26EKDE3RVXVNSSEQR&mid=K6RA",
+        "cleaned_url": "https://cdn.trychannel3.com/cleaned/v1/d0760511-bee9-44a3-97ef-aeab7a93cfe3?aid=01M75E61W26EKDE3RVXVNSSEQR&mid=K6RA",
+        "is_main_image": true,
+        "shot_type": "hero",
+        "alt_text": "Light blue portable Bluetooth speaker on white background."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/999e2e84-e5e7-47df-afd6-896e9a605aba?aid=01M75E61W26EKDE3RVXVNSSEQR&mid=K6RA",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "hero",
+        "alt_text": "Top-down view of the portable speaker with carrying strap."
+      },
+      {
+        "url": "https://cdn.trychannel3.com/162c2493-f2cd-401a-9a23-b2e1e939cb02?aid=01M75E61W26EKDE3RVXVNSSEQR&mid=K6RA",
+        "cleaned_url": null,
+        "is_main_image": false,
+        "shot_type": "lifestyle",
+        "alt_text": "Portable speaker mounted on a bicycle handlebar outdoors."
+      }
+    ],
+    "category": {
+      "slug": "portable-bluetooth-speakers",
+      "title": "Portable Bluetooth Speakers",
+      "path": [
+        {
+          "slug": "electronics",
+          "title": "Electronics"
+        },
+        {
+          "slug": "audio",
+          "title": "Audio"
+        },
+        {
+          "slug": "audio-components",
+          "title": "Audio Components"
+        },
+        {
+          "slug": "speakers",
+          "title": "Speakers"
+        },
+        {
+          "slug": "portable-bluetooth-speakers",
+          "title": "Portable Bluetooth Speakers"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": null,
+    "age": null,
+    "materials": [],
+    "key_features": [
+      "Ultra-portable, pocketable size",
+      "Integrated utility strap for effortless attachment",
+      "IP67 dustproof and waterproof",
+      "12-hour battery life",
+      "Advanced Bluetooth connectivity (up to 30 feet range)",
+      "USB-C charging",
+      "Adjustable EQ via the Bose app",
+      "Stereo Mode and Party Mode (when pairing two compatible speakers)",
+      "Bose SimpleSync™ compatibility"
+    ],
+    "colors": [
+      {
+        "hex": "#41637d",
+        "percentage": 0.4036
+      },
+      {
+        "hex": "#6c92ad",
+        "percentage": 0.3934
+      },
+      {
+        "hex": "#8fb2ca",
+        "percentage": 0.1068
+      },
+      {
+        "hex": "#294862",
+        "percentage": 0.0962
+      }
+    ],
+    "offers": [
+      {
+        "url": "https://buy.trychannel3.com/p3avE81-K6RA-S666bu?o=01M6H232ZS0XRZG8SEW2MYKFJF&aid=01M75E61W26EKDE3RVXVNSSEQR",
+        "domain": "macys.com",
+        "price": {
+          "price": 129,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "dimensions": null
+      }
+    ],
+    "variants": null,
+    "structured_attributes": {
+      "battery-type": [
+        "Rechargeable"
+      ],
+      "speaker-technology": [
+        "Dynamic"
+      ],
+      "pattern": [
+        "Solid"
+      ],
+      "device-interface": [
+        "USB"
+      ],
+      "audio-component-form-factor": [
+        "Portable/Field"
+      ],
+      "power-source": [
+        "Battery-powered",
+        "USB"
+      ],
+      "mounting-type": [
+        "Portable"
+      ],
+      "battery-size": [
+        "Built-in battery"
+      ],
+      "speaker-design": [
+        "Portable"
+      ],
+      "connectivity-technology": [
+        "Bluetooth",
+        "USB",
+        "Wireless"
+      ],
+      "audio-purpose": [
+        "Portable audio"
+      ],
+      "material": [
+        "Rubber"
+      ],
+      "speaker-features": [
+        "Built-in amplifier",
+        "Volume control",
+        "Weather resistant"
+      ]
+    },
+    "ratings": null
+  }
+}
