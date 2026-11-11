@@ -152,7 +152,8 @@ function printStats(s: SeedDemoResult['stats']) {
   );
   console.log(`  round agents: ${s.agentsVaulted} vaulted, ${s.mandates} ACTIVE mandates`);
   for (const [code, n] of Object.entries(s.failures)) console.log(`  not held: ${code} × ${n}`);
-  for (const id of s.strayVaultHolds) console.log(`  WARNING vault setup hold not released: ${id}`);
+  for (const id of s.strayVaultHolds)
+    console.log(`  WARNING vault setup hold may still be authorized: ${id}`);
 }
 
 function print(r: SeedDemoResult, ms: number) {

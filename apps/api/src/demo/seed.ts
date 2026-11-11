@@ -619,6 +619,21 @@ async function vaultAgent(
   if (r.kind !== 'held') {
     const code =
       r.kind === 'needs_approval' ? `PAYER_ACTION_REQUIRED` : 'code' in r ? r.code : r.status;
+    if (r.kind === 'unknown' || r.kind === 'pending') {
+      // No usable answer: an earlier same-id attempt may have left a hold the database does not
+      // track. Audit and print the request id so it can be checked and voided by hand.
+      await audit(deps.db.pool, {
+        actorType: SEED_ACTOR.type,
+        actorId: SEED_ACTOR.id,
+        entity: 'shopper',
+        entityId: shopperId,
+        action: 'DEMO_AGENT_VAULT_UNKNOWN',
+        paypalId: r.orderId,
+        requestId: setupId,
+        data: { code },
+      });
+      return { ok: false, code, strayAuthorizationId: `unknown (PayPal-Request-Id ${setupId})` };
+    }
     return { ok: false, code, strayAuthorizationId: null };
   }
   const released = await deps.paypal.void(r.authorizationId, voidKey(setupId));
@@ -651,7 +666,8 @@ async function backdate(q: Queryable, bidId: string, placedAt: Date): Promise<vo
 }
 
 /**
- * The rate-limit fallback (features/17 §5): the attempted bid (if any) ends HOLD_FAILED, and a
+ * The rate-limit fallback (features/17 §5): the attempted bid (if any) ends ABANDONED and still
+ * `needs_reconcile` (the HF-034 sweeper settles whether PayPal kept a hold), and a
  * DB-only HELD bid with **no** authorization takes its place, labelled `SIM · no hold`. D8 keeps it
  * out of `/book`, `/simulate`, rounds and Clear.
  */
@@ -669,9 +685,13 @@ async function insertNoHoldBid(
 ): Promise<void> {
   await db.tx(async (tx) => {
     if (i.bid && i.bid.status === 'PENDING_APPROVAL') {
-      await transition(tx, 'bids', i.bid.id, 'PENDING_APPROVAL', 'HOLD_FAILED', {
+      // A 429 can be the last answer after an earlier same-id attempt that did create the hold
+      // (M6), so the attempt stays reconcilable: the sweeper replays ABANDONED + needs_reconcile
+      // with the same request id and voids any hold it finds. ABANDONED does not clash with the
+      // replacement HELD row under `one_held_bid`.
+      await transition(tx, 'bids', i.bid.id, 'PENDING_APPROVAL', 'ABANDONED', {
         error_code: i.code,
-        needs_reconcile: false,
+        needs_reconcile: true,
       });
     }
     const row = (

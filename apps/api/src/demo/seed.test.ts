@@ -297,7 +297,8 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-045 seed:demo on the stub', () => {
     ).toBe(true);
     const attempts = (
       await t.db.pool.query(
-        `SELECT count(*)::int AS n FROM bids WHERE status = 'HOLD_FAILED' AND error_code = 'RATE_LIMIT_REACHED'`,
+        `SELECT count(*)::int AS n FROM bids
+          WHERE status = 'ABANDONED' AND needs_reconcile AND error_code = 'RATE_LIMIT_REACHED'`,
       )
     ).rows[0].n;
     expect(attempts).toBe(13);
