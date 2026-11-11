@@ -1,17 +1,26 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
 import type { BrandListingView } from '@holdfast/shared';
-import { createKpiStore, KpiTile, type KpiKind } from '../../components/console/KpiTiles';
-import { Badge, Button, EmptyState, ErrorBanner, useToast } from '../../components/ui';
+import {
+  createKpiStore,
+  KpiTile,
+  type KpiKind,
+  type KpiStore,
+} from '../../components/console/KpiTiles';
+import { QuantitySlider } from '../../components/console/QuantitySlider';
+import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { cn } from '../../lib/cn';
-import { consoleKpis } from '../../lib/console/kpis';
+import { buildCurveModel } from '../../lib/console/curve';
+import { consoleKpisAt, type ConsoleKpis } from '../../lib/console/kpis';
 import { navPhaseLabel, phaseView } from '../../lib/console/phase';
+import { createSliderStore, SliderContext, type SliderStore } from '../../lib/console/slider-store';
 import { useConsoleBook } from '../../lib/console/use-console-book';
 import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
 import { ConsoleHeader, ShareButton } from './ConsoleHeader';
 
 const ConsoleKpiStudio = lazy(() => import('../../components/ag/ConsoleKpiStudio'));
+const DemandCurveChart = lazy(() => import('../../components/ag/DemandCurveChart'));
 
 const KPI_KINDS: KpiKind[] = ['held', 'bids', 'projected', 'recovery', 'released'];
 
@@ -43,9 +52,16 @@ export function ListingConsole() {
   const { book } = live;
 
   const phase = useMemo(() => (book ? phaseView(book.listing, now) : null), [book, now]);
-  const kpis = useMemo(() => (book ? consoleKpis(book) : null), [book]);
   const store = useMemo(createKpiStore, []);
-  useEffect(() => store.set(kpis), [store, kpis]);
+  // One slider store per listing (HF-024). A new book re-ranks it once; the KPI row follows its
+  // numbers through the store (no console re-render per drag step).
+  const slider = useMemo(() => createSliderStore(), [listingId]);
+  useEffect(() => slider.setBook(book), [slider, book]);
+  useEffect(() => {
+    const sync = () => store.set(book ? consoleKpisAt(book, slider.get().numbers) : null);
+    sync();
+    return slider.subscribe(sync);
+  }, [store, slider, book]);
 
   const viewer = me.role === 'VIEWER';
   const locked = phase?.locked ?? false;
@@ -98,7 +114,7 @@ export function ListingConsole() {
         />
 
         <section aria-label="Key numbers">
-          <Suspense fallback={<KpiRowFallback kpis={kpis} />}>
+          <Suspense fallback={<KpiRowFallback store={store} />}>
             <ConsoleKpiStudio store={store} />
           </Suspense>
         </section>
@@ -111,11 +127,15 @@ export function ListingConsole() {
         )}
 
         {/* Panels that plug into this shell: curve + slider (HF-024), bids grid (HF-025). */}
-        <div
-          className={cn('grid gap-4', locked && 'pointer-events-none opacity-60')}
-          aria-disabled={locked || undefined}
-          data-testid="console-panels"
-        />
+        <SliderContext.Provider value={slider}>
+          <div
+            className={cn('grid gap-4', locked && 'pointer-events-none opacity-60')}
+            aria-disabled={locked || undefined}
+            data-testid="console-panels"
+          >
+            {book && !empty && <DemandPanel book={book} slider={slider} locked={locked} />}
+          </div>
+        </SliderContext.Provider>
       </div>
     </ConsoleFrame>
   );
@@ -223,8 +243,46 @@ function Note({
   );
 }
 
+/**
+ * Demand curve and quantity slider (HF-024, features/08 §Layout 3–4). The curve model changes
+ * with the book only; the slider and the curve's cutoff marker read the slider store.
+ */
+function DemandPanel({
+  book,
+  slider,
+  locked,
+}: {
+  book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
+  slider: SliderStore;
+  locked: boolean;
+}) {
+  const model = useMemo(() => buildCurveModel(book), [book]);
+  return (
+    <section
+      aria-label="Demand curve"
+      className="flex flex-col gap-4 rounded-md border border-line bg-white p-4"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="label text-[11px] text-muted">Committed demand</h2>
+        <span className="text-[12px] text-muted">Every point is money already held</span>
+      </div>
+      {model.data.length ? (
+        <Suspense fallback={<Skeleton className="h-[320px] w-full" />}>
+          <DemandCurveChart model={model} slider={slider} />
+        </Suspense>
+      ) : (
+        <p className="py-8 text-center text-[14px] text-body">
+          The curve appears with the first held bid.
+        </p>
+      )}
+      <QuantitySlider disabled={locked} />
+    </section>
+  );
+}
+
 /** Same tiles, plain grid: while the AG bundle loads. */
-function KpiRowFallback({ kpis }: { kpis: ReturnType<typeof consoleKpis> | null }) {
+function KpiRowFallback({ store }: { store: KpiStore }) {
+  const kpis: ConsoleKpis | null = useSyncExternalStore(store.subscribe, store.get, store.get);
   return (
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line md:grid-cols-5">
       {KPI_KINDS.map((k) => (

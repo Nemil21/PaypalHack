@@ -6,11 +6,12 @@ import {
   recoveryMultiple,
   type BookResponse,
 } from '@holdfast/shared';
+import type { SliderNumbers } from './slider';
 
 /**
  * The console KPI row (HF-023, features/08 §Layout 2), derived from one `GET /book` snapshot with
  * the shared `clear()`, so "Projected cutoff" matches the server's `/simulate` and Clear. The
- * quantity is the slider's (HF-024); until it lands, the listing quantity.
+ * console feeds it the slider's numbers (`consoleKpisAt`, HF-024).
  */
 export interface ConsoleKpis {
   heldCents: number;
@@ -31,10 +32,7 @@ export function consoleKpis(book: BookResponse, quantity?: number): ConsoleKpis 
   const q = Math.max(1, Math.min(quantity ?? book.listing.quantity, book.listing.quantity));
   const result = clear(clearBidsFromBook(book.bids), q, book.listing.floorCents);
   const winners = result.winners.length;
-  return {
-    heldCents: book.stats.heldCents,
-    simulatedHeldCents: book.stats.simulatedHeldCents,
-    liveBids: book.stats.liveBids,
+  return consoleKpisAt(book, {
     quantity: q,
     cutoffCents: result.cutoffCents,
     grossCents: result.grossCents,
@@ -43,6 +41,29 @@ export function consoleKpis(book: BookResponse, quantity?: number): ConsoleKpis 
       result.grossCents,
       liquidationCents(winners, book.listing.liquidationQuoteCents),
     ),
+  });
+}
+
+/**
+ * The KPI row at the slider's numbers (HF-024: prefix sums while dragging, the shared `clear()` on
+ * release). `null` numbers (no bid at or above the floor) project nothing at the listing quantity.
+ */
+export function consoleKpisAt(
+  book: BookResponse,
+  at: Pick<
+    SliderNumbers,
+    'quantity' | 'cutoffCents' | 'grossCents' | 'winners' | 'recoveryMultiple'
+  > | null,
+): ConsoleKpis {
+  return {
+    heldCents: book.stats.heldCents,
+    simulatedHeldCents: book.stats.simulatedHeldCents,
+    liveBids: book.stats.liveBids,
+    quantity: at?.quantity ?? book.listing.quantity,
+    cutoffCents: at?.cutoffCents ?? null,
+    grossCents: at?.grossCents ?? 0,
+    winners: at?.winners ?? 0,
+    recoveryMultiple: at?.recoveryMultiple ?? null,
     hasLiquidationQuote: book.listing.liquidationQuoteCents !== null,
     releasedByPriceWatch: book.stats.releasedByPriceWatch,
   };
