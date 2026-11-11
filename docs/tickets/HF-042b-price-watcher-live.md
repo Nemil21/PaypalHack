@@ -31,6 +31,12 @@ Real Channel3 price events reach the deployed app and flow through HF-042a's pat
 - Integration: signed fixture webhook → voids on the stub; poll with a recorded detail fixture.
 - Manual: S5 on the deployed URL.
 
+## Build notes (HF-042b PR)
+- Channel3 signs with Svix / Standard Webhooks (`svix-id`, `svix-timestamp`, `svix-signature: v1,<base64>`, HMAC-SHA256 of `id.timestamp.body` with the base64 `whsec_` secret, 5-minute window), not a raw-body digest. Verified against the published reference vector.
+- Outage state: migration `0003_price_watch_outage.sql` adds `listings.price_watch_paused_at` and a one-row `channel3_health`. Channel3 has no heartbeat, so ours is the `channel3-probe` cron (5 min); down = 3 failures in a row or 30 min without a successful call or delivery.
+- Nightly poll: `price-poll` cron (hourly check, ≥ 23 h between polls). Feeds an event when the best allowlisted price differs from the stored one **or** a HELD bid would be released at it, because the offer page's 10-minute anchor refresh rewrites the stored price without voiding.
+- S5 on Render: **not run** (manual; steps in docs/deploy/render.md §S5). Result to be recorded there and in the README.
+
 ## Notes & risks
 - Resolved (user override): live webhook, outage banner and nightly poll stay in scope (not P1/README); sequenced after the money spine.
 - If S5 fails at recording time, the demo uses the labelled replay (HF-042a) and the README says so.

@@ -27,6 +27,10 @@ import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
 import { registerAdminPriceEventRoutes } from './routes/admin-price-events.js';
+import {
+  registerChannel3WebhookRoute,
+  type Channel3WebhookRouteDeps,
+} from './routes/channel3-webhook.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerListingRoutes } from './routes/listings.js';
@@ -95,8 +99,13 @@ export interface ServerDeps {
    * the fallback). Mounted with `bids`, whose bid service executes confirmed actions.
    */
   agent?: Omit<AgentRoutesDeps, 'money' | 'channel3'>;
-  /** Price watcher (HF-042a): mounts `POST /api/admin/replay-price-event`. Not mounted without it. */
+  /**
+   * Price watcher (HF-042a): mounts `POST /api/admin/replay-price-event`, and (HF-042b) the live
+   * `POST /api/webhooks/channel3` verified with `CHANNEL3_WEBHOOK_SECRET`. Not mounted without it.
+   */
   priceWatch?: PriceWatchDeps;
+  /** Test overrides for the Channel3 webhook route (secret, schedule, clock). */
+  channel3Webhook?: Partial<Omit<Channel3WebhookRouteDeps, keyof PriceWatchDeps>>;
 }
 
 /**
@@ -165,7 +174,14 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });
-  if (deps.priceWatch) registerAdminPriceEventRoutes(app, deps.priceWatch);
+  if (deps.priceWatch) {
+    registerAdminPriceEventRoutes(app, deps.priceWatch);
+    registerChannel3WebhookRoute(app, {
+      ...deps.priceWatch,
+      secret: config.CHANNEL3_WEBHOOK_SECRET,
+      ...deps.channel3Webhook,
+    });
+  }
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   // W19 tokens and `/mcp` (HF-043): bearer token only, scopes checked per tool.
   if (deps.sql) registerMcpClientRoutes(app, { db: deps.sql });

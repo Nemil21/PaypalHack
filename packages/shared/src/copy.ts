@@ -182,6 +182,14 @@ export function roundsRaisedMessage(
   return `New ${formatUsd(newCents)} hold placed · ${formatUsd(oldCents)} hold ${oldReleased ? 'released' : 'releasing'}`;
 }
 
+/**
+ * HF-042b: the Channel3-outage banner on the console (W06) and offer page (W12 / M01), shown while
+ * `listings.price_watch_paused_at` is set (features/06 §Edge cases).
+ */
+export const PRICE_WATCH_PAUSED_COPY = 'Public price check paused';
+export const PRICE_WATCH_PAUSED_DETAIL =
+  "We can't reach our retail price source right now, so holds aren't being checked against store prices. They're still safe; checks resume automatically.";
+
 /** Frozen book (D7): after `rounds_end_at` nothing can be raised until the brand clears. */
 export const ROUNDS_ENDED_COPY = 'Rounds ended. Waiting for the brand to clear.';
 

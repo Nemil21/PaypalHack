@@ -69,6 +69,8 @@ jobs:
         run: npx vitest run --maxWorkers=2 packages/core/src/settlement
       - name: My bids, cancel and release-if-cheaper integration + race tests (HF-016, HF-020)
         run: npx vitest run packages/core/src/bid-cancel.test.ts packages/core/src/bid-price-watch.test.ts apps/api/src/routes/my-bids.test.ts
+      - name: Price watcher replay, live Channel3 webhook, outage banner and nightly poll on the FakePayPal stub (HF-042a, HF-042b)
+        run: npx vitest run --maxWorkers=2 packages/core/src/price-watch apps/api/src/routes/channel3-webhook.test.ts apps/api/src/routes/admin-price-events.test.ts
       - name: Buyer rounds nudge → poll → raise integration on the FakePayPal stub (HF-038a)
         run: npx vitest run packages/core/src/rounds/buyer-rounds.test.ts
       - name: MCP tokens, /mcp auth, scopes, rate limit and revoke race (HF-043)

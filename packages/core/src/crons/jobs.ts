@@ -1,3 +1,5 @@
+import { CHANNEL3_PROBE_INTERVAL_MS } from '../price-watch/health.js';
+import { PRICE_POLL_CHECK_INTERVAL_MS } from '../price-watch/poll.js';
 import { SETTLEMENT_KICK_INTERVAL_MS, type KickSettlement } from '../settlement/outbox.js';
 import { expireListings } from './expiry.js';
 import type { CronJob } from './scheduler.js';
@@ -14,7 +16,10 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  * - `paypal-webhook-replay`: every minute (and at boot), HF-033's `reprocessPayPalWebhooks`
  *   (`webhook_events` rows with `processed_at IS NULL`, M14);
  * - `price-event-replay`: every minute (and at boot), HF-042a's `reprocessPriceEvents` (Channel3
- *   rows with `processed_at IS NULL`, M13/M14).
+ *   rows with `processed_at IS NULL`, M13/M14);
+ * - `channel3-probe`: every 5 min, HF-042b's `probeChannel3` (outage banner on / off);
+ * - `price-poll`: hourly, HF-042b's `pollPublicPrices`, which polls only when the last poll is
+ *   ≥ 23 h old (the nightly backup for missed Channel3 webhooks).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -23,6 +28,8 @@ export const CRON_JOB_IDS = {
   holdSweeper: 'hold-sweeper',
   paypalWebhookReplay: 'paypal-webhook-replay',
   priceEventReplay: 'price-event-replay',
+  channel3Probe: 'channel3-probe',
+  pricePoll: 'price-poll',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -36,6 +43,10 @@ export interface HoldfastCronDeps extends SweepDeps {
   reprocessPayPalWebhooks?: () => Promise<unknown>;
   /** HF-042a `() => reprocessPriceEvents(priceWatchDeps)`. No price-event job without it. */
   reprocessPriceEvents?: () => Promise<unknown>;
+  /** HF-042b `() => probeChannel3(priceWatchDeps)`. No outage banner without it. */
+  probeChannel3?: () => Promise<unknown>;
+  /** HF-042b `() => pollPublicPrices(priceWatchDeps)`. No nightly poll without it. */
+  pollPublicPrices?: () => Promise<unknown>;
   sweep?: SweepOptions;
   onError?: (err: unknown, context: { job: string; detail?: string }) => void;
 }
@@ -71,6 +82,22 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
       id: CRON_JOB_IDS.priceEventReplay,
       intervalMs: MINUTE_MS,
       run: () => priceReplay(),
+    });
+  }
+  const probe = deps.probeChannel3;
+  if (probe) {
+    jobs.push({
+      id: CRON_JOB_IDS.channel3Probe,
+      intervalMs: CHANNEL3_PROBE_INTERVAL_MS,
+      run: () => probe(),
+    });
+  }
+  const pricePoll = deps.pollPublicPrices;
+  if (pricePoll) {
+    jobs.push({
+      id: CRON_JOB_IDS.pricePoll,
+      intervalMs: PRICE_POLL_CHECK_INTERVAL_MS,
+      run: () => pricePoll(),
     });
   }
   jobs.push({

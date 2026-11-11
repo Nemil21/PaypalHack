@@ -88,6 +88,7 @@ Day-one spike results (2026-11-10, `node spikes/paypal-spikes.mjs all`, US sandb
 - **S2:** a card vaulted on the first hold, then a merchant-initiated hold from the `vault_id` with no buyer present.
 - **S3 (local):** 50 parallel holds settled with one injected decline caught on the right bid. A capture replayed with the same request id returned the same capture id.
 - **S4:** a payout to the sandbox brand account was created.
+- **S5 (Channel3 price webhook on Render, HF-042b):** not run yet. The live webhook, signature check and dedupe are built and tested locally; the Render check is manual ([runbook](docs/deploy/render.md#s5-channel3-price-webhook-reaches-render-hf-042b)). Until it passes, the price-drop beat uses the labelled replay.
 
 TODO: add the S7 spike pack results (card fields, wallet, replays, a ≈ $50k payout funded by captures) when HF-063 merges.
 
@@ -176,7 +177,7 @@ Notes:
 - `PAYPAL_MODE=stub` uses the `FakePayPal` stub (HF-004, TODO). Until it merges, nothing calls PayPal anyway. For real sandbox holds set `PAYPAL_MODE=sandbox` with your own sandbox app's client id and secret. Card holds and Payouts need a **US** sandbox business account.
 - **AG Grid:** without `AG_GRID_LICENSE_KEY` the Enterprise grid still runs, with a watermark.
 - **Claude:** the buyer agent, brand agent and nudge phrasing need `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL`. Everything else runs without them.
-- **Channel3:** `CHANNEL3_MODE=live` needs `CHANNEL3_API_KEY` (and `CHANNEL3_WEBHOOK_SECRET` for the price watcher).
+- **Channel3:** `CHANNEL3_MODE=live` needs `CHANNEL3_API_KEY` (and `CHANNEL3_WEBHOOK_SECRET`, the `whsec_…` signing secret of the Channel3 webhook endpoint, for `POST /api/webhooks/channel3`).
 - Database integration tests: `TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres npm run test:db`.
 - TODO (HF-045): `npm run seed:demo` (Aurel Audio, a deterministic book, labelled SIM bidders).
 - TODO (HF-007): the web app is served from the same origin at `/`.
@@ -191,7 +192,7 @@ Notes:
 | Brand payout | **Real** sandbox Payout, funded from real COMPLETED captures only | – | TODO (HF-032) |
 | Volume bidders | **Simulated** shoppers placed by our seed script. Their holds are real sandbox card holds. | Grey **SIM** chip in every grid and list; KPI tiles show "incl. $X simulated" | TODO (HF-045) |
 | No-hold fallback bids | Seeded only if the sandbox rate-limits holds. They have no PayPal authorization, are excluded from Clear (D8), and the seed aborts if more than 10% fall back. | "SIM (no hold)" | TODO: record the count from the final seed here (expected 0) |
-| Channel3 price-drop event | Live webhook if it fires during recording; otherwise a replayed recorded fixture | "replayed event" (`replayed=true`) | TODO (HF-042a/b) |
+| Channel3 price-drop event | Live webhook if it fires during recording; otherwise a replayed recorded fixture | "replayed event" (`replayed=true`) | Live webhook, outage banner and nightly poll built (HF-042b); S5 on Render pending |
 | Injected capture decline | PayPal negative testing (`test_decline`) to show promotion | `DEMO_MODE` only | TODO (HF-046) |
 | Live rounds in the video | Real raises, time-lapsed | Labelled in the video | TODO (HF-050b) |
 
@@ -261,7 +262,7 @@ Status as of this draft (Nov 11, 2026). **Merged** = on `main`. **In review** = 
 | Agents | Brand agent "Ask about this book" panel | HF-051b | P1 | Not started |
 | Channel3 | Client, fixtures, product search, exact-match gate | HF-009 | P0 | Not started |
 | Channel3 | Price watcher: labelled replay and auto-void | HF-042a | P0 | Not started |
-| Channel3 | Price watcher: live webhook, outage banner, nightly poll | HF-042b | P0 | Not started |
+| Channel3 | Price watcher: live webhook, outage banner, nightly poll | HF-042b | P0 | In review |
 | MCP | MCP tokens and connect page | HF-043 | P0 | Not started |
 | MCP | MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) | HF-044a | P0 | Not started |
 | MCP | MCP `raise_bid` | HF-044b | P0 | Not started |

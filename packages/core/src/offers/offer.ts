@@ -45,6 +45,8 @@ export interface OfferView {
   brand: { name: string; verified: boolean };
   product: { title: string | null; imageUrl: string | null; bestPublicPriceCents: number | null };
   publicOffer: PublicOffer | null;
+  /** HF-042b: Channel3 unreachable, so the price watch is paused ("Public price check paused"). */
+  priceWatchPaused: boolean;
   status: ListingStatus;
   phase: ListingPhaseName;
   /** D7, on DB time: new bids accepted right now. */
@@ -74,6 +76,7 @@ interface OfferRow {
   best_public_offer_url: string | null;
   best_public_merchant: string | null;
   price_updated_at: Date | null;
+  price_watch_paused_at: Date | null;
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -89,7 +92,7 @@ export async function loadOffer(
             l.current_round, clock_timestamp() AS db_now,
             b.name AS brand_name, b.verification_status AS brand_status,
             p.title, p.image_url, p.best_public_price_cents, p.best_public_offer_url,
-            p.best_public_merchant, p.price_updated_at
+            p.best_public_merchant, p.price_updated_at, l.price_watch_paused_at
        FROM listings l
        JOIN brands b ON b.id = l.brand_id
        JOIN products p ON p.id = l.product_id
@@ -156,6 +159,7 @@ export async function loadOffer(
             url: row.best_public_offer_url,
             updatedAt: iso(row.price_updated_at),
           },
+    priceWatchPaused: row.price_watch_paused_at !== null,
     status: row.status,
     phase: listingPhase(timing, row.db_now).phase,
     biddable: !!row.window_closes_at && isBiddable(timing, row.db_now),

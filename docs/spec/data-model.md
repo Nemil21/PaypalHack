@@ -82,6 +82,7 @@ Every column, table, index and trigger below goes into the **first migration** (
 | gross_cents | int | Sum of winners' bids at Clear |
 | cleared_quantity | int | |
 | slug | text unique | For offer links |
+| price_watch_paused_at | timestamptz null | HF-042b (migration 0003): set on OPEN/ROUNDS listings of Channel3 products while Channel3 is unreachable; console and offer page show "Public price check paused". Cleared when Channel3 answers again |
 | | | Partial unique index: one live listing per `(brand_id, product_id) WHERE status IN ('OPEN','ROUNDS','CLEARING')` |
 
 ### mandates
@@ -193,6 +194,9 @@ No UPDATE or DELETE grants on this table for the app role, and a trigger rejects
 
 ### webhook_events
 | id text PK (provider event id), provider (`PAYPAL`/`CHANNEL3`), received_at, payload jsonb, processed_at. Dedupe on `processed_at IS NOT NULL`; rows with `processed_at IS NULL` are reprocessed on boot and every minute (M13, M14). Replays stamp `payload.replayed=true`. |
+
+### channel3_health (HF-042b, migration 0003)
+| One row (`id boolean PK CHECK (id)`): `last_ok_at` (last successful Channel3 call: the 5-minute probe or the nightly poll), `last_event_at` (last verified webhook delivery), `last_failure_at`, `consecutive_failures`, `last_error`, `outage_since` (set while the banner is up), `last_poll_at` (nightly poll slot, claimed atomically). Down = 3 failed calls in a row, or no call or delivery succeeded for 30 min. |
 
 ### mcp_clients
 | id, shopper_id FK, name, token_hash, scopes text[], rate_limit_per_min int default 30, last_used_at, revoked_at |

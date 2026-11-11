@@ -77,11 +77,18 @@ export interface PriceEvent {
   /** `payload.replayed = true` (data-model §webhook_events). */
   replayed: boolean;
   /**
-   * A product-detail snapshot carried by a replay, used instead of calling Channel3 (the demo
-   * product is fictional, D15). Ignored on live events.
+   * Where the event came from: Channel3's webhook, the labelled demo replay, or the nightly poll's
+   * synthetic event (`data.source = 'poll'`, HF-042b).
+   */
+  source: PriceEventSource;
+  /**
+   * A product-detail snapshot carried by a replay (the demo product is fictional, D15) or a poll
+   * (the detail it just fetched), used instead of calling Channel3. Ignored on live events.
    */
   detail: Channel3Product | null;
 }
+
+export type PriceEventSource = 'webhook' | 'replay' | 'poll';
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' ? (v as Json) : {});
@@ -104,13 +111,15 @@ export function parsePriceEvent(payload: unknown): PriceEvent | null {
     typeof current.price === 'number'
       ? (p as unknown as Channel3PriceChangedEvent)
       : null;
+  const source: PriceEventSource = replayed ? 'replay' : d.source === 'poll' ? 'poll' : 'webhook';
   const detail = obj(p.detail);
   return {
     id,
     type,
     priceChanged,
     replayed,
-    detail: replayed && str(detail.id) ? (detail as unknown as Channel3Product) : null,
+    source,
+    detail: source !== 'webhook' && str(detail.id) ? (detail as unknown as Channel3Product) : null,
   };
 }
 
@@ -412,6 +421,7 @@ function priceDropData(
     url: offer.url,
     disclosure: AFFILIATE_DISCLOSURE,
     replayed: event.replayed,
+    source: event.source,
     ...(event.replayed ? { label: REPLAYED_EVENT_LABEL } : {}),
     ...(extra.amountCents !== undefined ? { bidAmountCents: extra.amountCents } : {}),
   };

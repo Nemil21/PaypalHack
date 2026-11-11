@@ -6,7 +6,7 @@ Used when `CHANNEL3_MODE=fixtures` (CI, clean clones, offline demos) by `package
 |---|---|---|
 | `search/<slug>.json` | `POST /v1/search` request + response | recorded |
 | `products/<id>.json` | `GET /v1/products/{id}` (free detail endpoint) for every search hit | recorded |
-| `webhooks/offer.price.changed.json` | price-change webhook body | **schema-derived** from the OpenAPI spec; replace with a live delivery in HF-042b |
+| `webhooks/offer.price.changed.json` | price-change webhook body | **schema-derived** from the OpenAPI spec; matches the shape in Channel3's webhook guide. Replace with a live delivery once S5 records one on Render (HF-042b, manual) |
 
 Searches (D15: the seeded listing is the fictional Aurel A7, so its comparison search is generic):
 

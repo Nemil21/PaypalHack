@@ -44,8 +44,21 @@ Do these in order. Secret values come from your local `.env`: paste them straigh
    | PayPal Developer Dashboard → sandbox app → Webhooks | Add webhook | `https://<host>/api/webhooks/paypal`. Events: the authorization, capture and payouts events HF-033 handles (`PAYMENT.AUTHORIZATION.*`, `PAYMENT.CAPTURE.*`, `PAYMENT.PAYOUTSBATCH.*`, `PAYMENT.PAYOUTS-ITEM.*`, `CHECKOUT.ORDER.APPROVED`). Copy the **Webhook ID** into `PAYPAL_WEBHOOK_ID` on `holdfast`. |
    | PayPal Developer Dashboard → sandbox app → Log in with PayPal | Return URL (HF-010) | `https://<host>/api/auth/paypal/callback`. Enable the email scope. |
    | Per order, no dashboard step | Wallet approval return / cancel (HF-014b) | Built from `APP_BASE_URL`: `https://<host>/api/bids/return?…`. Only `APP_BASE_URL` has to be right. |
-   | Channel3 dashboard / product subscriptions (HF-042b) | Webhook URL | `https://<host>/api/webhooks/channel3`. The signing secret goes in `CHANNEL3_WEBHOOK_SECRET`. |
+   | Channel3 dashboard → Webhooks (Svix portal) → Add Endpoint (HF-042b) | Webhook URL | `https://<host>/api/webhooks/channel3`, event types `offer.price.changed` (the others are recorded and ignored). Copy the endpoint's signing secret (`whsec_…`) into `CHANNEL3_WEBHOOK_SECRET` on `holdfast`. See S5 below. |
    | Claude Desktop / MCP clients (HF-043/044a) | Server URL | `https://<host>/mcp` |
+
+## S5: Channel3 price webhook reaches Render (HF-042b)
+
+Manual, after step 8. Never paste the signing secret into a terminal log or a ticket.
+
+1. **Our side first:** from a laptop with the secret in `.env` (or the env), `node scripts/channel3-webhook-smoke.mjs https://<host>`. Expect `delivery: HTTP 200` then `duplicate: HTTP 200`, and `--unsigned` → `401`. In the Render logs: `channel3 webhook processed` with `outcome: UNWATCHED` (the fixture product has no listing) for one event id only.
+2. **Channel3's side:** in the Channel3 webhook portal open the endpoint → Testing → send an `offer.price.changed` example. The portal's message log must show a `200` attempt; Render logs `channel3 webhook processed`. If it shows `401`, the secret in `CHANNEL3_WEBHOOK_SECRET` is not this endpoint's.
+3. **A real delivery (optional, slow):** publish a listing on a real Channel3 product (HF-012a subscribes it) and wait for Channel3's daily re-scrape to fire a price change. Check `SELECT id, received_at, processed_at FROM webhook_events WHERE provider = 'CHANNEL3' AND NOT (payload ? 'replayed') ORDER BY received_at DESC LIMIT 5;`.
+4. **Record the result** here and in the README (§PayPal APIs used spike list): date, which of steps 1–3 passed, the event id. Then replace `fixtures/channel3/webhooks/offer.price.changed.json` with the live body (no headers).
+
+Result: _not run yet_. If S5 fails at recording time, the demo uses the labelled replay (`npm run demo:price-drop`, HF-042a) and the README says so.
+
+Outage banner check: the `channel3-probe` cron runs every 5 minutes. With a wrong `CHANNEL3_API_KEY` (or Channel3 down) three probes in a row fail and every live listing shows "Public price check paused" (audit `PRICE_WATCH_PAUSED`); the first good probe clears it (`PRICE_WATCH_RESUMED`). The nightly poll (`price-poll`, at most once per 23 h, audited as `CRON_RUN` when it did something) backs up missed webhooks.
 
 ## Settlement on Workflows (HF-030b)
 

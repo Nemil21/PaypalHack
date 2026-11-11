@@ -200,15 +200,21 @@ Channel3's model: offers carry no GTIN and no merchant name; an offer is `{url, 
     "current": { "price": 119.99, "compare_at_price": 139.0, "currency": "USD" } } }
 ```
 The event carries **no condition or availability**: hydrate them from the free detail endpoint (the offer on the same domain) before the gate (`observePriceChangedEvent(event, detail)` in `channel3/match.ts`); without them the event is ignored as `CONDITION_UNKNOWN`.
+Mounted at `POST /api/webhooks/channel3` (HF-042b). Exempt from CSRF, `Idempotency-Key` and the REST rate limit.
+
 Logic:
-1. Verify the HMAC signature (`CHANNEL3_WEBHOOK_SECRET`, constant-time).
-2. Insert into `webhook_events`; skip only if already processed. Return 2xx within 15 s; process async (unprocessed rows are retried every minute).
+1. Verify the HMAC signature (`CHANNEL3_WEBHOOK_SECRET`, constant-time). Channel3 delivers through Svix in the [Standard Webhooks](https://www.standardwebhooks.com/) format: headers `svix-id`, `svix-timestamp` (unix s), `svix-signature` (space-separated `v1,<base64>`); signed content `{svix-id}.{svix-timestamp}.{raw body}`, HMAC-SHA256 keyed with the base64 after `whsec_`. Timestamps more than 5 min off are refused. Bad or missing signature → `401 UNAUTHENTICATED`, nothing stored; no secret configured → `502 CHANNEL3_ERROR` (Channel3 retries: immediately, 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h). Malformed body → `400 VALIDATION_ERROR`. A live body's `replayed` / `label` / `detail` / `data.source` stamps are dropped before storing.
+2. Insert into `webhook_events` keyed by the body `id` (stable across Channel3 retries); skip only if already processed. Return 2xx within 15 s; process async (unprocessed rows are retried every minute). Each verified delivery stamps `channel3_health.last_event_at`. Event types other than `offer.price.changed` are recorded and marked processed with no effect.
 3. Exact-match gate, per offer: Channel3 product id + variant equal to the listing's, `condition == "new"`, `domain` in `brands.authorized_domains`, `currency == "USD"`. Convert to cents once (`Math.round(price * 100)`).
 4. Recompute `products.best_public_*` from the free detail endpoint (cheapest new, in-stock, allowlisted, USD offer), not `min(old, new)`.
 5. Void each bid `HELD` with `release_if_cheaper` where `newPrice < amount_cents AND newPrice < public_price_at_placement`, on a listing OPEN/ROUNDS: conditional HELD→VOIDING, `pp.void` (`void-<bidId>`), `void_reason=PRICE_DROP`. Re-run the selection until it returns zero rows.
 6. Notify the shopper in-app with the affiliate link and the disclosure.
 
 `POST /admin/replay-price-event` replays a fixture (admin only, no signature) and stamps `replayed=true`.
+
+**Nightly poll (HF-042b).** The in-process `price-poll` cron (hourly; polls when the last poll is ≥ 23 h old) fetches the free detail endpoint for every product with an OPEN/ROUNDS listing and, when the best allowlisted offer differs from `products.best_public_price_cents` or would release a HELD bid, records a synthetic `offer.price.changed` with `data.source = 'poll'` (id `poll_<productId>_<UTC day>_<domain>_<cents>`, so a change is processed once) and runs it through the same path.
+
+**Outage banner (HF-042b).** The `channel3-probe` cron (every 5 min) calls the detail endpoint for one watched product. When Channel3 is down (`channel3_health`), every OPEN/ROUNDS listing on a Channel3 product gets `price_watch_paused_at`; `GET /offers/:slug` returns `priceWatchPaused: true`, the book returns `listing.priceWatch.pausedAt`, and both screens show "Public price check paused". One successful call clears it. Changes emit `listing.updated` and are audited `PRICE_WATCH_PAUSED` / `PRICE_WATCH_RESUMED` (actor WATCHER).
 
 ### `POST /webhooks/paypal`
 Verify with `pp.verifyWebhook`, then dedupe. Map events by authorization id; conditional updates only. A missed wallet return is caught by the sweeper GETting the order, not by a webhook.

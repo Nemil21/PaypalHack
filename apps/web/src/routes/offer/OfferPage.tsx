@@ -23,6 +23,7 @@ import {
 } from '../../lib/offer';
 import { CardHold } from '../../lib/card-hold';
 import type { CardFieldsSession } from '../../lib/paypal-sdk';
+import { PriceWatchPausedBanner } from '../../components/PriceWatchPausedBanner';
 import { NotFound } from '../ScreenPlaceholder';
 import { CardFields } from './CardFields';
 import { MyBidPanel } from './MyBidPanel';
@@ -259,6 +260,7 @@ export function OfferPage() {
                 )}
               </p>
             )}
+            {offer.priceWatchPaused && <PriceWatchPausedBanner />}
           </div>
           <div className="hidden lg:flex lg:flex-col lg:gap-10">
             <HowItWorks />
