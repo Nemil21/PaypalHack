@@ -30,6 +30,7 @@
     "test:db": "npm test -w @holdfast/db",
     "workflows:hello": "node apps/api/dist/cli/workflows-hello.js",
     "admin:verify": "tsx --conditions=source apps/api/src/cli/admin-verify.ts",
+    "reconcile:holds": "tsx --conditions=source apps/api/src/cli/reconcile-holds.ts",
     "fixture:offer": "node scripts/offer-fixture.mjs",
     "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts"
   },
