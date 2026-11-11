@@ -7,6 +7,7 @@ import { ApiError, api } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import {
   buildCreateRequest,
+  duplicateListingId,
   emptyWizard,
   estimate,
   estimateLine,
@@ -132,14 +133,9 @@ export function CreateListingWizard() {
     }
   }
 
-  const duplicate =
-    submitError?.code === 'DUPLICATE'
-      ? listings.find(
-          (l) =>
-            l.product.productId === submitter.currentDraft?.productId &&
-            ['OPEN', 'ROUNDS', 'CLEARING'].includes(l.status),
-        )
-      : undefined;
+  const duplicateId = submitError
+    ? duplicateListingId(submitError, listings, submitter.currentDraft?.productId)
+    : null;
 
   return (
     <>
@@ -178,7 +174,7 @@ export function CreateListingWizard() {
             {submitError.code === 'DUPLICATE' && (
               <Link
                 className="text-[14px] text-ink underline"
-                to={duplicate ? paths.listingConsole(duplicate.listingId) : paths.brand}
+                to={duplicateId ? paths.listingConsole(duplicateId) : paths.brand}
               >
                 Open the live listing
               </Link>

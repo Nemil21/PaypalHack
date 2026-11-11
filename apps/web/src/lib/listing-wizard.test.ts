@@ -8,9 +8,10 @@ import {
   searchProducts,
 } from '@holdfast/core';
 import { createListingRequestSchema, type CreateListingRequest } from '@holdfast/shared';
-import { ApiError, type ApiClient, type ApiRequest } from './api';
+import { ApiError, createApiClient, type ApiClient, type ApiRequest } from './api';
 import {
   buildCreateRequest,
+  duplicateListingId,
   emptyWizard,
   estimate,
   estimateLine,
@@ -407,5 +408,57 @@ describe('ListingSubmitter', () => {
     const creates = api.calls.filter((c) => c.path === '/api/listings');
     expect(creates).toHaveLength(2);
     expect(creates[0]!.key).not.toBe(creates[1]!.key);
+  });
+});
+
+describe('DUPLICATE → "Open the live listing"', () => {
+  const existingListingId = '7d1f3c4e-2b8a-4e7f-9c11-0a5b6d7e8f90';
+  const live = [
+    { listingId: 'other-live', status: 'OPEN', product: { productId: 'p-2' } },
+    { listingId: 'same-draft', status: 'DRAFT', product: { productId: 'p-1' } },
+    { listingId: 'same-live', status: 'ROUNDS', product: { productId: 'p-1' } },
+  ];
+
+  it('uses existingListingId from the create 409, before any draft exists', async () => {
+    // The body the API sends (`listingErrorResponse` → core `errorBody`): details are flattened.
+    const client = createApiClient({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: 'DUPLICATE',
+              message: 'This product already has a live listing.',
+              existingListingId,
+              existingSlug: 'aurel-a7-midnight-ca3a',
+              link: `/brand/listings/${existingListingId}`,
+            },
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/json' } },
+        ),
+    });
+    const s = new ListingSubmitter(client, mint);
+    const err = await s.publish(buildCreateRequest(aurelA7())!).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(s.currentDraft).toBeNull();
+    expect(duplicateListingId(err as ApiError, [], s.currentDraft?.productId)).toBe(
+      existingListingId,
+    );
+  });
+
+  it('falls back to a live listing of the same product, then to null', () => {
+    const dup = (details: Record<string, unknown>) =>
+      new ApiError(409, 'DUPLICATE', 'dup', details);
+    expect(duplicateListingId(dup({ existingListingId }), live, 'p-1')).toBe(existingListingId);
+    expect(duplicateListingId(dup({ existingListingId: 42 }), live, 'p-1')).toBe('same-live');
+    expect(duplicateListingId(dup({}), live, 'p-1')).toBe('same-live');
+    expect(duplicateListingId(dup({}), live, null)).toBeNull();
+    expect(duplicateListingId(dup({}), live, 'p-9')).toBeNull();
+    expect(
+      duplicateListingId(
+        new ApiError(409, 'STATE_CONFLICT', 'x', { existingListingId }),
+        live,
+        'p-1',
+      ),
+    ).toBeNull();
   });
 });

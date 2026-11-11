@@ -352,6 +352,28 @@ export class ListingSubmitter {
   }
 }
 
+const LIVE_STATUSES: readonly string[] = ['OPEN', 'ROUNDS', 'CLEARING'];
+
+/**
+ * Where "Open the live listing" goes after a 409 DUPLICATE. The create call refuses before any
+ * draft exists, so the envelope's `existingListingId` is the source; failing that, a live listing
+ * of the same product among the brand's loaded listings; else null (the caller falls back).
+ */
+export function duplicateListingId(
+  err: Pick<ApiError, 'code' | 'details'>,
+  listings: readonly { listingId: string; status: string; product: { productId: string } }[],
+  productId: string | null | undefined,
+): string | null {
+  if (err.code !== 'DUPLICATE') return null;
+  const id = err.details.existingListingId;
+  if (typeof id === 'string' && id) return id;
+  if (!productId) return null;
+  return (
+    listings.find((l) => l.product.productId === productId && LIVE_STATUSES.includes(l.status))
+      ?.listingId ?? null
+  );
+}
+
 /** Wizard copy for an API error (W05 states). */
 export function submitErrorMessage(err: ApiError): string {
   switch (err.code) {
