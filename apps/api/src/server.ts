@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from 'fastify';
-import type { Config, Db } from '@holdfast/core';
+import type { Config, Db, RoundsDeps } from '@holdfast/core';
 import { createGuards, registerAuth, Sessions, type McpTokenVerifier } from './auth/guards.js';
 import { registerAuthRoutes, type MagicLinkSender } from './auth/routes.js';
 import { registerHealthz, type Pingable } from './healthz.js';
@@ -12,6 +12,7 @@ import { loggerOptions } from './http/redact.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
+import { registerRoundsRoutes } from './routes/rounds.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -25,6 +26,11 @@ export interface ServerDeps {
   clear?: ClearRouteDeps;
   /** `POST /api/bids` (HF-014a): the bid service's PayPal client and policies. */
   bids?: BidRoutesDeps;
+  /**
+   * Live rounds hooks (HF-036a): `onNudge` (HF-038b's consumer). The rounds routes are mounted
+   * whenever `sql` is set.
+   */
+  rounds?: Omit<RoundsDeps, 'db'>;
   /** Shared rate limiter (one web instance). Tests pass their own. */
   limiter?: RateLimiter;
   /** MCP token lookup (HF-043). Without it every MCP call is 401. */
@@ -84,6 +90,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.clear) registerClearRoute(app, deps.clear);
   if (deps.bids) registerBidRoutes(app, deps.bids);
   if (deps.sql) registerBookRoutes(app, deps.sql);
+  if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
 
   registerAuthRoutes(app, {
     config,

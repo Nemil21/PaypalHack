@@ -17,6 +17,7 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @holdfast/api",
+    "dev:rounds-replay": "tsx scripts/rounds-replay.ts",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start -w @holdfast/api",
     "test": "vitest run",
