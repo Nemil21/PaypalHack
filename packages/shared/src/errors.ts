@@ -22,6 +22,8 @@ export const ERROR_STATUS = {
   BELOW_FLOOR: 422,
   ABOVE_MANDATE_MAX: 422,
   HOLD_FAILED: 422,
+  /** Raise (HF-018): over the public price while `release_if_cheaper` is on; nothing was held. */
+  PRICE_DROPPED: 422,
   PRODUCT_MISMATCH: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,

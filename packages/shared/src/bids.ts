@@ -23,3 +23,11 @@ export const placeBidRequestSchema = z
   })
   .strict();
 export type PlaceBidRequest = z.infer<typeof placeBidRequestSchema>;
+
+/** `POST /api/bids/:id/raise` body (HF-018). The new amount; everything else is inherited. */
+export const raiseBidRequestSchema = z
+  .object({
+    amountCents: amountCentsSchema,
+  })
+  .strict();
+export type RaiseBidRequest = z.infer<typeof raiseBidRequestSchema>;

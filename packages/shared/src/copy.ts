@@ -111,3 +111,25 @@ export function winnersChargedSummary(winningBidsCents: readonly number[]): stri
   const averageDollars = Math.round(total / winningBidsCents.length / 100);
   return `Each winner is charged their own bid (lowest ${formatUsd(lowest)}, average ${formatUsd(averageDollars * 100)}).`;
 }
+
+/**
+ * Raise success (05 §Logic 4): "Raised to $239. Your bank may show the old $229 hold for a few
+ * days; it's already released and won't be charged."
+ */
+export function raisedMessage(oldCents: number, newCents: number): string {
+  return `Raised to ${formatUsd(newCents)}. Your bank may show the old ${formatUsd(oldCents)} hold for a few days; it's already released and won't be charged.`;
+}
+
+/** A declined raise (HF-018): "Couldn't raise. Your $229 bid still stands." */
+export function raiseFailedMessage(oldCents: number): string {
+  return `Couldn't raise. Your ${formatUsd(oldCents)} bid still stands.`;
+}
+
+/** Shown on every raise from the 2nd one on a bid chain (HF-018 `warnSeveralHolds`). */
+export const SEVERAL_HOLDS_WARNING =
+  'Each raise places a new hold; old holds can show as pending at your bank for a few days.';
+
+/** `warnSeveralHolds` for a bid with this `raise_count` (null before the 2nd raise). */
+export function severalHoldsWarning(raiseCount: number): string | null {
+  return raiseCount >= 2 ? SEVERAL_HOLDS_WARNING : null;
+}
