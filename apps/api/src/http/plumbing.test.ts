@@ -320,6 +320,46 @@ describe('rate limits', () => {
     expect((await call('b')).statusCode).toBe(200);
   });
 
+  it('MCP guessing: once an IP is throttled, bad tokens are refused before any lookup', async () => {
+    let lookups = 0;
+    app = server(
+      {},
+      {
+        limiter: new RateLimiter({ mcp: 3, rest: 60, agent: 1, magicLink: 1 }),
+        mcpTokens: {
+          verify: async () => {
+            lookups++;
+            return null;
+          },
+        },
+      },
+    );
+    const call = (token: string) =>
+      app!.inject({
+        method: 'POST',
+        url: '/mcp',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
+      });
+    for (let i = 0; i < 3; i++) expect((await call(`hf_mcp_guess${i}`)).statusCode).toBe(401);
+    expect(lookups).toBe(3);
+    for (let i = 0; i < 5; i++) {
+      const res = await call(`hf_mcp_more${i}`);
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error.code).toBe('RATE_LIMITED');
+    }
+    // Throttled requests never reached the token lookup (no database query).
+    expect(lookups).toBe(3);
+  });
+
+  it('peek reports the next decision without counting a call', () => {
+    const rl = new RateLimiter({ mcp: 1, rest: 1, agent: 1, magicLink: 1 }, () => 1_000);
+    expect(rl.peek('mcp', 'k').allowed).toBe(true);
+    expect(rl.peek('mcp', 'k').allowed).toBe(true);
+    expect(rl.hit('mcp', 'k').allowed).toBe(true);
+    expect(rl.peek('mcp', 'k')).toMatchObject({ allowed: false, remaining: 0 });
+  });
+
   it('MCP: no token → 401, unknown token → 401, money tool without the bid scope → FORBIDDEN', async () => {
     app = server(
       {},

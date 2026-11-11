@@ -304,10 +304,13 @@ export function createGuards(deps: AuthDeps, sessions: Sessions): Guards {
       req.auth = emptyAuth();
       const token = bearerToken(req);
       if (!token) throw new ApiError('UNAUTHENTICATED', 'An MCP bearer token is required.');
+      // Throttle guessing per client IP. Checked before the lookup so a throttled IP costs no
+      // database query; only a failed lookup counts. Valid tokens are limited per token below.
+      const guessKey = `invalid:${req.ip}`;
+      if (!applyRateDecision(reply, limiter.peek('mcp', guessKey))) return reply;
       const principal = deps.mcpTokens ? await deps.mcpTokens.verify(token) : null;
       if (!principal) {
-        // Throttle guessing per client IP; valid tokens are limited per token below.
-        if (!applyRateDecision(reply, limiter.hit('mcp', `invalid:${req.ip}`))) return reply;
+        if (!applyRateDecision(reply, limiter.hit('mcp', guessKey))) return reply;
         throw new ApiError('UNAUTHENTICATED', 'The MCP token is invalid or revoked.');
       }
       // 30 calls/min per mcp_clients.id (features/07); the row's own limit can only lower it.
