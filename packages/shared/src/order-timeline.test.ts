@@ -228,6 +228,24 @@ describe('HF-060 orderTimeline', () => {
       expect(p.shipping!.state).toBe('skipped');
     });
 
+    it('released by a price drop: never "below the cutoff", never charged', () => {
+      const p = shopper({
+        outcome: 'released',
+        priceWatch: { on: true, events: 0, released: 1, lastEventAt: iso(5) },
+        settlement: null,
+        shipping: null,
+      });
+      expect(p.priceWatch!.detail).toBe('A store sold it for less, so your hold was released');
+      expect(p.lock!.detail).toBe('Your hold was released before the Clear');
+      expect(p.lock!.detail).not.toMatch(/cutoff/);
+      expect(p.capture).toMatchObject({
+        state: 'skipped',
+        detail: 'Released before the Clear, never charged',
+      });
+      expect(p.payout!.state).toBe('skipped');
+      expect(p.shipping!.state).toBe('skipped');
+    });
+
     it('declined at capture: failed, "not charged", nothing ships', () => {
       const p = shopper({
         outcome: 'declined',

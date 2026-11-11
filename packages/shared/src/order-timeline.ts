@@ -236,9 +236,12 @@ export function orderTimeline(f: OrderTimelineFacts, nowDate: Date): OrderPhase[
         ? shopper
           ? f.outcome === 'won' || f.outcome === 'declined'
             ? 'You won at your own bid'
-            : f.outcome
-              ? 'Your bid was below the cutoff'
-              : `Cleared ${timelineDate(f.clearedAt!)}`
+            : f.outcome === 'released'
+              ? // Price-drop release: never ranked at Clear, so never "below the cutoff".
+                'Your hold was released before the Clear'
+              : f.outcome === 'lost'
+                ? 'Your bid was below the cutoff'
+                : `Cleared ${timelineDate(f.clearedAt!)}`
           : `Winners locked ${timelineDate(f.clearedAt!)}. Each pays their own bid.`
         : f.clearByAt
           ? `Clear by ${timelineDate(f.clearByAt)}`
@@ -252,6 +255,8 @@ export function orderTimeline(f: OrderTimelineFacts, nowDate: Date): OrderPhase[
     const label = shopper ? 'Charge or release' : 'Capture fan-out';
     if (stopped) {
       phases.push(skipped('capture', label, 'Nothing charged'));
+    } else if (shopper && f.outcome === 'released' && (!s || s.total === 0)) {
+      phases.push(skipped('capture', label, 'Released before the Clear, never charged'));
     } else if (!s || s.total === 0) {
       phases.push({
         key: 'capture',
