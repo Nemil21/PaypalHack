@@ -138,6 +138,17 @@ describe('notification templates (HF-054a, D14 copy)', () => {
     expect(few.body).toBe('Window closes in 6 h. 3 bids held for 240 units so far.');
   });
 
+  it('brand_window_closing title carries the held total (M10 push, HF-061)', () => {
+    const held = renderNotification('brand_window_closing', {
+      ...EXAMPLES.brand_window_closing,
+      heldCents: 6_100_000,
+    });
+    expect(held.title).toBe('Window closes in 6 h · $61k held');
+    expect(held.link?.href).toBe('/brand/listings/l1');
+    // Rows queued before the payload carried heldCents keep the generic title.
+    expect(render('brand_window_closing').title).toBe('Window closing soon');
+  });
+
   it('the price-drop buy link carries the affiliate disclosure; names the store when known', () => {
     const r = render('price_drop_released');
     expect(r.link).toEqual({ href: 'https://example.com/buy', label: 'Buy there →' });

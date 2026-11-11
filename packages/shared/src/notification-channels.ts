@@ -179,6 +179,7 @@ export const NOTIFICATION_SAMPLES: { [T in NotificationTemplate]: NotificationPa
     quantity: 240,
     lowestWinningCents: 21_900,
     heldBids: 312,
+    heldCents: 6_100_000,
   },
   brand_cleared: {
     listingId: sampleBid.listingId,

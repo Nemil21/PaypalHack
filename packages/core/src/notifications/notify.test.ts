@@ -385,7 +385,12 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-054a notify subscriber', { timeout: 60_0
       `SELECT payload FROM notifications WHERE dedupe_key = $1`,
       [`brand_window_closing:${listing.id}`],
     );
-    expect(win!.payload).toMatchObject({ hoursLeft: 5, quantity: 2, lowestWinningCents: 30_000 });
+    expect(win!.payload).toMatchObject({
+      hoursLeft: 5,
+      quantity: 2,
+      lowestWinningCents: 30_000,
+      heldCents: 135_000,
+    });
   });
 
   it('inbox: recipient-scoped list, unread count and mark-as-read', async () => {

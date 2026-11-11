@@ -95,6 +95,9 @@ export interface NotificationPayloads {
     /** Lowest bid among the top `quantity` held bids; null when fewer bids than units. */
     lowestWinningCents: number | null;
     heldBids: number;
+    /** Every held bid's dollars (M10 push: "Window closes in 6 h · $61k held"). Absent on rows
+     * queued before HF-061; the title then reads "Window closing soon". */
+    heldCents?: number;
   };
   brand_cleared: {
     listingId: string;
@@ -268,7 +271,11 @@ const RENDERERS: Renderers = {
       p.lowestWinningCents != null
         ? ` Recommended: clear ${p.quantity} ${p.quantity === 1 ? 'unit' : 'units'}; each winner pays their own bid (lowest ${formatUsd(p.lowestWinningCents)}).`
         : ` ${p.heldBids} ${p.heldBids === 1 ? 'bid' : 'bids'} held for ${p.quantity} ${p.quantity === 1 ? 'unit' : 'units'} so far.`;
-    return plain('Window closing soon', lead + rec, listingLink(p.listingId, 'Review and clear'));
+    const title =
+      p.heldCents != null
+        ? `Window closes in ${p.hoursLeft} h · ${formatCompactUsd(p.heldCents)} held`
+        : 'Window closing soon';
+    return plain(title, lead + rec, listingLink(p.listingId, 'Review and clear'));
   },
   brand_cleared: (p) =>
     plain(
