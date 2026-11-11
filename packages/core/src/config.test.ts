@@ -7,6 +7,7 @@ import {
   loadConfig,
   mockDeclinesAllowed,
   requireKeys,
+  testCardAllowed,
 } from './config.js';
 
 // Obviously fake values; never real credentials in tests.
@@ -187,5 +188,25 @@ describe('requireKeys: optional keys fail only when the feature is used', () => 
   it('treats blank optional keys as unset', () => {
     const c = loadConfig({ ...REQUIRED, ANTHROPIC_API_KEY: '' });
     expect(c.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it('DEMO_TEST_CARD follows DEMO_MODE unless set; off on a live base (HF-014b Part 1)', () => {
+    expect(loadConfig({ ...REQUIRED }).DEMO_TEST_CARD).toBe(false);
+    const demo = loadConfig({ ...REQUIRED, DEMO_MODE: 'true' });
+    expect(demo.DEMO_TEST_CARD).toBe(true);
+    expect(testCardAllowed(demo)).toBe(true);
+    expect(
+      loadConfig({ ...REQUIRED, DEMO_MODE: 'true', DEMO_TEST_CARD: 'false' }).DEMO_TEST_CARD,
+    ).toBe(false);
+    expect(loadConfig({ ...REQUIRED, DEMO_TEST_CARD: 'on' }).DEMO_TEST_CARD).toBe(true);
+    const live = loadConfig({
+      ...REQUIRED,
+      PAYPAL_API_BASE: 'https://api-m.paypal.com',
+      PAYPAL_ENV: 'live',
+      DEMO_MODE: 'true',
+      DEMO_TEST_CARD: 'true',
+    });
+    expect(live.DEMO_TEST_CARD).toBe(false);
+    expect(testCardAllowed(live)).toBe(false);
   });
 });

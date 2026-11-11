@@ -39,6 +39,23 @@ import type { HoldResult, PayPalClient, PaymentSource, TestCard } from './paypal
 /** `bids.payment_method`. CARD and PAYPAL (card fields, wallet) are the HF-014b two-step flows. */
 export type BidPaymentMethod = 'VAULT' | 'TEST_CARD' | 'CARD' | 'PAYPAL';
 
+/**
+ * Card fields and the PayPal wallet: the order is created with no card data, the buyer acts in the
+ * browser (card-fields submit, maybe 3DS, or wallet approval), then `authorizeAndLand` (HF-014b).
+ */
+export function isTwoStep(method: unknown): method is 'CARD' | 'PAYPAL' {
+  return method === 'CARD' || method === 'PAYPAL';
+}
+
+/** Where PayPal sends the buyer after wallet approval (or a 3DS redirect): `GET /api/bids/return`. */
+export const BID_RETURN_PATH = '/api/bids/return';
+
+/** PayPal appends `token=<orderId>` to both URLs. */
+export function approvalUrls(appBaseUrl: string): { returnUrl: string; cancelUrl: string } {
+  const returnUrl = new URL(BID_RETURN_PATH, appBaseUrl).toString();
+  return { returnUrl, cancelUrl: `${returnUrl}?cancelled=1` };
+}
+
 /** PayPal's published sandbox Visa (S1, S7 step 6). Server-side only; never from request input. */
 export const SANDBOX_TEST_CARD: TestCard = {
   number: '4111111111111111',
@@ -62,6 +79,11 @@ export interface PlaceBidDeps extends MoneyDeps {
   allowTestCard?: boolean;
   /** The card a `TEST_CARD` hold uses. Default `SANDBOX_TEST_CARD`. */
   testCard?: TestCard;
+  /**
+   * Public origin of the app (`APP_BASE_URL`), for the wallet / 3DS `return_url` and `cancel_url`.
+   * CARD and PAYPAL bids are refused without it.
+   */
+  appBaseUrl?: string;
   /**
    * Refresh `products.best_public_*` (HF-009). Called without awaiting, after the bid is decided,
    * when the cached price is missing or older than 10 min. Never on the money path.
@@ -100,11 +122,14 @@ export interface PublicOffer {
 }
 
 export type PlaceBidError =
-  | { code: 'NOT_FOUND'; what: 'listing' | 'shopper' }
+  | { code: 'NOT_FOUND'; what: 'listing' | 'shopper' | 'bid' }
   | { code: 'VALIDATION_ERROR'; field: string; message: string }
   | { code: 'IDEMPOTENCY_MISMATCH' }
-  /** The first request with this key is still waiting on PayPal. */
-  | { code: 'IN_PROGRESS'; bidId: string }
+  /**
+   * The first request with this key is still waiting on PayPal, or (`reason: NOT_APPROVED`) the
+   * buyer has not approved / submitted the card yet. Not stored, so a retry can succeed.
+   */
+  | { code: 'IN_PROGRESS'; bidId: string; reason?: 'NOT_APPROVED' }
   /** Not biddable (D7). `released`: a hold was created and then voided by `landHold`. */
   | { code: 'WINDOW_CLOSED'; bidId: string | null; amountCents: number; released: boolean }
   | { code: 'ALREADY_BID'; bidId: string; amountCents: number }
@@ -118,7 +143,14 @@ export type PlaceBidError =
   | { code: 'STATE_CONFLICT'; bidId: string; reason: string; released: boolean };
 
 export type PlaceBidResult =
-  | { ok: true; bid: BidRow; replayed: boolean; publicOffer: PublicOffer | null }
+  | {
+      ok: true;
+      bid: BidRow;
+      replayed: boolean;
+      publicOffer: PublicOffer | null;
+      /** PAYPAL bids waiting for the buyer: the `rel=payer-action` link (HF-014b). */
+      approveUrl?: string | null;
+    }
   | {
       ok: false;
       error: PlaceBidError;
@@ -251,6 +283,11 @@ async function hold(
     };
   }
 
+  // CARD / PAYPAL: the buyer acts next (card-fields submit or wallet approval).
+  if (result.kind === 'needs_approval' && isTwoStep(bid.payment_method)) {
+    return awaitApproval(deps, bid, result, actor, publicOffer);
+  }
+
   switch (result.kind) {
     case 'held': {
       const landed = await landHold(deps, {
@@ -266,8 +303,8 @@ async function hold(
         ? { ok: true, bid: landed.bid, replayed: false, publicOffer }
         : fail(await landingError(deps, landed), landed.bid);
     }
-    case 'denied':
-    case 'needs_approval': {
+    case 'needs_approval':
+    case 'denied': {
       // VAULT / TEST_CARD authorize at create: a buyer step (3DS on a vault) is a failed hold too.
       const code =
         result.kind === 'denied' ? result.code : `PAYER_ACTION_REQUIRED:${result.status}`;
@@ -284,6 +321,74 @@ async function hold(
         row,
       );
     }
+  }
+}
+
+/**
+ * CARD / PAYPAL: the order exists and waits for the buyer. The bid stays PENDING_APPROVAL with
+ * `paypal_order_id` (how `GET /bids/return?token=` finds it); `authorizeAndLand` takes it from here.
+ */
+async function awaitApproval(
+  deps: PlaceBidDeps,
+  bid: BidRow,
+  result: Extract<HoldResult, { kind: 'needs_approval' }>,
+  actor: Actor,
+  publicOffer: PublicOffer | null,
+): Promise<PlaceBidResult> {
+  if (bid.payment_method === 'PAYPAL' && !result.approveUrl) {
+    // Nowhere to send the buyer: reconcile with the same request id (S7: no-source replays return
+    // the same order, links included).
+    const row = await markNeedsReconcile(deps, bid, 'NO_APPROVE_URL', result.orderId, actor);
+    return {
+      ok: false,
+      error: {
+        code: 'PAYPAL_ERROR',
+        bidId: bid.id,
+        paypalCode: 'NO_APPROVE_URL',
+        needsReconcile: true,
+      },
+      bid: row,
+      replayed: false,
+      publicOffer,
+    };
+  }
+  const row = await deps.db.tx(async (tx) => {
+    const res = await tx.query(
+      `UPDATE bids SET paypal_order_id = $2, needs_reconcile = false, error_code = NULL
+        WHERE id = $1 AND status = 'PENDING_APPROVAL' RETURNING *`,
+      [bid.id, result.orderId],
+    );
+    const updated = res.rows[0] as BidRow | undefined;
+    if (updated) {
+      await deps.audit?.(tx, {
+        actor,
+        action: 'BID_APPROVAL_REQUIRED',
+        entity: 'bid',
+        entityId: updated.id,
+        listingId: updated.listing_id,
+        paypalId: result.orderId,
+        requestId: updated.id,
+        data: { paymentMethod: updated.payment_method, orderStatus: result.status },
+      });
+    }
+    return updated ?? (await findById(tx, bid.id));
+  });
+  return {
+    ok: true,
+    bid: row,
+    replayed: false,
+    publicOffer,
+    approveUrl: row.payment_method === 'PAYPAL' ? result.approveUrl : null,
+  };
+}
+
+/** The approval link of a waiting PAYPAL bid, for a replayed `POST /bids`. */
+async function approveUrlOf(deps: PlaceBidDeps, bid: BidRow): Promise<string | null> {
+  if (bid.payment_method !== 'PAYPAL' || !bid.paypal_order_id) return null;
+  try {
+    return (await deps.paypal.getOrder(bid.paypal_order_id)).approveUrl;
+  } catch {
+    return null;
   }
 }
 
@@ -415,7 +520,8 @@ function mandateError(
     : { code: 'MANDATE_PAUSED', bidId, released };
 }
 
-async function landingError(
+/** @internal Shared with `authorizeAndLand`. */
+export async function landingError(
   deps: PlaceBidDeps,
   landed: Extract<LandHoldResult, { ok: false }>,
 ): Promise<PlaceBidError> {
@@ -441,7 +547,8 @@ async function landingError(
   }
 }
 
-async function markHoldFailed(
+/** @internal Shared with `authorizeAndLand`. */
+export async function markHoldFailed(
   deps: PlaceBidDeps,
   bid: BidRow,
   code: string,
@@ -473,7 +580,8 @@ async function markHoldFailed(
   });
 }
 
-async function markNeedsReconcile(
+/** @internal Shared with `authorizeAndLand`. */
+export async function markNeedsReconcile(
   deps: PlaceBidDeps,
   bid: BidRow,
   code: string,
@@ -529,8 +637,19 @@ async function replay(
 
   switch (bid.status) {
     case 'PENDING_APPROVAL': {
+      // CARD / PAYPAL: the order was created and waits for the buyer; answer as the first time.
+      if (isTwoStep(bid.payment_method) && bid.paypal_order_id) {
+        return {
+          ok: true,
+          bid,
+          replayed: true,
+          publicOffer,
+          approveUrl: await approveUrlOf(deps, bid),
+        };
+      }
       if (!bid.needs_reconcile) return fail({ code: 'IN_PROGRESS', bidId: bid.id });
-      if (bid.payment_method === 'VAULT') {
+      // VAULT and no-source (card fields, wallet) creates replay with the same id (S7).
+      if (bid.payment_method === 'VAULT' || isTwoStep(bid.payment_method)) {
         const source = await paymentSourceFor(deps, input);
         if (!('error' in source)) {
           const again = await hold(deps, input, bid, source.paymentSource, publicOffer);
@@ -554,7 +673,8 @@ async function replay(
   }
 }
 
-function refusalFromVoid(bid: BidRow): PlaceBidError {
+/** @internal Shared with `authorizeAndLand`. */
+export function refusalFromVoid(bid: BidRow): PlaceBidError {
   const released = bid.status === 'VOIDED';
   const reason: VoidReason | null = bid.void_reason;
   if (reason === 'WINDOW_CLOSED') {
@@ -621,15 +741,25 @@ async function paymentSourceFor(
       }
       return { paymentSource: { kind: 'test_card', card: deps.testCard ?? SANDBOX_TEST_CARD } };
     case 'CARD':
-    case 'PAYPAL':
-      // HF-014b: card fields and the PayPal wallet are two-step flows (`POST /bids/:id/authorize`).
+    case 'PAYPAL': {
+      // HF-014b two-step flows: no card data here; the browser acts, then `/bids/:id/authorize`.
+      if (!deps.appBaseUrl) {
+        return {
+          error: {
+            code: 'VALIDATION_ERROR',
+            field: 'paymentMethod',
+            message: 'This payment method is not available right now.',
+          },
+        };
+      }
+      const urls = approvalUrls(deps.appBaseUrl);
       return {
-        error: {
-          code: 'VALIDATION_ERROR',
-          field: 'paymentMethod',
-          message: 'This payment method is not available yet.',
-        },
+        paymentSource:
+          input.paymentMethod === 'PAYPAL'
+            ? { kind: 'wallet', ...urls, brandName: 'Holdfast' }
+            : { kind: 'card_fields', ...urls },
       };
+    }
   }
 }
 
@@ -693,6 +823,10 @@ export interface PlacedBidBody {
   authorizationId: string | null;
   authorizedAt: string | null;
   publicOffer: PublicOffer | null;
+  /** CARD / PAYPAL waiting for the buyer: the order the card fields submit against. */
+  orderId?: string;
+  /** PAYPAL waiting for the buyer: the `rel=payer-action` link. */
+  approveUrl?: string | null;
 }
 
 const ERROR_HTTP: Record<PlaceBidError['code'], { status: number; code: ErrorCode }> = {
@@ -712,17 +846,23 @@ const ERROR_HTTP: Record<PlaceBidError['code'], { status: number; code: ErrorCod
 function messageFor(error: PlaceBidError): string {
   switch (error.code) {
     case 'NOT_FOUND':
-      return error.what === 'listing' ? 'Listing not found.' : 'Shopper not found.';
+      return error.what === 'listing'
+        ? 'Listing not found.'
+        : error.what === 'bid'
+          ? 'Bid not found.'
+          : 'Shopper not found.';
     case 'VALIDATION_ERROR':
       return error.message;
     case 'IDEMPOTENCY_MISMATCH':
       return 'This Idempotency-Key was already used for a different request.';
     case 'IN_PROGRESS':
-      return 'This bid is still being placed.';
+      return error.reason === 'NOT_APPROVED'
+        ? "PayPal hasn't confirmed your approval yet."
+        : 'This bid is still being placed.';
     case 'WINDOW_CLOSED':
       return error.released
         ? `This window has closed. ${releasedHoldMessage(error.amountCents)}`
-        : 'This window has closed.';
+        : 'This window has closed. Nothing was held.';
     case 'ALREADY_BID':
       return 'You already have a bid on this listing. Raise or cancel it instead.';
     case 'MANDATE_EXCEEDED':
@@ -750,9 +890,20 @@ export function placeBidResponse(result: PlaceBidResult): IdempotentResponse {
       authorizedAt: bid.authorized_at ? bid.authorized_at.toISOString() : null,
       publicOffer: result.publicOffer,
     };
+    if (bid.status === 'PENDING_APPROVAL' && isTwoStep(bid.payment_method) && bid.paypal_order_id) {
+      body.orderId = bid.paypal_order_id;
+      if (bid.payment_method === 'PAYPAL') body.approveUrl = result.approveUrl ?? null;
+    }
     return { status: 201, body };
   }
-  const { error } = result;
+  return bidErrorResponse(result.error, result.publicOffer);
+}
+
+/** `{ status, body }` for a bid service error (`POST /bids`, `POST /bids/:id/authorize`). */
+export function bidErrorResponse(
+  error: PlaceBidError,
+  publicOffer: PublicOffer | null = null,
+): IdempotentResponse {
   const http = ERROR_HTTP[error.code];
   const details: Record<string, unknown> = {};
   switch (error.code) {
@@ -779,15 +930,18 @@ export function placeBidResponse(result: PlaceBidResult): IdempotentResponse {
       details.released = error.released;
       break;
     case 'IN_PROGRESS':
+      details.bidId = error.bidId;
+      if (error.reason) details.reason = error.reason;
+      break;
     case 'HOLD_FAILED':
       details.bidId = error.bidId;
-      if (error.code === 'HOLD_FAILED') details.paypalCode = error.paypalCode;
+      details.paypalCode = error.paypalCode;
       break;
     case 'PAYPAL_ERROR':
       details.bidId = error.bidId;
       details.needsReconcile = true;
       break;
   }
-  if (result.publicOffer) details.publicOffer = result.publicOffer;
+  if (publicOffer) details.publicOffer = publicOffer;
   return { status: http.status, body: errorBody(http.code, messageFor(error), details) };
 }

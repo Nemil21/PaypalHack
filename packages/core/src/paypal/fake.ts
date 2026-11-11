@@ -548,10 +548,14 @@ export class FakePayPal {
   }
 
   #authBody(a: FakeAuthorization) {
+    const order = this.#orders.get(a.orderId);
     return {
       id: a.id,
       status: a.status,
       amount: amount(a.amountCents),
+      // PayPal copies the purchase unit's ids onto the authorization.
+      invoice_id: order?.invoiceId ?? undefined,
+      custom_id: order?.customId ?? undefined,
       create_time: a.createTime,
       expiration_time: a.expirationTime,
       supplementary_data: { related_ids: { order_id: a.orderId } },

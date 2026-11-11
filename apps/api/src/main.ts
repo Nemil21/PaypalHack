@@ -6,6 +6,7 @@ import {
   createPool,
   loadConfig,
   loadDotenv,
+  testCardAllowed,
 } from '@holdfast/core';
 import { ListingEventBus } from './events/bus.js';
 import { buildServer } from './server.js';
@@ -37,7 +38,9 @@ const app = buildServer(config, {
       paypal: createPayPalClient(config),
       audit: auditHook,
       // The labelled sandbox test card (S1): demo only, never on a live PayPal base.
-      allowTestCard: config.DEMO_MODE && (config.paypalIsSandbox || config.PAYPAL_MODE === 'stub'),
+      allowTestCard: testCardAllowed(config),
+      // Wallet / 3DS return and cancel URLs (HF-014b).
+      appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
     },
   },
 });

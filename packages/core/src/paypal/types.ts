@@ -75,6 +75,8 @@ export type HoldResult =
       expiresAt: string | null;
       amountCents: number;
       vault: VaultInfo | null;
+      /** The authorization's `custom_id` (else the purchase unit's): `bid.id` (D5). */
+      customId?: string | null;
     }
   | { kind: 'pending'; orderId: string; authorizationId: string | null; status: string }
   | {
@@ -145,6 +147,8 @@ export interface AuthorizationView {
   createTime: string | null;
   expirationTime: string | null;
   orderId: string | null;
+  /** `custom_id` copied from the purchase unit (`bid.id`, D5). */
+  customId: string | null;
 }
 
 export interface CaptureView {
