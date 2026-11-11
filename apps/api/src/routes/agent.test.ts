@@ -534,6 +534,90 @@ describe.skipIf(!TEST_DATABASE_URL)('buyer agent (HF-039)', () => {
     expect((await fx.bid(b2.id)).status).toBe('VOIDED');
   });
 
+  it('HF-052: create_intent keeps its mandate PAUSED until confirm; move_bid swaps; my_intents explains', async () => {
+    const l1 = await aurelListing();
+    const l2 = await aurelListing();
+    const s = await vaultedShopper();
+
+    // Product ids must come from our DB.
+    policy = (req) =>
+      lastToolResult(req)
+        ? say('?')
+        : tool('create_intent', { text: 'x', productIds: [randomUUID()], maxPriceCents: 25_000 });
+    const bad = await chat(s, 'watch these');
+    const badResult = bad.events.find((e) => e.type === 'tool_result')!;
+    expect(badResult).toMatchObject({ ok: false, result: { error: { code: 'VALIDATION_ERROR' } } });
+
+    policy = (req) => {
+      const r = lastToolResult(req) as
+        (ToolJson & { listings?: Array<{ listingId: string; productId: string }> }) | null;
+      if (!r) return tool('search_open_books', { query: 'Aurel headphones' });
+      if (r.listings) {
+        return tool('create_intent', {
+          text: 'Aurel headphones under $250, either colour',
+          productIds: r.listings.map((x) => x.productId),
+          maxPriceCents: 25_000,
+        });
+      }
+      return say('?');
+    };
+    const first = await chat(s, 'Aurel headphones under $250, either colour');
+    const card = first.events.find((e) => e.type === 'confirm_required')!;
+    expect(card).toMatchObject({
+      tool: 'create_intent',
+      amountCents: 25_000,
+      confirmMode: 'INLINE',
+    });
+    const intentId = (card.intent as { intentId: string }).intentId;
+    const mandate = async () =>
+      (
+        await q(
+          `SELECT m.status FROM intents i JOIN mandates m ON m.id = i.mandate_id WHERE i.id = $1`,
+          [intentId],
+        )
+      ).rows[0].status;
+    expect(await mandate()).toBe('PAUSED');
+    expect(await bidsOf(s)).toHaveLength(0);
+
+    const on = await confirm(s, card.actionId as string);
+    expect(on.statusCode).toBe(201);
+    expect(on.json()).toMatchObject({ intentId, mandateStatus: 'ACTIVE', status: 'HELD' });
+    expect(await mandate()).toBe('ACTIVE');
+    const held = on.json() as { bidId: string; listingId: string };
+    const other = held.listingId === l1.id ? l2 : l1;
+
+    policy = (req) =>
+      lastToolResult(req)
+        ? say('?')
+        : tool('move_bid', { bidId: held.bidId, toListingId: other.id, amountCents: 22_000 });
+    const second = await chat(s, 'move it to the other one', first.conversationId);
+    const moveCard = second.events.find((e) => e.type === 'confirm_required')!;
+    expect(moveCard).toMatchObject({ tool: 'move_bid', amountCents: 22_000 });
+    expect((await fx.bid(held.bidId)).status).toBe('HELD');
+    const moved = await confirm(s, moveCard.actionId as string);
+    expect(moved.statusCode).toBe(201);
+    expect(moved.json()).toMatchObject({
+      status: 'HELD',
+      listingId: other.id,
+      replacesBidId: held.bidId,
+    });
+    expect((await fx.bid(held.bidId)).status).toBe('VOIDED');
+    const live = (await bidsOf(s)).filter((b) => b.status === 'HELD');
+    expect(live).toHaveLength(1);
+    expect(live[0]).toMatchObject({ intent_id: intentId, listing_id: other.id });
+
+    policy = (req) => (lastToolResult(req) ? say('Because you asked.') : tool('my_intents', {}));
+    const why = await chat(s, 'why did you move my bid?', first.conversationId);
+    const r = why.events.find((e) => e.type === 'tool_result' && e.name === 'my_intents')!;
+    const intents = (r.result as { intents: Array<Record<string, unknown>> }).intents;
+    expect(intents[0]).toMatchObject({ intentId, liveBid: { listingId: other.id } });
+    expect((intents[0]!.history as Array<Record<string, unknown>>).at(-1)).toMatchObject({
+      kind: 'MOVED',
+      reason: 'SHOPPER',
+      why: 'You confirmed this move.',
+    });
+  });
+
   it('no vault → the card deep-links to W12; confirm refuses inline', async () => {
     const l = await aurelListing();
     const s = (await fx.shopper()).id;

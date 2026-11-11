@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activeConfirmId,
   cardTitle,
+  cardWhere,
   chatReducer,
   createFrameParser,
   doneText,
@@ -12,6 +13,7 @@ import {
   threadFromHistory,
   type AgentEvent,
   type ChatState,
+  type ConfirmRequired,
   type HistoryMessage,
   type ThreadItem,
 } from './agent-chat';
@@ -351,5 +353,60 @@ describe('history rebuild', () => {
       status: 'failed',
       message: 'That bid didn’t go through: This book is not taking bids.',
     });
+  });
+});
+
+describe('HF-052 intent and move cards', () => {
+  const base = {
+    actionId: 'a1',
+    amountFormatted: '$250',
+    amountCents: 25_000,
+    product: null,
+    listing: null,
+    confirmMode: 'INLINE',
+    offerUrl: null,
+    expiresAt: null,
+  } as const;
+
+  it('create_intent: max per item, the products, and the server message once on', () => {
+    const card: ConfirmRequired = {
+      ...base,
+      tool: 'create_intent',
+      intent: {
+        intentId: 'i1',
+        text: 'A7-class headphones',
+        products: [
+          { productId: 'p1', title: 'Aurel One' },
+          { productId: 'p2', title: 'Nova X' },
+        ],
+      },
+    };
+    expect(cardTitle(card)).toBe('Bid up to $250');
+    expect(cardWhere(card)).toBe('on Aurel One or Nova X');
+    expect(failureOf(card, { intentId: 'i1', message: 'Your intent is on.' })).toBeNull();
+    expect(doneText(card, { intentId: 'i1', message: 'Your intent is on.' })).toBe(
+      'Your intent is on.',
+    );
+    expect(failureOf(card, { error: { code: 'NOT_FOUND', message: 'Unknown intent.' } })).toBe(
+      'That intent didn’t go through: Unknown intent.',
+    );
+  });
+
+  it('move_bid: held in the new book, failures never read as moved', () => {
+    const card: ConfirmRequired = {
+      ...base,
+      tool: 'move_bid',
+      amountFormatted: '$229',
+      amountCents: 22_900,
+      listing: { id: 'l2', slug: 'nova-x', brandName: 'Nova' },
+    };
+    expect(cardTitle(card)).toBe('Move bid: $229');
+    expect(doneText(card, { bidId: 'b2', status: 'HELD', amountCents: 22_900 })).toBe(
+      'Moved. $229 is held, not charged.',
+    );
+    expect(failureOf(card, { error: { code: 'STATE_CONFLICT', message: 'Couldn’t move.' } })).toBe(
+      'That move didn’t go through: Couldn’t move.',
+    );
+    expect(resultLabel('my_intents', true, { intents: [{}] })).toBe('Checked 1 intent');
   });
 });

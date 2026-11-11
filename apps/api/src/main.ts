@@ -21,6 +21,7 @@ import {
   reprocessPriceEvents,
   retryPayout,
   roundsTiming,
+  runOpenIntents,
   startCrons,
   startRoundsTicker,
   startPriceWatchRetrier,
@@ -192,6 +193,21 @@ const crons = startCrons({
     // nightly detail-endpoint poll that catches price changes no webhook delivered.
     probeChannel3: () => probeChannel3(priceWatch),
     pollPublicPrices: () => pollPublicPrices(priceWatch),
+    // HF-052: the intent move rule, as merchant-initiated vault holds under ACTIVE mandates.
+    runIntents: () =>
+      runOpenIntents(
+        {
+          db: sql,
+          paypal,
+          audit: auditHook,
+          appBaseUrl: config.APP_BASE_URL ?? `http://localhost:${config.PORT}`,
+          allowTestCard: testCardAllowed(config),
+        },
+        {
+          onError: (err, intentId) =>
+            app.log.warn({ err: (err as Error).message, intentId }, 'intent move rule failed'),
+        },
+      ),
     onError: (err, ctx) =>
       app.log.warn(
         { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

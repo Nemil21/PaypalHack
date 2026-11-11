@@ -5,12 +5,15 @@ import type { Channel3Client } from '../channel3/client.js';
 import { bestOffer, brandNamesOf, imageUrlOf } from '../channel3/product.js';
 import { searchProducts } from '../channel3/search.js';
 import type { Queryable } from '../db.js';
+import { createIntent, listIntents } from '../intents.js';
 import { checkMandateLimits } from '../mandates.js';
 import { likelyBand, suggestedBidCents } from '../offers/likely-band.js';
 import { isUuid } from './history.js';
 import type { ToolDefinition } from './model.js';
 import {
+  actionIdFor,
   createPendingAction,
+  findAction,
   offerPageUrl,
   type ActionArgs,
   type MoneyTool,
@@ -25,6 +28,8 @@ import {
  * - no output contains a floor or another shopper's data (`floor_cents` is never selected, and
  *   demand hints come from the floor-blind `likelyBand()`, M22);
  * - money tools never execute: they store a pending action and end the turn (B10);
+ * - `create_intent` / `move_bid` (HF-052) are money tools too; where an intent's bid sits is then
+ *   decided by plain code (`intents.ts`), and the model only explains it (`my_intents`);
  * - a covering ACTIVE mandate's `max_price_cents` is enforced before anything is stored.
  */
 
@@ -113,6 +118,52 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'create_intent',
+    description:
+      'Propose an intent: one want across several products (productIds from search_open_books), with one live bid at a time up to maxPriceCents. Holdfast code then picks the book most likely to clear and moves the bid when a better book opens or the current one closes lost. Shows a confirm card and ends your turn; nothing is held until the shopper confirms. Use it when the shopper accepts more than one product, or when no open book matches yet (it watches for one).',
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        text: { type: 'string', description: "The shopper's want, in their words." },
+        productIds: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'productId values from search_open_books, 1 to 5.',
+        },
+        maxPriceCents: {
+          type: 'integer',
+          description: 'The most the shopper will pay for one item, in cents.',
+        },
+      },
+      required: ['text', 'productIds', 'maxPriceCents'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'move_bid',
+    description:
+      "Propose moving one of the shopper's held bids to another open listing: a new hold there first, then the old one is released. Shows a confirm card and ends your turn; nothing changes until the shopper confirms.",
+    strict: true,
+    input_schema: {
+      type: 'object',
+      properties: {
+        bidId: { type: 'string' },
+        toListingId: { type: 'string' },
+        amountCents: { type: 'integer', description: 'The bid in the new book, in cents.' },
+      },
+      required: ['bidId', 'toListingId', 'amountCents'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'my_intents',
+    description:
+      'The shopper\'s intents: products, max, the live bid, and every placement or move with the reason Holdfast recorded. Use it to answer "why did you move my bid?".',
+    strict: true,
+    input_schema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+  },
+  {
     name: 'my_bids',
     description:
       "The shopper's bids with status and amount. During live rounds, belowCutoff and cutoffCents say whether a bid is currently winning.",
@@ -125,6 +176,8 @@ export const MONEY_TOOLS: ReadonlySet<string> = new Set<MoneyTool>([
   'place_bid',
   'raise_bid',
   'cancel_bid',
+  'move_bid',
+  'create_intent',
 ]);
 
 /** Sent to the client as `confirm_required` (W16 / M05 confirm card, HF-041). */
@@ -138,6 +191,14 @@ export interface ConfirmRequired {
   listing: { id: string; slug: string | null; brandName: string | null } | null;
   /** Bids a cancel would release. */
   bids?: Array<{ bidId: string; amountCents: number; title: string | null }>;
+  /** `create_intent`: the want and its products; `amountCents` is the max per item. */
+  intent?: {
+    intentId: string;
+    text: string | null;
+    products: Array<{ productId: string; title: string | null }>;
+  };
+  /** `move_bid`: the bid being moved and where it is now. */
+  from?: { bidId: string; amountCents: number; title: string | null; listingId: string };
   /** `INLINE`: confirm in chat (vaulted card, CIT). `OFFER_PAGE`: open `offerUrl` (W12). */
   confirmMode: 'INLINE' | 'OFFER_PAGE';
   offerUrl: string | null;
@@ -261,6 +322,7 @@ const biddableNow = (l: ListingInfo) =>
 function listingView(l: ListingInfo) {
   return {
     listingId: l.id,
+    productId: l.product_id,
     slug: l.slug,
     brand: data(l.brand_name, 80),
     productTitle: data(l.title),
@@ -386,6 +448,12 @@ export async function runTool(
       return proposeCancel(ctx, input);
     case 'my_bids':
       return myBids(ctx);
+    case 'create_intent':
+      return proposeIntent(ctx, input);
+    case 'move_bid':
+      return proposeMove(ctx, input);
+    case 'my_intents':
+      return myIntents(ctx);
     default:
       return fail('UNKNOWN_TOOL', `There is no tool called ${String(name).slice(0, 40)}.`);
   }
@@ -441,10 +509,29 @@ async function searchOpenBooks(ctx: ToolContext, input: Input): Promise<ToolOutc
     publicMarketError = 'Channel3 public prices are unavailable right now.';
   }
 
+  // No open book: products we know (a past or upcoming listing) can still be watched with
+  // create_intent, which needs our product ids (features/04 §Edge cases).
+  let watchable: Array<{ productId: string; title: string | null }> = [];
+  if (!listings.length) {
+    const known = await ctx.db.query(
+      `SELECT DISTINCT p.id, p.title FROM products p JOIN listings l ON l.product_id = p.id
+        WHERE EXISTS (SELECT 1 FROM unnest($1::text[]) AS t(pat)
+                       WHERE p.title ILIKE t.pat OR p.brand_name ILIKE t.pat
+                          OR p.gtin ILIKE t.pat OR p.mpn ILIKE t.pat)
+        LIMIT 5`,
+      [patterns],
+    );
+    watchable = (known.rows as Array<{ id: string; title: string | null }>).map((p) => ({
+      productId: p.id,
+      title: data(p.title),
+    }));
+  }
+
   return {
     result: {
       listings,
       ...(listings.length ? {} : { note: 'No open Holdfast book matches this product right now.' }),
+      ...(watchable.length ? { watchableProducts: watchable } : {}),
       publicMarket,
       ...(publicMarketError ? { publicMarketError } : {}),
     },
@@ -728,6 +815,152 @@ async function myBids(ctx: ToolContext): Promise<ToolOutcome> {
             }
           : {}),
       })),
+    },
+    isError: false,
+  };
+}
+
+async function proposeIntent(ctx: ToolContext, input: Input): Promise<ToolOutcome> {
+  // A retried tool call maps to the same action: never a second intent and mandate.
+  const prior = await findAction(
+    ctx.db,
+    ctx.shopperId,
+    actionIdFor(ctx.conversationId, ctx.toolUseId),
+  );
+  let intentId =
+    prior?.tool === 'create_intent' ? (prior.args as { intentId: string }).intentId : null;
+
+  const productIds = Array.isArray(input.productIds)
+    ? input.productIds.filter((p): p is string => typeof p === 'string')
+    : [];
+  if (!validAmount(input.maxPriceCents)) {
+    return fail(
+      'VALIDATION_ERROR',
+      `maxPriceCents must be whole cents between ${MIN_AMOUNT_CENTS} and ${MAX_AMOUNT_CENTS}.`,
+    );
+  }
+  const max = input.maxPriceCents;
+  if (!intentId) {
+    const created = await createIntent(ctx.db, {
+      shopperId: ctx.shopperId,
+      text: typeof input.text === 'string' ? input.text : '',
+      productIds,
+      maxPriceCents: max,
+    });
+    if (!created.ok) {
+      return fail(
+        'VALIDATION_ERROR',
+        `${created.message} Use productId values returned by search_open_books.`,
+        { field: created.field },
+      );
+    }
+    intentId = created.intent.id;
+  }
+  const rows = await ctx.db.query(
+    `SELECT p.id, p.title, i.text, i.product_ids FROM intents i
+       JOIN products p ON p.id = ANY(i.product_ids)
+      WHERE i.id = $1 AND i.shopper_id = $2`,
+    [intentId, ctx.shopperId],
+  );
+  const products = (rows.rows as Array<{ id: string; title: string | null }>).map((p) => ({
+    productId: p.id,
+    title: data(p.title),
+  }));
+  const text = (rows.rows[0] as { text: string | null } | undefined)?.text ?? null;
+  const outcome = await propose(
+    ctx,
+    'create_intent',
+    { intentId },
+    {
+      amountCents: max,
+      amountFormatted: formatUsd(max),
+      product: null,
+      listing: null,
+      intent: { intentId, text: data(text), products },
+    },
+    { inline: true },
+  );
+  outcome.result.note =
+    'Nothing is held yet. Once the shopper confirms, Holdfast bids in the book most likely to clear and moves the bid by its own rule; your turn ends now.';
+  return outcome;
+}
+
+async function proposeMove(ctx: ToolContext, input: Input): Promise<ToolOutcome> {
+  const bid = await ownBid(ctx.db, ctx.shopperId, input.bidId);
+  if (!bid) return fail('NOT_FOUND', 'Unknown bid id. Use a bidId from my_bids.');
+  if (bid.status !== 'HELD') {
+    return fail('STATE_CONFLICT', `Only a held bid can be moved; this one is ${bid.status}.`);
+  }
+  const l = await loadListing(ctx.db, String(input.toListingId ?? ''));
+  if (!l) return fail('NOT_FOUND', 'Unknown listing id. Use a listingId from search_open_books.');
+  if (l.id === bid.listing_id) {
+    return fail('VALIDATION_ERROR', 'The bid is already in this book. Use raise_bid instead.');
+  }
+  if (!validAmount(input.amountCents)) {
+    return fail(
+      'VALIDATION_ERROR',
+      `amountCents must be whole cents between ${MIN_AMOUNT_CENTS} and ${MAX_AMOUNT_CENTS}.`,
+    );
+  }
+  const amountCents = input.amountCents;
+  if (!biddableNow(l)) {
+    return fail('WINDOW_CLOSED', 'This book is not taking new bids right now.', {
+      listingId: l.id,
+    });
+  }
+  const live = await liveBidOn(ctx.db, ctx.shopperId, l.id);
+  if (live) {
+    return fail('ALREADY_BID', 'The shopper already has a bid on that listing.', {
+      bidId: live.id,
+      amountCents: live.amount_cents,
+    });
+  }
+  if (!(await shopperHasVault(ctx.db, ctx.shopperId))) {
+    // A move has no offer-page fallback: it holds with the saved payment method.
+    return fail('NEEDS_PAYMENT_METHOD', 'Moving a bid needs a saved payment method.');
+  }
+  // The bid's own mandate travels with it; its max is enforced again when the move lands.
+  const m = await ctx.db.query(
+    `SELECT m.max_price_cents FROM bids b JOIN mandates m ON m.id = b.mandate_id WHERE b.id = $1`,
+    [bid.id],
+  );
+  const maxPrice = (m.rows[0] as { max_price_cents: number } | undefined)?.max_price_cents;
+  if (maxPrice != null && amountCents > maxPrice) {
+    return fail('ABOVE_MANDATE_MAX', "This is above the shopper's agent max price.", {
+      maxPriceCents: maxPrice,
+    });
+  }
+  return propose(
+    ctx,
+    'move_bid',
+    { bidId: bid.id, toListingId: l.id, amountCents },
+    {
+      amountCents,
+      amountFormatted: formatUsd(amountCents),
+      product: { title: l.title, imageUrl: l.image_url },
+      listing: { id: l.id, slug: l.slug, brandName: l.brand_name },
+      from: {
+        bidId: bid.id,
+        amountCents: bid.amount_cents,
+        title: bid.title,
+        listingId: bid.listing_id,
+      },
+    },
+    { inline: true },
+  );
+}
+
+async function myIntents(ctx: ToolContext): Promise<ToolOutcome> {
+  const intents = await listIntents(ctx.db, ctx.shopperId);
+  return {
+    result: {
+      intents: intents.map((i) => ({
+        ...i,
+        text: data(i.text),
+        products: i.products.map((p) => ({ productId: p.productId, title: data(p.title) })),
+        maxPrice: i.maxPriceCents == null ? null : formatUsd(i.maxPriceCents),
+      })),
+      note: 'Moves are made by Holdfast code, not by you; quote the recorded "why" when explaining one.',
     },
     isError: false,
   };

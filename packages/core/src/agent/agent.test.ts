@@ -85,7 +85,13 @@ describe('tools', () => {
         Object.keys(t.input_schema.properties as object).sort(),
       );
     }
-    expect([...MONEY_TOOLS].sort()).toEqual(['cancel_bid', 'place_bid', 'raise_bid']);
+    expect([...MONEY_TOOLS].sort()).toEqual([
+      'cancel_bid',
+      'create_intent',
+      'move_bid',
+      'place_bid',
+      'raise_bid',
+    ]);
     // The model is told money tools only propose.
     for (const name of MONEY_TOOLS) {
       const t = TOOL_DEFINITIONS.find((d) => d.name === name)!;
