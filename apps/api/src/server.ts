@@ -24,6 +24,10 @@ import type { ListingEventBus } from './events/bus.js';
 import { registerBidRoutes, type BidRoutesDeps } from './routes/bids.js';
 import { registerBookRoutes } from './routes/book.js';
 import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
+import {
+  registerPayoutsReportsRoutes,
+  type PayoutsReportsRouteDeps,
+} from './routes/payouts-reports.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
 import {
@@ -126,6 +130,11 @@ export interface ServerDeps {
   channel3Webhook?: Partial<Omit<Channel3WebhookRouteDeps, keyof PriceWatchDeps>>;
   /** W11 settings (HF-056): the DNS TXT resolver (default `dns.promises`), re-check gap, clock. */
   brandSettings?: Pick<BrandSettingsRouteDeps, 'resolveTxt' | 'recheckMs' | 'now'>;
+  /**
+   * W09 (HF-059b): the PayPal client for `pp.track`. The payouts / reports / roster reads are
+   * mounted whenever `sql` is set; the shipment POSTs only with this.
+   */
+  shipments?: Pick<PayoutsReportsRouteDeps, 'paypal'>;
 }
 
 /**
@@ -187,6 +196,9 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerBrandAgentRoutes(app, { model: null, ...deps.brandAgent, db: deps.sql });
   if (deps.sql) registerBrandOverviewRoutes(app, deps.sql);
+  if (deps.sql) {
+    registerPayoutsReportsRoutes(app, { db: deps.sql, paypal: deps.shipments?.paypal });
+  }
   if (deps.sql) registerNotificationRoutes(app, deps.sql, deps.notifications);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
   if (deps.events && deps.sql) {

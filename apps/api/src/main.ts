@@ -201,6 +201,8 @@ const app = buildServer(config, {
   // recommendation without prose.
   brandAgent: { model: agentModel },
   bids: { money: bidMoney },
+  // HF-059b: W09 tracking upload calls `pp.track` through the same client.
+  shipments: { paypal },
 });
 events.setLogger(app.log);
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
