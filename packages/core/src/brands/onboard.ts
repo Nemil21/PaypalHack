@@ -149,7 +149,7 @@ export async function upsertPendingBrand(
            FROM brands
           WHERE (domain = $1 OR ($2::text IS NOT NULL AND paypal_payer_id = $2))
             AND id IS DISTINCT FROM $3::uuid
-          ORDER BY (domain = $1) DESC LIMIT 1`,
+          ORDER BY (domain = $1) IS TRUE DESC LIMIT 1`,
         [domain, input.payerId, existing?.brandId ?? null],
       );
       if (other.rows[0]) throw new Duplicate(other.rows[0].field as 'domain' | 'paypalAccount');

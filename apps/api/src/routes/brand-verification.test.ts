@@ -248,6 +248,31 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-011b brand onboarding (Postgres)', () =>
     expect(await q(`SELECT 1 FROM brands WHERE domain = $1`, [contested])).toHaveLength(1);
   });
 
+  it('domain clash wins over a PayPal-account clash on a brand with no domain (NULL ordering)', async () => {
+    const payer = `PAYER-${uniq()}`;
+    // Brand X: same PayPal payer id, no domain (`domain = $1` is NULL for it).
+    await q(
+      `INSERT INTO brands (name, payout_email, paypal_payer_id) VALUES ('X', 'x@biz.example', $1)`,
+      [payer],
+    );
+    // Brand Y: owns the domain.
+    const domain = `clash-${uniq()}.example`;
+    await q(`INSERT INTO brands (name, domain, payout_email) VALUES ('Y', $1, 'y@biz.example')`, [
+      domain,
+    ]);
+    const res = await post(pendingCookie(`z-${uniq()}@biz.example`, payer), { name: 'Z', domain });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toMatchObject({ code: 'DUPLICATE', field: 'domain' });
+
+    // Only the PayPal account clashes → paypalAccount.
+    const free = await post(pendingCookie(`z2-${uniq()}@biz.example`, payer), {
+      name: 'Z2',
+      domain: `free-${uniq()}.example`,
+    });
+    expect(free.statusCode).toBe(409);
+    expect(free.json().error).toMatchObject({ code: 'DUPLICATE', field: 'paypalAccount' });
+  });
+
   it('payout email is locked to the login email; bad input and no session are rejected', async () => {
     const email = `lock-${uniq()}@business.example.com`;
     const pending = pendingCookie(email);
