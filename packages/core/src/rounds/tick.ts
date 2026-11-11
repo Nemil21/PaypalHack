@@ -8,6 +8,7 @@ import {
   brandAudit,
   endRounds,
   phrasingFacts,
+  roundsGross,
   snapshotRound,
   type RoundsActor,
   type RoundsDeps,
@@ -237,6 +238,7 @@ export async function stepListing(deps: RoundsDeps, listingId: string): Promise<
     let extensions = listing.round_extensions as number;
     let extended = 0;
     for (const raise of ev.toExtend) {
+      const previousEnd = listing.round_ends_at ?? ev.roundEndsAt;
       const res = await tx.query(
         `UPDATE listings
             SET round_ends_at = least(round_ends_at + $4::float8 * interval '1 millisecond',
@@ -264,6 +266,7 @@ export async function stepListing(deps: RoundsDeps, listingId: string): Promise<
         data: {
           round,
           raisedAt: raise.at.toISOString(),
+          previousRoundEndsAt: previousEnd.toISOString(),
           roundEndsAt: row.round_ends_at!.toISOString(),
           roundsEndAt: row.rounds_end_at!.toISOString(),
           extensions: row.round_extensions,
@@ -338,6 +341,7 @@ async function endBy(
   await brandAudit(tx, ended, TICK_ACTOR, 'ROUNDS_ENDED', {
     round: ended.current_round,
     reason,
+    grossCents: await roundsGross(tx, ended),
     roundsEndAt: ended.rounds_end_at?.toISOString() ?? null,
     clearDeadlineAt: ended.clear_deadline_at?.toISOString() ?? null,
   });

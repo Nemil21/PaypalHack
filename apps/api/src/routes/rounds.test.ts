@@ -269,4 +269,43 @@ describe.skipIf(!TEST_DATABASE_URL)('live rounds routes (HF-036a)', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ error: { code: 'STATE_CONFLICT', reason: 'NOT_OPEN' } });
   });
+
+  it('GET rounds/activity (HF-037b): any brand role reads it; 401 anon; 404 another brand or a bad id', async () => {
+    const s = await seed();
+    const url = `/api/listings/${s.listingId}/rounds/activity`;
+    const get = (headers: Record<string, string> = {}, u = url) =>
+      app.inject({ method: 'GET', url: u, headers });
+
+    expect((await get()).statusCode).toBe(401);
+    expect((await get({ cookie: s.shopperCookie })).statusCode).toBe(401);
+    const before = await get({ cookie: s.users.VIEWER! });
+    expect(before.statusCode).toBe(200);
+    expect(before.json()).toMatchObject({ status: 'OPEN', rounds: [], raises: [], ended: null });
+
+    await call('POST', `/api/listings/${s.listingId}/rounds/start`, {
+      headers: { cookie: s.users.OWNER! },
+      body: { targetQuantity: 2 },
+    });
+    await call('POST', `/api/listings/${s.listingId}/rounds/stop`, {
+      headers: { cookie: s.users.OWNER! },
+    });
+    const after = await get({ cookie: s.users.VIEWER! });
+    expect(after.statusCode).toBe(200);
+    expect(after.json()).toMatchObject({
+      status: 'ROUNDS',
+      currentRound: 1,
+      targetQuantity: 2,
+      // $300 + $250 win at Q = 2.
+      expectedGrossCents: 55_000,
+      rounds: [{ round: 1, nudged: 1, raised: 0, grossAtStartCents: 55_000, grossDeltaCents: 0 }],
+      ended: { round: 1, reason: 'BRAND_STOPPED' },
+    });
+
+    const other = await seed();
+    expect((await get({ cookie: other.users.OWNER! })).statusCode).toBe(404);
+    expect(
+      (await get({ cookie: s.users.OWNER! }, '/api/listings/not-a-uuid/rounds/activity'))
+        .statusCode,
+    ).toBe(404);
+  });
 });

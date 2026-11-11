@@ -7,6 +7,7 @@ import {
   type ClearBid,
   type ListingEvent,
   type Nudge,
+  type RoundEndReason,
 } from '../src/index.js';
 
 /**
@@ -38,6 +39,14 @@ export interface RoundsReplayOptions {
   roundMs?: number;
   /** Finish with `round.ended` (the brand stopped), for the console's ended banner (HF-037a). */
   end?: boolean;
+  /** The `round.ended` reason (default BRAND_STOPPED; HF-037b shows each). */
+  endReason?: RoundEndReason;
+  /**
+   * After the last raise, a soft-close `round.extended` pushing the round end by `extendMs`
+   * (default 10 min) — needs `roundMs` (HF-037b "+10 min (late raise)").
+   */
+  extend?: boolean;
+  extendMs?: number;
 }
 
 const roundEndsAtOf = (opts: RoundsReplayOptions, start: number) =>
@@ -146,6 +155,17 @@ export function roundsReplayEvents(opts: RoundsReplayOptions = {}): ListingEvent
       isSimulated: simOf.get(n.bidId) ?? false,
     }),
   );
+  const roundEndsAt = roundEndsAtOf(opts, start);
+  if (opts.extend && roundEndsAt) {
+    events.push({
+      type: 'round.extended',
+      listingId,
+      at: at(5 + raises * 2),
+      round: 1,
+      roundEndsAt: new Date(Date.parse(roundEndsAt) + (opts.extendMs ?? 600_000)).toISOString(),
+      roundsEndAt: at(6 * 3600),
+    });
+  }
   if (opts.end) {
     const endAt = start + (5 + raises * 2) * 1_000;
     events.push({
@@ -153,7 +173,7 @@ export function roundsReplayEvents(opts: RoundsReplayOptions = {}): ListingEvent
       listingId,
       at: at(5 + raises * 2),
       round: 1,
-      reason: 'BRAND_STOPPED',
+      reason: opts.endReason ?? 'BRAND_STOPPED',
       roundsEndAt: new Date(endAt).toISOString(),
       clearDeadlineAt: new Date(endAt + 6 * 3_600_000).toISOString(),
     });

@@ -25,6 +25,7 @@ import {
 } from '../../lib/console/rounds';
 import { createSliderStore, SliderContext, type SliderStore } from '../../lib/console/slider-store';
 import { useConsoleBook } from '../../lib/console/use-console-book';
+import { useRoundsActivity } from '../../lib/console/use-rounds-activity';
 import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
 import { ConsoleHeader, ShareButton } from './ConsoleHeader';
@@ -68,12 +69,16 @@ export function ListingConsole() {
     overlay: null,
   });
   const overlay = rounds.listingId === listingId ? rounds.overlay : null;
+  // Raises feed (HF-037b): re-read on every bid.raised / round.* notice, once rounds started.
+  const [roundsSeen, setRoundsSeen] = useState<string | null>(null);
+  const activity = useRoundsActivity(listingId, roundsSeen === listingId);
   const live = useConsoleBook(listingId, {
     onPriceDrop: (t) => toast.show({ ...t, duration: 8000 }),
     onNotice: (n, event) => {
       if (n.type === 'bid.raised' && n.ids.bidId && n.ids.replacesBidId) {
         tracker.noteRaise(n.ids.bidId, n.ids.replacesBidId);
       }
+      activity.onNotice(n, event);
       if (event?.type.startsWith('round.')) {
         setRounds((r) => ({
           listingId,
@@ -89,6 +94,15 @@ export function ListingConsole() {
   );
 
   const phase = useMemo(() => (listing ? phaseView(listing, now) : null), [listing, now]);
+  const roundsStarted = !!listing?.roundsStartedAt || listing?.status === 'ROUNDS';
+  useEffect(() => {
+    if (roundsStarted) setRoundsSeen(listingId);
+  }, [roundsStarted, listingId]);
+  // Notices may have been missed while the stream was down: re-read the feed with the book.
+  const { refresh: refreshActivity } = activity;
+  useEffect(() => {
+    if (live.stream === 'open') refreshActivity();
+  }, [live.stream, refreshActivity]);
   const store = useMemo(createKpiStore, []);
   // One slider store per listing (HF-024). A new book re-ranks it once; the KPI row follows its
   // numbers through the store (no console re-render per drag step).
@@ -170,9 +184,11 @@ export function ListingConsole() {
               phase={phase.phase}
               viewer={viewer}
               now={now}
+              feed={activity.feed}
               onChanged={(state) => {
                 if (state) setRounds({ listingId, overlay: overlayFromState(state) });
                 live.refresh();
+                activity.refresh();
               }}
             />
           </SliderContext.Provider>

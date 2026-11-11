@@ -95,6 +95,9 @@ HF-012b: OWNER/MANAGER, Idempotency-Key → `200 { listingId, status: "OPEN", pr
 
 ### `POST /listings/:id/rounds/start` `{ "targetQuantity": 240 }` → `{ "status": "ROUNDS", "roundsEndAt": "…", "windowClosesAt": "…", "clearDeadlineAt": "…" }` · `POST /listings/:id/rounds/stop` (sets `rounds_end_at = now()`) · `POST /listings/:id/rounds/next` (basic mode: advance one round) · `PATCH /listings/:id/rounds` `{ "targetQuantity" }` (see 19). OWNER/MANAGER only; rounds start once.
 
+### `GET /listings/:id/rounds/activity` (HF-037b) → the W06 raises feed. Brand users, any role; another brand's listing or a bad id → `404`.
+`{ listingId, status, currentRound, targetQuantity, expectedGrossCents, rounds: [{ round, startedAt, nudged, raised, grossAtStartCents, grossDeltaCents }], raises: [{ bidId, replacesBidId, oldCents, newCents, shopperLabel, source, isSimulated, at, round }] (newest first, ≤ 200), extensions: [{ round, at, bidId, roundEndsAt, extendedByMs }], ended: { round, reason, at } | null }`. Raises use the `bid.raised` fields; labels are the book's. Gross is `clear(bids, targetQuantity, floor).grossCents` (gross at a round's start comes from its `ROUND_SNAPSHOT` audit). Clients re-read it on every `bid.raised` / `round.*` notice.
+
 ### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `bid.raised`, `settlement.updated`, `listing.status`, `round.started`, `round.nudged`, `round.extended`, `round.ended`, `payout.updated`, `pricewatch.released`, `listing.updated` (HF-012b: `{ previousQuantity, quantity }`)
 
 ### `POST /listings/:id/clear` (brand OWNER/MANAGER)

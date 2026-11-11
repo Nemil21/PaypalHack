@@ -11,9 +11,18 @@ import {
   stopClearBy,
   type RoundsListing,
 } from '../../lib/console/rounds';
+import {
+  EMPTY_FEED,
+  END_REASON_COPY,
+  endedCopy,
+  extensionCopy,
+  recentExtension,
+  type RoundsFeed as Feed,
+} from '../../lib/console/rounds-feed';
 import { useSetSliderQuantity, useSlider } from '../../lib/console/slider-store';
 import { useApiAction } from '../../lib/use-api-action';
 import { Button, ErrorBanner } from '../ui';
+import { RoundsFeed } from './RoundsFeed';
 
 /**
  * W06 live rounds controls, basic part (HF-037a; features/19 §Screens): "Start live rounds" with a
@@ -21,6 +30,9 @@ import { Button, ErrorBanner } from '../ui';
  * overall end), inline target edit, "Next round" and "Stop". OWNER/MANAGER only: a VIEWER sees the
  * round header without controls (and the API refuses them, and every agent, with 403). Clear stays
  * HF-028's button, which reads "Stop rounds & clear" during rounds.
+ *
+ * Full part (HF-037b): the raises feed with per-round summaries, a short "+10 min (late raise)"
+ * note when soft close moves the timer, and the end reason once rounds end.
  */
 
 type Action = ReturnType<typeof useApiAction<RoundsState>>;
@@ -43,6 +55,7 @@ export function RoundsPanel({
   phase,
   viewer,
   now,
+  feed = EMPTY_FEED,
   onChanged,
 }: {
   listingId: string;
@@ -51,6 +64,8 @@ export function RoundsPanel({
   phase: ListingPhaseName;
   viewer: boolean;
   now: number;
+  /** Raises feed (HF-037b, `useRoundsActivity`). */
+  feed?: Feed;
   /** A rounds call landed (its state) or failed (no state; the view may be stale): re-read the book. */
   onChanged(state?: RoundsState): void;
 }) {
@@ -71,6 +86,7 @@ export function RoundsPanel({
           now={now}
           controls={mode === 'active' && !viewer}
           ended={mode === 'ended'}
+          feed={feed}
           onChanged={onChanged}
         />
       )}
@@ -188,6 +204,7 @@ function ActiveRounds({
   now,
   controls,
   ended,
+  feed,
   onChanged,
 }: {
   listingId: string;
@@ -195,9 +212,15 @@ function ActiveRounds({
   now: number;
   controls: boolean;
   ended: boolean;
+  feed: Feed;
   onChanged(state?: RoundsState): void;
 }) {
   const header = roundHeader(listing, now);
+  const extension = ended ? null : recentExtension(feed, now);
+  // The tick announces the end within a tick; until then a passed rounds_end_at is the time cap.
+  const endReason = feed.ended
+    ? endedCopy(feed.ended)
+    : `Rounds ended in round ${header.round}: ${END_REASON_COPY.CAP_REACHED}.`;
   const next = useApiAction<RoundsState>();
   const stop = useApiAction<RoundsState>();
   const stopDialog = useRef<HTMLDialogElement>(null);
@@ -232,6 +255,15 @@ function ActiveRounds({
                 {header.roundEndsIn}
               </span>
             )}
+            {extension && (
+              <span
+                className="rounded-sm bg-orange-tint px-2 py-0.5 text-[13px] text-ink"
+                role="status"
+                data-testid="round-extended-note"
+              >
+                {extensionCopy(extension)}
+              </span>
+            )}
             {!ended && !header.roundEndsIn && (
               <span className="text-[14px] text-body">Advances with “Next round”</span>
             )}
@@ -241,6 +273,11 @@ function ActiveRounds({
               {ended
                 ? `Ended ${formatDeadline(Date.parse(listing.roundsEndAt!))}`
                 : header.roundsEnd}
+            </p>
+          )}
+          {ended && (
+            <p className="text-[14px] text-ink" data-testid="rounds-end-reason">
+              {endReason}
             </p>
           )}
         </div>
@@ -269,6 +306,7 @@ function ActiveRounds({
         </div>
       )}
       {error && <ErrorBanner message={error.message} />}
+      <RoundsFeed feed={feed} />
       <dialog ref={stopDialog} aria-labelledby={`${stopId}-title`} className={DIALOG}>
         <div className="flex flex-col gap-4 p-6">
           <h2 id={`${stopId}-title`} className="text-[20px] font-medium tracking-headline text-ink">
