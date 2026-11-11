@@ -20,3 +20,4 @@ export * from './settlement/settle-bid.js';
 export * from './rounds/index.js';
 export * from './bid-cancel.js';
 export * from './bid-views.js';
+export * from './mandates.js';

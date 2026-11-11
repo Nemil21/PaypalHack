@@ -7,10 +7,10 @@ import {
 } from '@holdfast/shared';
 import type { Tx } from './db.js';
 import { errorBody, type IdempotentResponse } from './idempotency.js';
-import { defaultMandateCheck, landHold, type LandHoldResult } from './money/land-hold.js';
+import { authorize, type MandateDenial } from './mandates.js';
+import { landHold, type LandHoldResult } from './money/land-hold.js';
 import type { Actor, MandateRefusal, MoneyDeps } from './money/deps.js';
-import { lockMandate } from './money/locks.js';
-import type { BidRow, MandateRow } from './money/rows.js';
+import type { BidRow } from './money/rows.js';
 import { transition } from './money/transition.js';
 import { orderRequestId } from './paypal/ids.js';
 import type { HoldResult, PayPalClient, PaymentSource, TestCard } from './paypal/types.js';
@@ -25,7 +25,8 @@ import type { HoldResult, PayPalClient, PaymentSource, TestCard } from './paypal
  *    `idempotent()` (request hash + stored response).
  * 2. `isBiddable` (D7) else `WINDOW_CLOSED`, no PayPal call.
  * 3. One transaction: `pg_advisory_xact_lock(shopper, listing)`; a live bid → `ALREADY_BID` (D3);
- *    mandate `FOR UPDATE` + cap (D12); insert the bid PENDING_APPROVAL; audit `BID_PENDING`.
+ *    `mandates.authorize` (HF-017a: mandate `FOR UPDATE`, ACTIVE, max price, D12 cap, allowed
+ *    products) when `mandateId` is set; insert the bid PENDING_APPROVAL; audit `BID_PENDING`.
  * 4. `pp.createAuthOrder` outside any transaction (INV-1) with `PayPal-Request-Id = bid.id` (D5).
  * 5. Only an authorization `CREATED` is a hold (M6): `landHold` (D1) flips it HELD, re-checking
  *    the listing and mandate; a refusal voids the new authorization (B2). `bid.held` is emitted
@@ -108,8 +109,22 @@ export type PlaceBidError =
   /** Not biddable (D7). `released`: a hold was created and then voided by `landHold`. */
   | { code: 'WINDOW_CLOSED'; bidId: string | null; amountCents: number; released: boolean }
   | { code: 'ALREADY_BID'; bidId: string; amountCents: number }
-  | { code: 'MANDATE_EXCEEDED'; bidId: string | null; released: boolean }
-  | { code: 'MANDATE_PAUSED'; bidId: string | null; released: boolean }
+  /** Over the mandate's total hold cap (D12), or (`PRODUCT_NOT_ALLOWED`) outside its products. */
+  | {
+      code: 'MANDATE_EXCEEDED';
+      bidId: string | null;
+      released: boolean;
+      reason?: 'TOTAL_HOLD_CAP' | 'PRODUCT_NOT_ALLOWED';
+    }
+  /** The amount is above the mandate's per-item `max_price_cents`; no PayPal call. */
+  | { code: 'ABOVE_MANDATE_MAX'; bidId: null; maxPriceCents: number }
+  /** The mandate is not ACTIVE (paused, revoked, fulfilled) or has expired. */
+  | {
+      code: 'MANDATE_PAUSED';
+      bidId: string | null;
+      released: boolean;
+      reason?: 'INACTIVE' | 'EXPIRED';
+    }
   /** Declined, 3DS on a vault, or a non-CREATED authorization: bid HOLD_FAILED (terminal). */
   | { code: 'HOLD_FAILED'; bidId: string; paypalCode: string }
   /** PayPal gave no usable answer: bid PENDING_APPROVAL + `needs_reconcile` (M6). */
@@ -301,12 +316,16 @@ async function insertPending(
   if (same) return { kind: 'existing', bid: same };
 
   const res = await tx.query(
-    `SELECT status, window_closes_at, rounds_end_at, clock_timestamp() AS db_now
+    `SELECT status, window_closes_at, rounds_end_at, product_id, clock_timestamp() AS db_now
        FROM listings WHERE id = $1`,
     [input.listingId],
   );
   const listing = res.rows[0] as
-    Pick<ListingSnapshot, 'status' | 'window_closes_at' | 'rounds_end_at' | 'db_now'> | undefined;
+    | Pick<
+        ListingSnapshot,
+        'status' | 'window_closes_at' | 'rounds_end_at' | 'product_id' | 'db_now'
+      >
+    | undefined;
   if (!listing || !biddable(listing, listing.db_now)) {
     throw new PlacementRefused({
       code: 'WINDOW_CLOSED',
@@ -345,16 +364,18 @@ async function insertPending(
     }
   }
 
-  // Lock order: (listing, not locked here) → mandate → bids.
-  let mandate: MandateRow | null = null;
+  // Lock order: (listing, not locked here) → mandate → bids. The mandate stays locked until this
+  // transaction commits the PENDING_APPROVAL row, so a parallel placement counts it (D12).
   if (input.mandateId) {
-    mandate = await lockMandate(tx, input.mandateId);
-    if (!mandate || mandate.shopper_id !== input.shopperId) {
-      throw new PlacementRefused({
-        code: 'VALIDATION_ERROR',
-        field: 'mandateId',
-        message: 'Unknown mandate.',
-      });
+    const authorized = await authorize(tx, input.mandateId, {
+      newHoldCents: input.amountCents,
+      productId: listing.product_id,
+      shopperId: input.shopperId,
+    });
+    if (!authorized.ok) {
+      throw new PlacementRefused(
+        denialError(authorized.denial, authorized.mandate?.max_price_cents ?? 0),
+      );
     }
   }
 
@@ -381,13 +402,6 @@ async function insertPending(
   );
   const bid = inserted.rows[0] as BidRow;
 
-  // D12: the PENDING_APPROVAL row is already in the sum, under the mandate lock.
-  if (mandate) {
-    const check = deps.mandateCheck ?? defaultMandateCheck;
-    const refusal = await check(tx, { mandate, bid, replacesBidId: null, now: listing.db_now });
-    if (refusal) throw new PlacementRefused(mandateError(refusal, null, false));
-  }
-
   await deps.audit?.(tx, {
     actor: actorFor(input),
     action: 'BID_PENDING',
@@ -403,6 +417,29 @@ async function insertPending(
     },
   });
   return { kind: 'placed', bid };
+}
+
+/** A placement-time `mandates.authorize` denial (no bid row, no PayPal call). */
+function denialError(denial: MandateDenial, maxPriceCents: number): PlaceBidError {
+  switch (denial) {
+    case 'MANDATE_NOT_FOUND':
+      return { code: 'VALIDATION_ERROR', field: 'mandateId', message: 'Unknown mandate.' };
+    case 'ABOVE_MANDATE_MAX':
+      return { code: 'ABOVE_MANDATE_MAX', bidId: null, maxPriceCents };
+    case 'MANDATE_EXCEEDED':
+      return { code: 'MANDATE_EXCEEDED', bidId: null, released: false, reason: 'TOTAL_HOLD_CAP' };
+    case 'PRODUCT_NOT_ALLOWED':
+      return {
+        code: 'MANDATE_EXCEEDED',
+        bidId: null,
+        released: false,
+        reason: 'PRODUCT_NOT_ALLOWED',
+      };
+    case 'MANDATE_INACTIVE':
+      return { code: 'MANDATE_PAUSED', bidId: null, released: false, reason: 'INACTIVE' };
+    case 'MANDATE_EXPIRED':
+      return { code: 'MANDATE_PAUSED', bidId: null, released: false, reason: 'EXPIRED' };
+  }
 }
 
 function mandateError(
@@ -703,6 +740,7 @@ const ERROR_HTTP: Record<PlaceBidError['code'], { status: number; code: ErrorCod
   WINDOW_CLOSED: { status: 409, code: 'WINDOW_CLOSED' },
   ALREADY_BID: { status: 409, code: 'ALREADY_BID' },
   MANDATE_EXCEEDED: { status: 422, code: 'MANDATE_EXCEEDED' },
+  ABOVE_MANDATE_MAX: { status: 422, code: 'ABOVE_MANDATE_MAX' },
   MANDATE_PAUSED: { status: 409, code: 'STATE_CONFLICT' },
   HOLD_FAILED: { status: 422, code: 'HOLD_FAILED' },
   PAYPAL_ERROR: { status: 502, code: 'PAYPAL_ERROR' },
@@ -727,6 +765,8 @@ function messageFor(error: PlaceBidError): string {
       return 'You already have a bid on this listing. Raise or cancel it instead.';
     case 'MANDATE_EXCEEDED':
       return "This bid is over your agent's limits.";
+    case 'ABOVE_MANDATE_MAX':
+      return "This bid is above your agent's max price.";
     case 'MANDATE_PAUSED':
       return 'Your agent mandate is paused.';
     case 'HOLD_FAILED':
@@ -760,9 +800,12 @@ export function placeBidResponse(result: PlaceBidResult): IdempotentResponse {
       details.field = error.field;
       break;
     case 'MANDATE_PAUSED':
-      details.reason = 'MANDATE_PAUSED';
+      details.reason = error.reason === 'EXPIRED' ? 'MANDATE_EXPIRED' : 'MANDATE_PAUSED';
       details.bidId = error.bidId;
       details.released = error.released;
+      break;
+    case 'ABOVE_MANDATE_MAX':
+      details.maxPriceCents = error.maxPriceCents;
       break;
     case 'STATE_CONFLICT':
       details.reason = error.reason;
@@ -774,9 +817,13 @@ export function placeBidResponse(result: PlaceBidResult): IdempotentResponse {
       details.amountCents = error.amountCents;
       break;
     case 'WINDOW_CLOSED':
+      details.bidId = error.bidId;
+      details.released = error.released;
+      break;
     case 'MANDATE_EXCEEDED':
       details.bidId = error.bidId;
       details.released = error.released;
+      if (error.reason) details.reason = error.reason;
       break;
     case 'IN_PROGRESS':
     case 'HOLD_FAILED':
