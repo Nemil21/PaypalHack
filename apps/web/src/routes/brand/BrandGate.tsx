@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation, useOutletContext } from 'react-router';
 import type { BrandListingView } from '@holdfast/shared';
 import { ErrorBanner, Skeleton } from '../../components/ui';
-import { ApiError, api } from '../../lib/api';
+import { api } from '../../lib/api';
+import { loadBrandGate, type BrandGateLoad, type BrandMe } from '../../lib/brand-gate';
 import { paths } from '../../lib/routes';
 
 /**
@@ -11,17 +12,7 @@ import { paths } from '../../lib/routes';
  * the DEMO_MODE sign-ins); signed in with PayPal but not onboarded yet → W03.
  */
 
-export type BrandRole = 'OWNER' | 'MANAGER' | 'VIEWER';
-
-export interface BrandMe {
-  id: string;
-  email: string;
-  displayName: string | null;
-  role: BrandRole;
-  brand: { id: string; name: string; verificationStatus: string };
-  /** `ADMIN_EMAILS` member (`GET /api/me`): ops actions such as the payout retry. */
-  isAdmin?: boolean;
-}
+export type { BrandMe, BrandRole } from '../../lib/brand-gate';
 
 export interface BrandContext {
   me: BrandMe;
@@ -33,12 +24,7 @@ export function useBrand(): BrandContext {
   return useOutletContext<BrandContext>();
 }
 
-type Load =
-  | { state: 'loading' }
-  | { state: 'signed-out' }
-  | { state: 'pending' }
-  | { state: 'error'; error: ApiError }
-  | { state: 'ready'; me: BrandMe; listings: BrandListingView[] };
+type Load = BrandGateLoad;
 
 export function BrandGate() {
   const [load, setLoad] = useState<Load>({ state: 'loading' });
@@ -48,35 +34,9 @@ export function BrandGate() {
 
   useEffect(() => {
     let live = true;
-    Promise.all([
-      api.request<{ brandUser: BrandMe | null; pendingBrand?: { email: string } | null }>({
-        method: 'GET',
-        path: '/api/me',
-      }),
-      // HF-012a's `GET /api/listings`: newest first, this brand only.
-      api.request<{ listings: BrandListingView[] }>({ method: 'GET', path: '/api/listings' }),
-    ])
-      .then(([me, list]) => {
-        if (!live) return;
-        setLoad(
-          me.brandUser
-            ? { state: 'ready', me: me.brandUser, listings: list.listings }
-            : me.pendingBrand
-              ? { state: 'pending' }
-              : { state: 'signed-out' },
-        );
-      })
-      .catch((err: unknown) => {
-        if (!live) return;
-        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-          setLoad({ state: 'signed-out' });
-        } else {
-          setLoad({
-            state: 'error',
-            error: err instanceof ApiError ? err : new ApiError(0, 'CLIENT_ERROR', 'Failed.'),
-          });
-        }
-      });
+    void loadBrandGate(api).then((next) => {
+      if (live) setLoad(next);
+    });
     return () => {
       live = false;
     };
