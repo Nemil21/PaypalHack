@@ -24,14 +24,17 @@ const REQUIRED = {
 const KEY = { 'idempotency-key': 'k-1' };
 
 function server(env: Record<string, string> = {}, deps: ServerDeps = {}) {
-  const app = buildServer(loadConfig({ ...REQUIRED, ...env }), { webDistDir: null, ...deps });
+  const app = buildServer(loadConfig({ ...REQUIRED, ...env }), {
+    webDistDir: null,
+    // The real `/mcp` guard + scope gate (HF-043) with an echo handler instead of the MCP server.
+    mcp: {
+      handler: async (req) => ({ clientId: req.auth.mcp?.clientId, key: req.idempotencyKey }),
+    },
+    ...deps,
+  });
   app.post('/api/test/echo', async (req) => ({ ok: true, key: req.idempotencyKey }));
   app.get('/api/test/ping', async () => ({ ok: true }));
   app.post('/api/webhooks/paypal', async () => ({ ok: true }));
-  app.post('/mcp', { onRequest: app.guards.requireMcpToken('bids:write') }, async (req) => ({
-    clientId: req.auth.mcp?.clientId,
-    key: req.idempotencyKey,
-  }));
   app.post('/api/auth/paypal/callback', async () => ({ ok: true }));
   app.post('/api/test/amount', async (req) =>
     parse(z.object({ amountCents: amountCentsSchema }), req.body, 'body'),
@@ -210,7 +213,7 @@ describe('Idempotency-Key requirement', () => {
       {},
       {
         mcpTokens: {
-          verify: async () => ({ clientId: 'c1', shopperId: 's1', scopes: ['bids:write'] }),
+          verify: async () => ({ clientId: 'c1', shopperId: 's1', scopes: ['read', 'bid'] }),
         },
       },
     );
@@ -299,7 +302,7 @@ describe('rate limits', () => {
       {},
       {
         mcpTokens: {
-          verify: async (t) => ({ clientId: t, shopperId: 's', scopes: ['bids:write'] }),
+          verify: async (t) => ({ clientId: t, shopperId: 's', scopes: ['read', 'bid'] }),
         },
       },
     );
@@ -317,23 +320,75 @@ describe('rate limits', () => {
     expect((await call('b')).statusCode).toBe(200);
   });
 
-  it('MCP: no token → 401, unknown token → 401, missing scope → 403', async () => {
+  it('MCP guessing: once an IP is throttled, bad tokens are refused before any lookup', async () => {
+    let lookups = 0;
+    app = server(
+      {},
+      {
+        limiter: new RateLimiter({ mcp: 3, rest: 60, agent: 1, magicLink: 1 }),
+        mcpTokens: {
+          verify: async () => {
+            lookups++;
+            return null;
+          },
+        },
+      },
+    );
+    const call = (token: string) =>
+      app!.inject({
+        method: 'POST',
+        url: '/mcp',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {},
+      });
+    for (let i = 0; i < 3; i++) expect((await call(`hf_mcp_guess${i}`)).statusCode).toBe(401);
+    expect(lookups).toBe(3);
+    for (let i = 0; i < 5; i++) {
+      const res = await call(`hf_mcp_more${i}`);
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error.code).toBe('RATE_LIMITED');
+    }
+    // Throttled requests never reached the token lookup (no database query).
+    expect(lookups).toBe(3);
+  });
+
+  it('peek reports the next decision without counting a call', () => {
+    const rl = new RateLimiter({ mcp: 1, rest: 1, agent: 1, magicLink: 1 }, () => 1_000);
+    expect(rl.peek('mcp', 'k').allowed).toBe(true);
+    expect(rl.peek('mcp', 'k').allowed).toBe(true);
+    expect(rl.hit('mcp', 'k').allowed).toBe(true);
+    expect(rl.peek('mcp', 'k')).toMatchObject({ allowed: false, remaining: 0 });
+  });
+
+  it('MCP: no token → 401, unknown token → 401, money tool without the bid scope → FORBIDDEN', async () => {
     app = server(
       {},
       {
         mcpTokens: {
           verify: async (t) =>
-            t === 'good' ? { clientId: 'c', shopperId: 's', scopes: ['bids:read'] } : null,
+            t === 'good' ? { clientId: 'c', shopperId: 's', scopes: ['read'] } : null,
         },
       },
     );
-    const call = (headers: Record<string, string>) =>
-      app!.inject({ method: 'POST', url: '/mcp', headers, payload: {} });
+    const call = (headers: Record<string, string>, payload: object = {}) =>
+      app!.inject({ method: 'POST', url: '/mcp', headers, payload });
     expect((await call({})).json().error.code).toBe('UNAUTHENTICATED');
     expect((await call({ authorization: 'Bearer bad' })).statusCode).toBe(401);
-    const scoped = await call({ authorization: 'Bearer good' });
-    expect(scoped.statusCode).toBe(403);
-    expect(scoped.json().error.code).toBe('FORBIDDEN');
+    const tool = (name: string) => ({
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'tools/call',
+      params: { name, arguments: {} },
+    });
+    const scoped = await call({ authorization: 'Bearer good' }, tool('place_bid'));
+    expect(scoped.statusCode).toBe(200);
+    expect(scoped.json()).toMatchObject({ id: 7, result: { isError: true } });
+    expect(scoped.json().result.content[0].text).toMatch(/^FORBIDDEN: /);
+    // A read tool passes the gate to the handler.
+    expect((await call({ authorization: 'Bearer good' }, tool('get_book'))).json()).toEqual({
+      clientId: 'c',
+      key: null,
+    });
   });
 });
 

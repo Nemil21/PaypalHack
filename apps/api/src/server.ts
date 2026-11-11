@@ -8,6 +8,7 @@ import {
   type KickSettlement,
   type PriceWatchDeps,
   type RoundsDeps,
+  verifyMcpToken,
 } from '@holdfast/core';
 import { createGuards, registerAuth, Sessions, type McpTokenVerifier } from './auth/guards.js';
 import type { PayPalIdentity } from './auth/paypal-login.js';
@@ -40,6 +41,8 @@ import {
 } from './routes/paypal-webhook.js';
 import { registerProductRoutes } from './routes/products.js';
 import { registerAgentRoutes, type AgentRoutesDeps } from './routes/agent.js';
+import { registerMcpClientRoutes } from './routes/mcp-clients.js';
+import { registerMcpRoute, type McpRouteDeps } from './mcp/route.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -66,8 +69,13 @@ export interface ServerDeps {
   settlement?: { kick?: KickSettlement; retryPayout?: RetryPayout };
   /** Shared rate limiter (one web instance). Tests pass their own. */
   limiter?: RateLimiter;
-  /** MCP token lookup (HF-043). Without it every MCP call is 401. */
+  /**
+   * MCP token lookup (HF-043). Default with `sql`: `mcp_clients` by token hash. Without either,
+   * every MCP call is 401.
+   */
   mcpTokens?: McpTokenVerifier;
+  /** `/mcp` (HF-043 auth + scope gate); HF-044a passes its MCP server as `handler`. */
+  mcp?: McpRouteDeps;
   /** Magic-link delivery (default: printed locally; email in HF-054b). */
   sendMagicLink?: MagicLinkSender;
   /** Log in with PayPal (HF-010). Default: from `PAYPAL_MODE` (stub or sandbox REST). */
@@ -112,10 +120,10 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
 
   const limiter = deps.limiter ?? new RateLimiter();
   const sessions = new Sessions(config);
-  const guards = createGuards(
-    { config, db: deps.sql, limiter, mcpTokens: deps.mcpTokens },
-    sessions,
-  );
+  const sql = deps.sql;
+  const mcpTokens: McpTokenVerifier | undefined =
+    deps.mcpTokens ?? (sql ? { verify: (token) => verifyMcpToken(sql.pool, token) } : undefined);
+  const guards = createGuards({ config, db: sql, limiter, mcpTokens }, sessions);
   registerAuth(app, guards);
 
   app.addHook('onRequest', async (req, reply) => {
@@ -159,6 +167,9 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });
   if (deps.priceWatch) registerAdminPriceEventRoutes(app, deps.priceWatch);
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
+  // W19 tokens and `/mcp` (HF-043): bearer token only, scopes checked per tool.
+  if (deps.sql) registerMcpClientRoutes(app, { db: deps.sql });
+  registerMcpRoute(app, deps.mcp);
   if (deps.sql) {
     registerSettlementRoutes(app, {
       db: deps.sql,

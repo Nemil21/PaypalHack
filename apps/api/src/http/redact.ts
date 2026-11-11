@@ -19,6 +19,8 @@ const PATTERNS: [RegExp, string][] = [
   // PayPal OAuth access tokens and EC- approval tokens.
   [/\bA21AA[A-Za-z0-9_.-]{8,}/g, REDACTED],
   [/\bEC-[A-Z0-9]{8,}\b/g, REDACTED],
+  // Holdfast MCP tokens (HF-043), wherever they appear.
+  [/\bhf_mcp_[A-Za-z0-9_-]+/g, REDACTED],
   // Email addresses.
   [/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[email]'],
 ];

@@ -6,6 +6,7 @@ import { BidDetailPage } from './routes/bids/BidDetailPage';
 import { ErrorStatesFixture } from './routes/bids/ErrorStatesFixture';
 import { MyBidsPage } from './routes/bids/MyBidsPage';
 import { DemoHub } from './routes/DemoHub';
+import { DeveloperPage } from './routes/Developer';
 import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
 import { BrandOverview } from './routes/brand/BrandOverview';
@@ -73,10 +74,8 @@ const router = createBrowserRouter([
       { path: 'mandates', element: <MandatesPage /> },
       { path: 'mandates/new', element: <MandateEditorPage /> },
       { path: 'mandates/:mandateId', element: <MandateEditorPage /> },
-      {
-        path: 'developer',
-        element: <ScreenPlaceholder screen="Developer / MCP (W19)" ticket="HF-043" />,
-      },
+      // W19 Developer / MCP connect (HF-043): tokens, Claude Desktop config, readiness.
+      { path: 'developer', element: <DeveloperPage /> },
 
       // Admin
       {

@@ -40,11 +40,15 @@ export class RateLimiter {
     private readonly windowMs = RATE_WINDOW_MS,
   ) {}
 
-  /** Record one call for `key` in `bucket`; refused calls are not counted. */
-  hit(bucket: RateBucket, key: string): RateDecision {
+  /**
+   * Record one call for `key` in `bucket`; refused calls are not counted. `maxPerMin` (e.g. an
+   * MCP token's own limit) can only lower the bucket's limit.
+   */
+  hit(bucket: RateBucket, key: string, maxPerMin?: number): RateDecision {
     const t = this.now();
     this.sweep(t);
-    const limit = this.limits[bucket];
+    const limit =
+      maxPerMin && maxPerMin > 0 ? Math.min(this.limits[bucket], maxPerMin) : this.limits[bucket];
     const id = `${bucket}:${key}`;
     const since = t - this.windowMs;
     const log = (this.hits.get(id) ?? []).filter((at) => at > since);
@@ -55,6 +59,22 @@ export class RateLimiter {
     }
     log.push(t);
     this.hits.set(id, log);
+    return { allowed: true, limit, remaining: limit - log.length, retryAfterSec: 0 };
+  }
+
+  /**
+   * Whether the next `hit` for `key` would be refused, without counting a call. Lets a caller
+   * skip expensive work (e.g. a token lookup) for a key that is already throttled.
+   */
+  peek(bucket: RateBucket, key: string, maxPerMin?: number): RateDecision {
+    const t = this.now();
+    const limit =
+      maxPerMin && maxPerMin > 0 ? Math.min(this.limits[bucket], maxPerMin) : this.limits[bucket];
+    const log = (this.hits.get(`${bucket}:${key}`) ?? []).filter((at) => at > t - this.windowMs);
+    if (log.length >= limit) {
+      const retryAfterSec = Math.max(1, Math.ceil((log[0]! + this.windowMs - t) / 1000));
+      return { allowed: false, limit, remaining: 0, retryAfterSec };
+    }
     return { allowed: true, limit, remaining: limit - log.length, retryAfterSec: 0 };
   }
 

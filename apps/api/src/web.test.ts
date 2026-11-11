@@ -61,7 +61,7 @@ describe('same-origin SPA (M31)', () => {
     expect(icon.headers['cache-control']).toBe('no-cache');
   });
 
-  it.each(['/api/nope', '/api', '/mcp', '/webhooks/paypal', '/assets/missing.js'])(
+  it.each(['/api/nope', '/api', '/mcp/nope', '/webhooks/paypal', '/assets/missing.js'])(
     'answers %s with the JSON 404 envelope, never the SPA',
     async (url) => {
       const res = await app.inject({ method: 'GET', url, headers: html });
@@ -69,6 +69,12 @@ describe('same-origin SPA (M31)', () => {
       expect(res.json()).toMatchObject({ error: { code: 'NOT_FOUND' } });
     },
   );
+
+  it('answers /mcp without a bearer token with the JSON 401 envelope (HF-043), never the SPA', async () => {
+    const res = await app.inject({ method: 'GET', url: '/mcp', headers: html });
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toMatchObject({ error: { code: 'UNAUTHENTICATED' } });
+  });
 
   it('does not serve the SPA to non-GET or non-HTML requests', async () => {
     const post = await app.inject({ method: 'POST', url: '/brand', headers: html });
