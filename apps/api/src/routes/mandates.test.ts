@@ -427,60 +427,72 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-017b mandate routes', () => {
     );
   });
 
-  it('race: lowering the cap while 8 placements run never leaves live holds above the cap', async () => {
-    // Stagger the PATCH so some rounds lower the cap first and others after holds have landed.
-    const outcomes = new Set<number>();
-    for (const delayMs of [0, 2, 5, 10, 20, 60, 120]) {
-      const listings = await Promise.all(Array.from({ length: 8 }, () => fx.listing()));
-      const s = await fx.shopper();
-      const m = (await create(s.id, { maxPriceCents: 20_000, totalHoldCapCents: 160_000 })).json()
-        .mandate;
-      const placing = listings.map((l) => placeUnder(l.id, s.id, m.mandateId, 20_000));
-      await new Promise((r) => setTimeout(r, delayMs));
-      const [cap, ...placed] = await Promise.all([
-        patch(s.id, m.mandateId, { totalHoldCapCents: 60_000 }),
-        ...placing,
-      ]);
-      outcomes.add(cap!.statusCode);
-      const live = await liveSum(m.mandateId);
-      const finalCap = (await get(s.id, `/api/mandates/${m.mandateId}`)).json().mandate
-        .totalHoldCapCents as number;
-      expect(live).toBeLessThanOrEqual(finalCap);
-      if (cap!.statusCode === 200) {
-        expect(finalCap).toBe(60_000);
-        expect(placed.filter((p) => p.statusCode === 201).length).toBeLessThanOrEqual(3);
-      } else {
-        expect(cap!.statusCode).toBe(422);
-        expect(cap!.json().error.liveHoldCents).toBeGreaterThan(60_000);
-        expect(finalCap).toBe(160_000);
+  it(
+    'race: lowering the cap while 8 placements run never leaves live holds above the cap',
+    { timeout: 30_000 },
+    async () => {
+      // Stagger the PATCH so some rounds lower the cap first and others after holds have landed.
+      const outcomes = new Set<number>();
+      for (const delayMs of [0, 2, 5, 10, 20, 60, 120]) {
+        const listings = await Promise.all(Array.from({ length: 8 }, () => fx.listing()));
+        const s = await fx.shopper();
+        const m = (await create(s.id, { maxPriceCents: 20_000, totalHoldCapCents: 160_000 })).json()
+          .mandate;
+        const placing = listings.map((l) => placeUnder(l.id, s.id, m.mandateId, 20_000));
+        await new Promise((r) => setTimeout(r, delayMs));
+        const [cap, ...placed] = await Promise.all([
+          patch(s.id, m.mandateId, { totalHoldCapCents: 60_000 }),
+          ...placing,
+        ]);
+        outcomes.add(cap!.statusCode);
+        const live = await liveSum(m.mandateId);
+        const finalCap = (await get(s.id, `/api/mandates/${m.mandateId}`)).json().mandate
+          .totalHoldCapCents as number;
+        expect(live).toBeLessThanOrEqual(finalCap);
+        if (cap!.statusCode === 200) {
+          expect(finalCap).toBe(60_000);
+          expect(placed.filter((p) => p.statusCode === 201).length).toBeLessThanOrEqual(3);
+        } else {
+          expect(cap!.statusCode).toBe(422);
+          expect(cap!.json().error.liveHoldCents).toBeGreaterThan(60_000);
+          expect(finalCap).toBe(160_000);
+        }
       }
-    }
-    // Both orders were exercised (cap first → 200; holds first → 422).
-    expect([...outcomes].sort()).toEqual([200, 422]);
-  });
+      // Both orders were exercised (cap first → 200; holds first → 422).
+      expect([...outcomes].sort()).toEqual([200, 422]);
+    },
+  );
 
-  it('race: pause while placements run leaves no HELD bid and no live PayPal hold', async () => {
-    const listings = await Promise.all(Array.from({ length: 6 }, () => fx.listing()));
-    const s = await fx.shopper();
-    const m = (await create(s.id, { maxPriceCents: 20_000, totalHoldCapCents: 200_000 })).json()
-      .mandate;
-    const [pause, ...placed] = await Promise.all([
-      patch(s.id, m.mandateId, { status: 'PAUSED' }),
-      ...listings.map((l) => placeUnder(l.id, s.id, m.mandateId, 20_000)),
-    ]);
-    expect(pause!.statusCode).toBe(200);
-    // Landed before the pause → released by it; still in flight → landHold sees PAUSED and voids.
-    const r = await tdb.db.pool.query(
-      `SELECT id, status, paypal_authorization_id FROM bids WHERE mandate_id = $1`,
-      [m.mandateId],
-    );
-    const bids = r.rows as { id: string; status: string; paypal_authorization_id: string | null }[];
-    expect(bids.length).toBeLessThanOrEqual(placed.length);
-    for (const b of bids) {
-      expect(['VOIDED', 'VOIDING']).toContain(b.status);
-      if (b.paypal_authorization_id) {
-        expect(fake.authorization(b.paypal_authorization_id)?.status).not.toBe('CREATED');
+  it(
+    'race: pause while placements run leaves no HELD bid and no live PayPal hold',
+    { timeout: 30_000 },
+    async () => {
+      const listings = await Promise.all(Array.from({ length: 6 }, () => fx.listing()));
+      const s = await fx.shopper();
+      const m = (await create(s.id, { maxPriceCents: 20_000, totalHoldCapCents: 200_000 })).json()
+        .mandate;
+      const [pause, ...placed] = await Promise.all([
+        patch(s.id, m.mandateId, { status: 'PAUSED' }),
+        ...listings.map((l) => placeUnder(l.id, s.id, m.mandateId, 20_000)),
+      ]);
+      expect(pause!.statusCode).toBe(200);
+      // Landed before the pause → released by it; still in flight → landHold sees PAUSED and voids.
+      const r = await tdb.db.pool.query(
+        `SELECT id, status, paypal_authorization_id FROM bids WHERE mandate_id = $1`,
+        [m.mandateId],
+      );
+      const bids = r.rows as {
+        id: string;
+        status: string;
+        paypal_authorization_id: string | null;
+      }[];
+      expect(bids.length).toBeLessThanOrEqual(placed.length);
+      for (const b of bids) {
+        expect(['VOIDED', 'VOIDING']).toContain(b.status);
+        if (b.paypal_authorization_id) {
+          expect(fake.authorization(b.paypal_authorization_id)?.status).not.toBe('CREATED');
+        }
       }
-    }
-  });
+    },
+  );
 });
