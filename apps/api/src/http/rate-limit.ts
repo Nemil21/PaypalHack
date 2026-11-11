@@ -9,10 +9,15 @@ import { ApiError, sendError } from './errors.js';
  * Several instances would need a shared store (Postgres or Redis) behind the same interface.
  */
 
-export type RateBucket = 'mcp' | 'rest' | 'agent';
+export type RateBucket = 'mcp' | 'rest' | 'agent' | 'magicLink';
 
-/** Calls per minute: MCP 30/token, REST 60/user, buyer agent 20 turns/shopper. */
-export const RATE_LIMITS: Record<RateBucket, number> = { mcp: 30, rest: 60, agent: 20 };
+/** Calls per minute: MCP 30/token, REST 60/user, buyer agent 20 turns/shopper, 3 magic links/email. */
+export const RATE_LIMITS: Record<RateBucket, number> = {
+  mcp: 30,
+  rest: 60,
+  agent: 20,
+  magicLink: 3,
+};
 
 export const RATE_WINDOW_MS = 60_000;
 

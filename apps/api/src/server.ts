@@ -84,6 +84,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     db: deps.sql,
     guards,
     sessions,
+    limiter,
     sendMagicLink: deps.sendMagicLink,
   });
 
