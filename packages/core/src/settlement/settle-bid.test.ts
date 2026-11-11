@@ -20,7 +20,8 @@ import { seedSettlement, type SeedOptions } from './test-fixtures.js';
 
 const never = () => new Promise<never>(() => {});
 
-describe.skipIf(!TEST_DATABASE_URL)('HF-029 settleBid', () => {
+// Generous per-test timeout: a test that times out keeps running and pollutes the shared fake.
+describe.skipIf(!TEST_DATABASE_URL)('HF-029 settleBid', { timeout: 30_000 }, () => {
   let t: TestDatabase;
   let db: Db;
   let fake: FakePayPal;
