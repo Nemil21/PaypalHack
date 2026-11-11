@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   errorBody,
   isUuid,
+  loadBrandBidView,
   loadSettlementView,
   retrySettlement,
   type Actor,
@@ -31,6 +32,8 @@ type ListingParams = { Params: { id: string } };
  * HF-030a routes (api.md):
  * - `GET /api/listings/:id/settlement`: the `SettlementView` payload (W08, HF-035). Brand users of
  *   the listing's brand, any role; admins (`ADMIN_EMAILS`) read any listing. Otherwise 404.
+ * - `GET /api/listings/:id/bids/:bidId` (HF-035): the W08 drawer's brand-scoped bid view
+ *   (`forBrand`, no shopper PII). Same access as the settlement view; otherwise 404.
  * - `POST /api/admin/listings/:id/retry-settlement`: admin only, audited; makes RETRY rows due and
  *   re-kicks the run. 409 once the listing has left CLEARING (SETTLED and later).
  * - `POST /api/admin/listings/:id/retry-payout` (HF-032): admin only, audited; a new payout
@@ -48,6 +51,20 @@ export function registerSettlementRoutes(app: FastifyInstance, deps: SettlementR
       const brandId = req.auth.isAdmin ? null : req.auth.brandUser!.brandId;
       const view = await loadSettlementView(deps.db.pool, req.params.id, brandId);
       if (!view) throw notFound();
+      return view;
+    },
+  );
+
+  app.get<{ Params: { id: string; bidId: string } }>(
+    '/api/listings/:id/bids/:bidId',
+    { onRequest: app.guards.requireBrandUser() },
+    async (req) => {
+      const view = await loadBrandBidView(deps.db.pool, {
+        brandId: req.auth.isAdmin ? null : req.auth.brandUser!.brandId,
+        listingId: req.params.id,
+        bidId: req.params.bidId,
+      });
+      if (!view) throw new ApiError('NOT_FOUND', 'Bid not found.');
       return view;
     },
   );

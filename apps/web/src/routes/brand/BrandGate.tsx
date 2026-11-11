@@ -22,6 +22,8 @@ export interface BrandMe {
   displayName: string | null;
   role: BrandRole;
   brand: { id: string; name: string; verificationStatus: string };
+  /** `ADMIN_EMAILS` member (`GET /api/me`): ops actions such as the payout retry. */
+  isAdmin?: boolean;
 }
 
 export interface BrandContext {

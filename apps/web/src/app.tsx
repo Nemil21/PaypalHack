@@ -9,6 +9,8 @@ import { DevComponents } from './routes/DevComponents';
 import { BrandGate } from './routes/brand/BrandGate';
 import { BrandIndex } from './routes/brand/BrandIndex';
 import { ListingConsole } from './routes/brand/ListingConsole';
+import { SettlementFixture } from './routes/brand/SettlementFixture';
+import { SettlementPage } from './routes/brand/SettlementPage';
 import { OfferPage } from './routes/offer/OfferPage';
 import { MandateEditorPage, MandatesPage } from './routes/Mandates';
 import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
@@ -26,6 +28,8 @@ const router = createBrowserRouter([
       { path: 'dev/components', element: <DevComponents /> },
       // W21 error states from a query-string fixture (HF-020): /dev/states?code=PRICE_DROP
       { path: 'dev/states', element: <ErrorStatesFixture /> },
+      // W08 on the recorded settlement event stream (HF-035): no sign-in or database needed.
+      { path: 'dev/settlement', element: <SettlementFixture /> },
       // AG suppresses its licence watermark on localhost; any path containing "forceWatermark"
       // shows it as production would: /dev/components/forceWatermark is the local licence check.
       { path: 'dev/components/*', element: <DevComponents /> },
@@ -49,11 +53,9 @@ const router = createBrowserRouter([
         children: [
           { path: 'brand', element: <BrandIndex /> },
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },
+          // W08 settlement live view (HF-035).
+          { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
         ],
-      },
-      {
-        path: 'brand/listings/:listingId/settlement',
-        element: <ScreenPlaceholder screen="Settlement (W08)" ticket="HF-035" />,
       },
       {
         path: 'brand/*',
