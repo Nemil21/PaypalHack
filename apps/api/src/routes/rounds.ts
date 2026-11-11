@@ -16,7 +16,7 @@ import {
   roundsTargetRequestSchema,
   type RoundsConflictReason,
 } from '@holdfast/shared';
-import { SHOPPER_COOKIE } from '../auth/guards.js';
+import { BRAND_COOKIE, SHOPPER_COOKIE } from '../auth/guards.js';
 import { parseCookies } from '../auth/tokens.js';
 import { ApiError, envelope, parse } from '../http/errors.js';
 
@@ -78,15 +78,19 @@ export function registerRoundsRoutes(app: FastifyInstance, deps: RoundsRouteDeps
   /**
    * Brand OWNER/MANAGER session (HF-006). A caller holding some other credential (a shopper
    * session, which is also how the buyer agent acts, or an MCP bearer token) is refused with 403
-   * rather than 401: they are signed in, just not allowed. The brand agent never reaches HTTP;
-   * the core refuses any actor that is not a brand OWNER/MANAGER.
+   * rather than 401: they are signed in, just not allowed. Any brand session cookie, even an
+   * expired or invalid one, keeps the 401 so the console sends a brand manager back to sign in
+   * (one browser often holds both a brand and a shopper session). The brand agent never reaches
+   * HTTP; the core refuses any actor that is not a brand OWNER/MANAGER.
    */
   async function requireRoundsRole(req: FastifyRequest, reply: FastifyReply): Promise<void> {
     try {
       await brandManager(req, reply);
     } catch (err) {
+      const cookies = parseCookies(req.headers.cookie);
       const otherCredential =
-        !!req.headers.authorization || !!parseCookies(req.headers.cookie)[SHOPPER_COOKIE];
+        cookies[BRAND_COOKIE] === undefined &&
+        (!!req.headers.authorization || !!cookies[SHOPPER_COOKIE]);
       if (err instanceof ApiError && err.code === 'UNAUTHENTICATED' && otherCredential) {
         throw new ApiError('FORBIDDEN', FORBIDDEN_MESSAGE);
       }

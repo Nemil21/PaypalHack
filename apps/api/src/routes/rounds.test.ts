@@ -126,6 +126,32 @@ describe.skipIf(!TEST_DATABASE_URL)('live rounds routes (HF-036a)', () => {
         expect(res.json()).toMatchObject({ error: { code: 'FORBIDDEN' } });
       }
     }
+  });
+
+  it('401 (not 403) for an expired or invalid brand session next to a shopper cookie or bearer', async () => {
+    const s = await seed();
+    const ownerId = await one(`SELECT id FROM brand_users WHERE brand_id = $1 AND role = 'OWNER'`, [
+      s.brandId,
+    ]);
+    const expired = `${BRAND_COOKIE}=${signToken(SECRET, 'brand-session', {
+      sub: ownerId.id,
+      exp: Date.now() - 1_000,
+    })}`;
+    const forged = `${BRAND_COOKIE}=${signToken('z'.repeat(40), 'brand-session', {
+      sub: ownerId.id,
+      exp: Date.now() + 600_000,
+    })}`;
+    for (const [method, url, body] of endpoints(s.listingId)) {
+      for (const headers of [
+        { cookie: `${expired}; ${s.shopperCookie}` },
+        { cookie: `${forged}; ${s.shopperCookie}` },
+        { cookie: expired, authorization: 'Bearer hf_mcp_not_a_brand_session' },
+      ]) {
+        const res = await call(method, url, { headers, body });
+        expect(res.statusCode, `${method} ${url} ${headers.cookie}`).toBe(401);
+        expect(res.json()).toMatchObject({ error: { code: 'UNAUTHENTICATED' } });
+      }
+    }
     const row = await one<{ status: string }>(`SELECT status FROM listings WHERE id = $1`, [
       s.listingId,
     ]);
