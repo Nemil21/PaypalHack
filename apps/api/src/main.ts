@@ -2,6 +2,7 @@ import {
   auditHook,
   ConfigError,
   createChannel3Client,
+  createClaudeNudgePhraser,
   createDb,
   createPayPalClient,
   createPool,
@@ -13,7 +14,9 @@ import {
   mockDeclinesAllowed,
   pollPayouts,
   retryPayout,
+  roundsTiming,
   startCrons,
+  startRoundsTicker,
   startPriceWatchRetrier,
   testCardAllowed,
 } from '@holdfast/core';
@@ -62,6 +65,21 @@ const settlement =
         payoutBrand: makePayoutBrand(payouts),
       })
     : null;
+// HF-036b: live rounds timer. ROUNDS_TIME_SCALE scales round timing only (never hold age or
+// clear_deadline_at). Claude phrases one nudge template per round; without a key (or on error /
+// 5 s timeout) nudges use the template text.
+const rounds = {
+  timing: roundsTiming(config.ROUNDS_TIME_SCALE),
+  phraser: config.ANTHROPIC_API_KEY
+    ? createClaudeNudgePhraser({
+        apiKey: config.ANTHROPIC_API_KEY,
+        model: config.ANTHROPIC_MODEL,
+      })
+    : undefined,
+  // Called only once the server is built, so `app` is initialised by then.
+  onPhrasingError: (err: unknown) =>
+    app.log.warn({ err: (err as Error).message }, 'nudge phrasing failed; template text used'),
+};
 const app = buildServer(config, {
   db: pool,
   sql,
@@ -71,6 +89,7 @@ const app = buildServer(config, {
     kick: settlement?.kick,
     retryPayout: (input) => retryPayout(payouts, input),
   },
+  rounds,
   // HF-012b: listing cancel voids every hold through the same PayPal client.
   listings: { money: { db: sql, paypal, audit: auditHook } },
   bids: {
@@ -114,7 +133,23 @@ const priceWatchRetrier = startPriceWatchRetrier(
   { db: sql, channel3 },
   { onError: (err) => app.log.warn({ err: (err as Error).message }, 'price-watch retry failed') },
 );
+// The in-process round tick (every 5 s, advisory-locked per listing), plus an immediate step on
+// `bid.raised` for listings in live rounds so soft-close extensions go out at once.
+const roundsTicker = startRoundsTicker(
+  { db: sql, ...rounds },
+  {
+    subscribe: (listingId, onRaised) =>
+      events.subscribe(listingId, {
+        onNotice: (notice) => {
+          if (notice.type === 'bid.raised') onRaised();
+        },
+      }),
+    onError: (err, listingId) =>
+      app.log.warn({ err: (err as Error).message, listingId }, 'rounds tick failed'),
+  },
+);
 app.addHook('onClose', async () => {
+  roundsTicker.stop();
   await crons.stop();
   priceWatchRetrier.stop();
   await events.close();
