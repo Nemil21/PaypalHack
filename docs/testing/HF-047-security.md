@@ -14,7 +14,7 @@ CI runs all three (`ci.yml`: `security` job, and the last step of the `db` job).
 
 | Item | Evidence |
 |---|---|
-| Tenancy: other brand → 404 on every brand endpoint | `apps/api/src/security/cross-tenant.test.ts`: book, simulate, settlement, brand bid view, share, rounds (start/next/stop/target/activity), SSE events, publish, patch, clear, cancel, brand notifications. The owner gets 200 on the same reads, and no row or FakePayPal call changes |
+| Tenancy: other brand → 404 on every brand endpoint | `apps/api/src/security/cross-tenant.test.ts`: book, simulate, settlement, brand bid view, share, rounds (start/next/stop/target/activity), SSE events, publish, patch, clear, cancel, team role change / remove, invite revoke, brand notifications; lists, overview and settings never show the other brand's ids. The owner gets 200 on the same reads, and no row or FakePayPal call changes |
 | Tenancy: other shopper → 404 | Same file: bid detail/events/cancel/raise/authorize/patch, mandate read/update, agent conversation, pending-action confirm, MCP client revoke, notification read; list endpoints never show the other shopper's ids |
 | MCP token of shopper A can't touch B's bids | Same file: `cancel_bid` / `raise_bid` → `NOT_FOUND`, `my_bids` excludes them |
 | `/mcp` ignores cookies | Same file: a shopper or brand cookie alone → 401; cookie + bearer acts as the bearer |

@@ -75,6 +75,9 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
   let tokenB: string;
   let shopperNoteA: string;
   let brandNoteA: string;
+  // HF-056 team settings: a VIEWER on brand A's team and a pending brand A invite.
+  let viewerA: string;
+  let inviteA: string;
 
   const one = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
     (await tdb.db.pool.query(sql, params)).rows[0] as T;
@@ -163,6 +166,20 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
       ).id,
     };
 
+    viewerA = (
+      await one<{ id: string }>(
+        `INSERT INTO brand_users (brand_id, email, role) VALUES ($1, $2, 'VIEWER') RETURNING id`,
+        [brandA.brandId, `${randomUUID()}@brand.example`],
+      )
+    ).id;
+    inviteA = (
+      await one<{ id: string }>(
+        `INSERT INTO brand_invites (brand_id, role, token_hash, created_by_user_id, expires_at)
+         VALUES ($1, 'MANAGER', $2, $3, now() + interval '1 day') RETURNING id`,
+        [brandA.brandId, randomUUID(), brandA.userId],
+      )
+    ).id;
+
     shopperA = (await fx.shopper()).id;
     shopperB = (await fx.shopper()).id;
     mandateA = (await fx.mandate(shopperA)).id;
@@ -235,8 +252,20 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
               (SELECT row_to_json(m)::text FROM mandates m WHERE id = $3) AS mandate,
               (SELECT status FROM agent_pending_actions WHERE id = $4) AS action,
               (SELECT revoked_at FROM mcp_clients WHERE id = $5) AS mcp_revoked,
-              (SELECT array_agg(read_at) FROM notifications WHERE id IN ($6, $7)) AS reads`,
-      [listingA.id, bidA.id, mandateA, actionA, mcpClientA, shopperNoteA, brandNoteA],
+              (SELECT array_agg(read_at) FROM notifications WHERE id IN ($6, $7)) AS reads,
+              (SELECT role FROM brand_users WHERE id = $8) AS viewer_role,
+              (SELECT revoked_at FROM brand_invites WHERE id = $9) AS invite_revoked`,
+      [
+        listingA.id,
+        bidA.id,
+        mandateA,
+        actionA,
+        mcpClientA,
+        shopperNoteA,
+        brandNoteA,
+        viewerA,
+        inviteA,
+      ],
     );
   }
 
@@ -275,6 +304,14 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
           payload: { targetQuantity: 2 },
         },
         {
+          name: 'team role change',
+          method: 'PATCH',
+          url: `/api/brands/me/team/${viewerA}`,
+          payload: { role: 'MANAGER' },
+        },
+        { name: 'team remove', method: 'DELETE', url: `/api/brands/me/team/${viewerA}` },
+        { name: 'invite revoke', method: 'DELETE', url: `/api/brands/me/invites/${inviteA}` },
+        {
           name: 'brand notification read',
           method: 'POST',
           url: `/api/notifications/${brandNoteA}/read?as=brand`,
@@ -304,12 +341,15 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
         '/api/listings',
         '/api/brands/me/overview',
         '/api/notifications?as=brand',
+        '/api/brands/me/settings',
       ]) {
         const res = await get(url);
         expect({ url, status: res.statusCode }).toEqual({ url, status: 200 });
         expect(res.body).not.toContain(listingA.id);
         expect(res.body).not.toContain(brandNoteA);
         expect(res.body).not.toContain(bidA.id);
+        expect(res.body).not.toContain(viewerA);
+        expect(res.body).not.toContain(inviteA);
       }
       const own = await send(brandCookie(brandA.userId), {
         name: 'own listings',
@@ -317,6 +357,13 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-047 cross-tenant matrix', () => {
         url: '/api/listings',
       });
       expect(own.body).toContain(listingA.id);
+      const ownSettings = await send(brandCookie(brandA.userId), {
+        name: 'own settings',
+        method: 'GET',
+        url: '/api/brands/me/settings',
+      });
+      expect(ownSettings.body).toContain(viewerA);
+      expect(ownSettings.body).toContain(inviteA);
     });
   });
 
