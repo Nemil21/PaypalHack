@@ -1,0 +1,97 @@
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+@import 'tailwindcss';
+
+/*
+ * Holdfast v3 tokens (Figma "PayPal-Hack26" → page "Holdfast — v3", D16). Values mirror
+ * src/lib/tokens.ts; tokens.test.ts fails if the two drift. Tailwind's default palette and radii
+ * are cleared so only v3 values are available (bg-orange, text-muted, rounded-sm …).
+ */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-page: #ffffff;
+  --color-ink: #141414;
+  --color-body: #4a4a4a;
+  --color-muted: #8a8a8a;
+  --color-orange: #f26b2c;
+  --color-orange-tint: #fdebe2;
+  --color-orange-key: #ffd9c7;
+  --color-charcoal: #2b2b2b;
+  --color-charcoal-key: #bdbdbd;
+  --color-border: #dadada;
+  --color-line: #e6e6e6;
+  --color-surface: #f6f6f4;
+  --color-surface-line: #ececea;
+  --color-surface-rule: #e2e2df;
+  --color-planned: #cfcfcb;
+  --color-bar: #c9c9c6;
+  --color-success: #3f8f5b;
+  --color-danger: #b3261e;
+  --color-danger-tint: #fbeae8;
+
+  --radius-*: initial;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+
+  /* 4 px grid (Tailwind's default --spacing): p-1 4, p-2 8, p-3 12, p-4 16, p-6 24, p-8 32, p-12 48, p-18 72. */
+  --spacing: 4px;
+
+  --font-sans: 'Geist Variable', Geist, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --shadow-card: 0 4px 14px 0 rgba(0, 0, 0, 0.06);
+
+  --tracking-label: 0.06em;
+  --tracking-headline: -0.03em;
+  --tracking-title: -0.02em;
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  @keyframes shimmer {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+}
+
+/* Geist Mono UPPERCASE for nav, buttons and labels. */
+@utility label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-page);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-orange);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
