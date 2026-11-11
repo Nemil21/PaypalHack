@@ -5,6 +5,7 @@
  *   npm run dev:bids                                   # 20 bids, 400 ms apart, newest OPEN listing
  *   npm run dev:bids -- --listing aurel-a7-fixture     # by slug or id
  *   npm run dev:bids -- --count 50 --interval 0        # a burst (the console debounces refetches)
+ *   npm run dev:bids -- --count 0 --raise 3 --release 2 # raise / release existing SIM bids (HF-025)
  *
  * Each bid goes through `landHold`, which publishes `bid.held` on commit; a running API forwards
  * it over SSE. Needs only DATABASE_URL. Prints bid ids and amounts, never secrets.
@@ -12,7 +13,13 @@
 import { parseArgs } from 'node:util';
 import { formatUsd } from '@holdfast/shared';
 import { createDb, createPool, loadDotenv } from '@holdfast/core';
-import { placeSimBid, resolveSimListing, simBidAmount } from '../dev/sim-bids.js';
+import {
+  placeSimBid,
+  raiseSimBid,
+  releaseSimBid,
+  resolveSimListing,
+  simBidAmount,
+} from '../dev/sim-bids.js';
 
 loadDotenv();
 
@@ -21,6 +28,8 @@ const { values } = parseArgs({
     listing: { type: 'string' },
     count: { type: 'string', default: '20' },
     interval: { type: 'string', default: '400' },
+    raise: { type: 'string', default: '0' },
+    release: { type: 'string', default: '0' },
   },
 });
 
@@ -38,7 +47,14 @@ if (/render\.com|amazonaws|onrender/.test(url) && process.env.ALLOW_REMOTE_FIXTU
   process.exit(1);
 }
 
-const count = Math.max(1, Number.parseInt(values.count, 10) || 20);
+const nonNegative = (v: string, fallback: number) => {
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+const raises = nonNegative(values.raise, 0);
+const releases = nonNegative(values.release, 0);
+// `--count 0` only makes sense with raises or releases.
+const count = nonNegative(values.count, 20) || (raises || releases ? 0 : 20);
 const intervalMs = Math.max(0, Number.parseInt(values.interval, 10) || 0);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -67,6 +83,22 @@ try {
       if (!r.ok && r.reason === 'WINDOW_CLOSED') break;
     }
     console.log(`${held} held.`);
+    for (let i = 0; i < raises; i++) {
+      if (intervalMs > 0) await sleep(intervalMs);
+      const r = await raiseSimBid(db, listing);
+      console.log(
+        r.ok
+          ? `RAISED  ${formatUsd(r.fromCents)} → ${formatUsd(r.toCents)}  ${r.bidId} (replaces ${r.replacesBidId})`
+          : `NO RAISE  ${r.reason}`,
+      );
+    }
+    for (let i = 0; i < releases; i++) {
+      if (intervalMs > 0) await sleep(intervalMs);
+      const r = await releaseSimBid(db, listing);
+      console.log(
+        r.ok ? `RELEASED ${formatUsd(r.fromCents)}  ${r.bidId}` : `NO RELEASE  ${r.reason}`,
+      );
+    }
   }
 } catch (err) {
   console.error(`dev:bids failed: ${(err as Error).message}`);

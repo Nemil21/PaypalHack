@@ -13,6 +13,8 @@ import {
 } from '../../../../packages/core/src/money/test-harness.js';
 import {
   placeSimBid,
+  raiseSimBid,
+  releaseSimBid,
   resolveSimListing,
   simBidAmount,
   STUB_AUTH_PREFIX,
@@ -122,6 +124,55 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-023 dev:bids against Postgres', () => {
     } finally {
       await listener.end();
     }
+  });
+
+  it('--raise swaps one SIM hold (bid.held + bid.raised); the book keeps the shopper label', async () => {
+    const listener = new pg.Client({ connectionString: tdb.url });
+    await listener.connect();
+    const notices: unknown[] = [];
+    listener.on('notification', (n) => notices.push(JSON.parse(n.payload!)));
+    await listener.query(`LISTEN ${LISTING_EVENTS_CHANNEL}`);
+    try {
+      const target = (await resolveSimListing(tdb.db, 'open'))!;
+      const before = await loadBook(tdb.db, brandId, open);
+      const r = await raiseSimBid(tdb.db, target, () => 0);
+      if (!r.ok) throw new Error(r.reason);
+      expect(r.toCents - r.fromCents).toBe(1_000);
+
+      const old = await one<{ status: string; void_reason: string }>(
+        `SELECT status, void_reason FROM bids WHERE id = $1`,
+        [r.replacesBidId],
+      );
+      expect(old).toMatchObject({ status: 'VOIDED', void_reason: 'REPLACED' });
+
+      const after = await loadBook(tdb.db, brandId, open);
+      expect(after.stats.liveBids).toBe(before.stats.liveBids);
+      const was = before.bids.find((b) => b.id === r.replacesBidId)!;
+      const now = after.bids.find((b) => b.id === r.bidId)!;
+      expect(now).toMatchObject({ amountCents: r.toCents, isSimulated: true });
+      // The grid's fallback match for a missed bid.raised notice (HF-025) relies on this.
+      expect(now.shopperLabel).toBe(was.shopperLabel);
+
+      await new Promise((res) => setTimeout(res, 100));
+      const parsed = notices.map((n) => listingEventNoticeSchema.parse(n));
+      expect(parsed.find((n) => n.type === 'bid.raised')?.ids).toEqual({
+        bidId: r.bidId,
+        replacesBidId: r.replacesBidId,
+      });
+    } finally {
+      await listener.end();
+    }
+  });
+
+  it('--release voids one SIM hold and it leaves the book', async () => {
+    const target = (await resolveSimListing(tdb.db, 'open'))!;
+    const before = await loadBook(tdb.db, brandId, open);
+    const r = await releaseSimBid(tdb.db, target, () => 0);
+    if (!r.ok) throw new Error(r.reason);
+    const after = await loadBook(tdb.db, brandId, open);
+    expect(after.stats.liveBids).toBe(before.stats.liveBids - 1);
+    expect(after.bids.some((b) => b.id === r.bidId)).toBe(false);
+    expect(after.pending.some((b) => b.id === r.bidId)).toBe(false);
   });
 
   it('a closed window refuses the bid like a real hold (D7)', async () => {
