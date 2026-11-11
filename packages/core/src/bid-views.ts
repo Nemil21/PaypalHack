@@ -1,6 +1,7 @@
 import {
   moneyCopyKey,
   moneyLine,
+  promotedMessage,
   releasingHoldMessage,
   type BidStatus,
   type MoneyCopyKey,
@@ -174,6 +175,7 @@ export type TimelineStep =
   | 'ABANDONED'
   | 'WON'
   | 'LOST'
+  | 'PROMOTED'
   | (string & {});
 
 export interface TimelineEvent {
@@ -192,6 +194,8 @@ export interface TimelineEvent {
   fromCents?: number;
   /** NUDGED: the round's cutoff (`clear()` output). */
   cutoffCents?: number | null;
+  /** PROMOTED: "A unit opened up. You won at your bid of $219. Charged $219." (D14, D18). */
+  message?: string;
 }
 
 export interface ChainEntry {
@@ -281,6 +285,8 @@ export async function getBidDetail(
   const events: Array<[TimelineEvent, number]> = [];
   let order = 0;
   const outcomeSeen = new Set<string>();
+  // Promoted bids (HF-031) were on the reserve list at Clear: their Clear outcome is LOST.
+  const promoted = new Set<string>();
   for (const a of audits.rows as Array<{
     at: Date;
     actor_type: string;
@@ -296,6 +302,7 @@ export async function getBidDetail(
     if (!bid) continue;
     const step = STEP_FOR[a.action] ?? a.action;
     if (step === 'WON' || step === 'LOST') outcomeSeen.add(bid.id);
+    if (a.action === 'PROMOTED') promoted.add(bid.id);
     const base = {
       at: a.at.toISOString(),
       bidId: bid.id,
@@ -321,7 +328,11 @@ export async function getBidDetail(
         order++,
       ]);
     }
-    events.push([{ ...base, step, action: a.action }, order++]);
+    const message =
+      a.action === 'PROMOTED'
+        ? promotedMessage(bid.amount_cents, { captured: moneyCopyKey(bid.status) === 'charged' })
+        : undefined;
+    events.push([{ ...base, step, action: a.action, ...(message ? { message } : {}) }, order++]);
   }
 
   for (const n of nudges.rows as Array<{
@@ -351,11 +362,13 @@ export async function getBidDetail(
   // the listing's `cleared_at`, unless a later ticket audited it explicitly.
   for (const bid of oldestFirst) {
     if (!bid.cleared_at || outcomeSeen.has(bid.id)) continue;
-    const step = WON_STATUSES.has(bid.status)
-      ? 'WON'
-      : bid.status === 'LOST' || bid.void_reason === 'LOST'
-        ? 'LOST'
-        : null;
+    const step = promoted.has(bid.id)
+      ? 'LOST'
+      : WON_STATUSES.has(bid.status)
+        ? 'WON'
+        : bid.status === 'LOST' || bid.void_reason === 'LOST'
+          ? 'LOST'
+          : null;
     if (!step) continue;
     events.push([
       {

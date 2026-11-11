@@ -22,7 +22,6 @@ import {
 } from './settle-listing.js';
 import {
   seedClearedListing,
-  testPromoteWithin,
   type ClearedListing,
   type ClearedListingOptions,
 } from './test-fixtures.js';
@@ -81,7 +80,6 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-030a settleListing', { timeout: 60_000 }
       db,
       paypal: logged(client),
       sleep: async () => {},
-      promoteWithin: testPromoteWithin,
       allowMockDecline: true,
       pollMs: 50,
       retryDelaySeconds: 0,

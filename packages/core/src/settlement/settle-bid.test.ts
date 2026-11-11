@@ -14,7 +14,7 @@ import { TEST_DATABASE_URL, createTestDatabase, type TestDatabase } from '../mon
 import { FakePayPal } from '../paypal/fake.js';
 import { captureRequestId } from '../paypal/ids.js';
 import type { CaptureResult, PayPalClient, VoidResult } from '../paypal/types.js';
-import { promoteWithin as placeholder, type PromoteWithin } from './promote.js';
+import { promoteWithin, type PromoteWithin } from './promote.js';
 import { settleBid, type SettleBidDeps } from './settle-bid.js';
 import { seedSettlement, type SeedOptions } from './test-fixtures.js';
 
@@ -37,7 +37,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-029 settleBid', { timeout: 30_000 }, () 
 
   const spyPromote: PromoteWithin = async (tx, failedBidId) => {
     promotions.push(failedBidId);
-    return placeholder(tx, failedBidId);
+    return promoteWithin(tx, failedBidId);
   };
 
   function deps(extra: Partial<SettleBidDeps> = {}): SettleBidDeps {
@@ -380,7 +380,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-029 settleBid', { timeout: 30_000 }, () 
     expect(res).toMatchObject({
       outcome: 'FAILED',
       errorClass: 'TERMINAL',
-      promotion: { promotedBidId: null, reason: 'PLACEHOLDER' },
+      promotion: { promotedBidId: null, reason: 'UNFILLED_UNIT', unfilled: 'RESERVE_EMPTY' },
       void: 'VOIDED',
     });
     expect(captureCalls()).toHaveLength(1);
@@ -405,7 +405,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-029 settleBid', { timeout: 30_000 }, () 
       [s.bidId],
     );
     expect(bidAudit.map((r) => r.action)).toEqual([
-      'PROMOTION_SKIPPED',
+      'UNFILLED_UNIT',
       'BID_VOID_REQUESTED',
       'BID_VOIDED',
     ]);

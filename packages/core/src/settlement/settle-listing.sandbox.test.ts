@@ -16,7 +16,7 @@ import { voidKey } from '../money/void.js';
 import { TEST_DATABASE_URL, createTestDatabase, type TestDatabase } from '../money/test-harness.js';
 import { PayPalRestClient } from '../paypal/client.js';
 import { inProcessSettlementRunner, runLimited, type SettleListingDeps } from './settle-listing.js';
-import { seedClearedListing, testPromoteWithin, type ClearedListing } from './test-fixtures.js';
+import { seedClearedListing, type ClearedListing } from './test-fixtures.js';
 
 const enabled = process.env.PAYPAL_CONTRACT === 'sandbox' && !!TEST_DATABASE_URL;
 
@@ -30,7 +30,6 @@ describe.skipIf(!enabled)('HF-030a settleListing: PayPal sandbox', () => {
   const deps = (): SettleListingDeps => ({
     db,
     paypal: client,
-    promoteWithin: testPromoteWithin,
     allowMockDecline: true,
     payoutBrand: async (listingId) => {
       payouts.push(listingId);
