@@ -10,7 +10,7 @@ A market needs many bidders. The demo uses simulated bidders for volume and a fe
    - "Sony Audio US (demo)", verified, payout to the sandbox brand account;
    - "Bose (demo)", a second book for multi-brand and intent demos.
 2. Products: real Channel3 lookups for Sony WH-1000XM5 and Bose QC45 (cached as fixtures if credits run low).
-3. Listings: Sony 300 units, floor $199, liquidation $38, 72 h; Bose 150 units.
+3. Listings: Sony 300 units, floor $199, liquidation $38, 48 h window + live rounds; winning bids seeded to average $226 (gross $54,240); Bose 150 units.
 4. Bidders: 280 SIM shoppers (`is_simulated=true`) with bids drawn from a realistic distribution:
    - mostly $189–$249, peak around $215–$225;
    - placed over a simulated 48 h.

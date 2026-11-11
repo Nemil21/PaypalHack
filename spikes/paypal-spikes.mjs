@@ -1,4 +1,4 @@
-// Day-1 PayPal sandbox spikes for Standing Orders (see docs/STANDING-ORDERS.md §6).
+// Day-1 PayPal sandbox spikes for Holdfast (see docs/HOLDFAST.md §6).
 // Usage: node spikes/paypal-spikes.mjs [s1|s2|s3|s4|all]
 // Reads PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET from ../.env (git-ignored).
 import { readFileSync } from 'node:fs';
@@ -47,7 +47,7 @@ const usd = (v) => ({ currency_code: 'USD', value: v.toFixed(2) });
 async function hold(amount, paymentSource = { card: TEST_CARD }) {
   const r = await pp('POST', '/v2/checkout/orders', {
     intent: 'AUTHORIZE',
-    purchase_units: [{ amount: usd(amount), description: 'Standing Orders spike bid' }],
+    purchase_units: [{ amount: usd(amount), description: 'Holdfast spike bid' }],
     payment_source: paymentSource,
   });
   const authz = r.json.purchase_units?.[0]?.payments?.authorizations?.[0];
@@ -125,7 +125,7 @@ async function s3() {
 // S4: Payouts to a sandbox brand account.
 async function s4() {
   const r = await pp('POST', '/v1/payments/payouts', {
-    sender_batch_header: { sender_batch_id: randomUUID(), email_subject: 'Standing Orders payout (spike)' },
+    sender_batch_header: { sender_batch_id: randomUUID(), email_subject: 'Holdfast payout (spike)' },
     items: [{ recipient_type: 'EMAIL', amount: { value: '5000.00', currency: 'USD' },
       receiver: env.PAYPAL_BRAND_EMAIL || 'brand-spike@example.com', note: 'Cleared overstock window' }],
   });

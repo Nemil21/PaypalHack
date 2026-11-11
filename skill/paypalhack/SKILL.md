@@ -102,15 +102,15 @@ Four Honorable Mentions follow from the judging criteria, so scoring high everyw
 
 Risk: a project built entirely around one theme can beat an all-rounder in that category, so each lane must be clearly strong, not merely present.
 
-### Lead submission: Standing Orders (decided 2026-11-10; replaces the café purchasing agent)
-Full spec: references/STANDING-ORDERS.md. API map and risks: references/first-principles/05-gstack-standing-orders.md.
+### Lead submission: Holdfast (decided 2026-11-10, formerly "Standing Orders"; replaces the café purchasing agent)
+Full spec: references/HOLDFAST.md, references/HOLDFAST-SPEC.md (one-file review copy) and references/spec/. API map and risks: references/first-principles/05-gstack-standing-orders.md.
 - **One line:** a private "dark pool" for brand overstock. Shoppers' AI agents place bids backed by **PayPal AUTHORIZE holds**; the brand sees committed demand and clears it without posting a public price (no MAP damage).
-- **Flow:** buyer agent anchors on Channel3 prices → AUTHORIZE hold → Channel3 price webhook voids the hold if a retailer undercuts → outside agents bid via our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) → brand console (AG Grid/AG Studio) with a brand agent → 72-hour uniform-price call auction → Render Workflows captures winners at the clearing price, voids losers, promotes the next bidder on a decline → Payouts to the brand.
+- **Flow:** buyer agent anchors on Channel3 prices → AUTHORIZE hold → Channel3 price webhook voids the hold if a retailer undercuts → outside agents bid via our MCP server (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) → brand console (AG Grid/AG Studio) with a brand agent → 48 h bidding window → optional live rounds (≤ 6 h: brand agent tells bidders below the cutoff the real number, buyer agents raise within limits) → pay-your-bid call auction (each winner pays their own final bid; Clear refused if a hold is > 66 h old) → Render Workflows captures each winner's bid, voids losers, promotes the next bidder at their own bid (max 3 per unit) → Payouts to the brand.
 - **Pitch line:** "Agents negotiate by bidding; code clears; PayPal settles."
-- **Status:** GO (2026-11-10). Spikes S1, S2, S3-local and S4 passed in sandbox (results in references/STANDING-ORDERS.md §6). Use a US sandbox business account. Script: `spikes/paypal-spikes.mjs`. Fallback on the same engine: **Fair Drop**.
+- **Status:** GO (2026-11-10). Spikes S1, S2, S3-local and S4 passed in sandbox (results in references/HOLDFAST.md §6). Use a US sandbox business account. Script: `spikes/paypal-spikes.mjs`. Fallback on the same engine: **Fair Drop**.
 - **Second submission:** not locked. Candidates ProofLoop or SafeHandoff (references/research/00-shortlist.md); it must lead a different Honorable Mention lane (Most Impactful).
 
-### Sponsors for Standing Orders
+### Sponsors for Holdfast
 | Sponsor | Prize | Role in the product |
 |---|---|---|
 | AG Grid / AG Studio | $5k / $2k / 3 × $1k (largest pool) | Brand console: held-demand curve, bids grid, clearing simulation. Polish this most. Licence key in `.env` as `AG_GRID_LICENSE_KEY` (trial ends 24 Dec 2026) |

@@ -8,7 +8,7 @@ The main way shoppers arrive. A shopper names a price, PayPal holds that amount,
 ## User stories
 - As a shopper who clicked "Make an offer" on Sony's site, I see the product, the cheapest public price and how this works in 10 seconds.
 - As a shopper, I name my price and approve a PayPal hold once.
-- As a shopper, I know I'll never pay more than my bid and might pay less.
+- As a shopper, I know I pay exactly my bid, only if I win, and never more.
 
 ## Screens
 W12 / M01 Offer page · W13 / M02 Hold approval + confirmation · W21 Error states (window closed, hold failed) · W14 / M03 My bids
@@ -18,7 +18,7 @@ W12 / M01 Offer page · W13 / M02 Hold approval + confirmation · W21 Error stat
    - the product and a verified-brand badge;
    - the "Cheapest public price $279 at 14 stores" anchor;
    - a countdown to window close;
-   - a "How it works" 3-step strip: Name your price → PayPal holds it → Charged only if it clears, at the same price everyone pays.
+   - a "How it works" 3-step strip: Name your price → PayPal holds it → Charged your bid only if you win; otherwise released.
 2. Price input with a slider.
    - The default is the agent-suggested bid, about 18% below the public price.
    - Inline hints: "Bids near $219 are most likely to clear." This is a coarse band from the curve; the floor is never shown.
@@ -31,7 +31,7 @@ W12 / M01 Offer page · W13 / M02 Hold approval + confirmation · W21 Error stat
    - "✓ $229 held, not charged";
    - what happens next (timeline);
    - "Let my agent manage this" (sets up a mandate → 05);
-   - "Watch prices for me" (on by default).
+   - "Release my hold if it's cheaper elsewhere" (on by default, can be switched off; see 06).
 6. SSE pushes `bid.held` to the brand console.
 
 ## Data / API
@@ -42,7 +42,7 @@ W12 / M01 Offer page · W13 / M02 Hold approval + confirmation · W21 Error stat
 |---|---|
 | Shopper abandons PayPal approval | Bid stays PENDING_APPROVAL; marked ABANDONED after 30 min (cron); no hold exists |
 | Window closes while approving | On return, if listing not OPEN: void the new authorization at once and show W21 "Window closed, your $229 was released" |
-| Bid above best public price | Soft warn "Best Buy sells it for $219 today"; allow, but the watcher will void it immediately, so block in practice |
+| Bid above best public price | Allowed: it's the shopper's call. The server stays neutral and returns `publicOffer {merchant, priceCents, url}` with the bid; the shopper side (this page, the buyer agent, the SDK) warns "Best Buy sells it for $219 today. Still bid $239?". The price watcher only releases bids whose owner has "Release if cheaper elsewhere" on (06) |
 | Bid below floor | Accepted (floor is private); it just won't win. Prevents floor-probing |
 | Shopper bids twice on the same listing | Second becomes a raise (see 04/05): create the new hold, then void the old |
 | Authorization denied | W21 "PayPal couldn't hold this amount", with a retry using another method |

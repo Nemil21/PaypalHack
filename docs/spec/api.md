@@ -46,7 +46,7 @@ Mutating calls require an `Idempotency-Key` header.
 ```json
 { "name": "Sony Audio US", "domain": "sony.example", "payoutEmail": "sb-ktv5q…@business.example.com" }
 ```
-→ `201 { "brandId": "…", "verificationStatus": "PENDING", "dnsTxtRecord": "standing-orders-verify=8f2c…" }`
+→ `201 { "brandId": "…", "verificationStatus": "PENDING", "dnsTxtRecord": "holdfast-verify=8f2c…" }`
 
 ### `POST /brands/verification/check` → `{ "verificationStatus": "VERIFIED" }` (checks the DNS TXT record; demo: admin approve)
 
@@ -62,7 +62,7 @@ Mutating calls require an `Idempotency-Key` header.
   "windowHours": 72 }
 ```
 → `201 { "listingId": "…", "status": "DRAFT", "slug": "sony-xm5-a7f2" }`
-Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (windowHours > 72).
+Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (windowHours > 48).
 
 ### `POST /listings/:id/publish` → `{ "status": "OPEN", "windowClosesAt": "…" }`. Also subscribes to Channel3 price webhooks.
 
@@ -75,22 +75,24 @@ Errors: `PRODUCT_MISMATCH` (product brand ≠ brand), `VALIDATION_ERROR` (window
               "shopperLabel": "Shopper #1042", "status": "HELD" } ] }
 ```
 
-### `GET /listings/:id/simulate?quantity=240` → `{ "clearingPriceCents": 21900, "winners": 240, "grossCents": 5256000, "feeCents": 473040, "netCents": 4782960, "liquidationCents": 912000 }`
+### `GET /listings/:id/simulate?quantity=240` → `{ "cutoffCents": 21900, "winners": 240, "grossCents": 5424000, "feeCents": 488160, "netCents": 4935840, "liquidationCents": 912000 }` (pay-your-bid: gross = sum of winners' own bids)
+
+### `POST /listings/:id/rounds/start` `{ "targetQuantity": 240 }` → `{ "status": "ROUNDS", "roundsEndAt": "…" }` · `POST /listings/:id/rounds/stop` (see 19)
 
 ### `GET /listings/:id/events` (SSE): `bid.held`, `bid.voided`, `settlement.updated`, `listing.status`
 
 ### `POST /listings/:id/clear` (brand OWNER/MANAGER)
 ```json
-{ "quantity": 240, "expectedClearingPriceCents": 21900 }
+{ "quantity": 240, "expectedGrossCents": 5424000 }
 ```
-→ `202 { "status": "CLEARING", "clearingPriceCents": 21900, "winners": 240, "losers": 46, "workflowRunId": "…" }`
-Errors: `STATE_CONFLICT` (not OPEN), `STATE_CONFLICT` (book changed: expected price differs → client re-simulates).
+→ `202 { "status": "CLEARING", "cutoffCents": 21900, "grossCents": 5424000, "winners": 240, "losers": 46, "workflowRunId": "…" }`
+Errors: `STATE_CONFLICT` (not OPEN/ROUNDS), `STATE_CONFLICT` (book changed: expected gross differs → client re-simulates), `HOLDS_TOO_OLD` (oldest live hold > 66 h).
 
 ### `POST /listings/:id/cancel` → voids all live bids.
 ### `GET /listings/:id/settlement` → counts by status + rows.
 ### `GET /brands/me/payouts`, `GET /brands/me/reports?from&to` (CSV via `Accept: text/csv`).
 ### `POST /listings/:id/shipments` `{ "bidId", "carrier", "trackingNumber" }` → calls `pp.track`.
-### `POST /brand-agent/ask` `{ "listingId", "question" }` → `{ "answer", "recommendation": { "quantity", "clearingPriceCents", "reasons": [] } }`
+### `POST /brand-agent/ask` `{ "listingId", "question" }` → `{ "answer", "recommendation": { "quantity", "cutoffCents", "grossCents", "reasons": [] } }`
 
 ## Shopper endpoints
 
@@ -115,11 +117,12 @@ Logic:
 Responses:
 - PAYPAL → `201 { "bidId", "status": "PENDING_APPROVAL", "approveUrl": "https://www.sandbox.paypal.com/checkoutnow?token=…" }`
 - CARD/VAULT → `201 { "bidId", "status": "HELD", "authorizationId": "…" }`
+- Every response also carries `publicOffer { merchant, priceCents, url }` (Channel3, refreshed if older than 10 min). The server never rejects a bid for being above it; the shopper side decides (03, 06).
 
 ### `GET /bids/return?token=…` (PayPal return URL) → `pp.authorizeOrder` → bid HELD → 302 `/bids/:id?held=1`
 ### `GET /bids/mine` → list with status, listing, amount, outbid signal.
 ### `GET /bids/:id` → bid plus timeline (audit events for that bid).
-### `POST /bids/:id/raise` `{ "amountCents": 23900 }` → creates new hold first, then voids old (`void_reason=REPLACED`). Never leaves the shopper with zero holds mid-way.
+### `POST /bids/:id/raise` `{ "amountCents": 23900 }` → mandate check excludes the old hold; creates the new hold first, then voids old (`void_reason=REPLACED`). If the new hold is declined, the old bid stands (`422 HOLD_FAILED`). Minimum raise $1 or 1%; no cap on raises (05).
 ### `POST /bids/:id/cancel` → HELD→VOIDING → `pp.void` → VOIDED.
 
 ### Mandates
@@ -143,9 +146,10 @@ Auth: Bearer token from W19 (scoped to one shopper; the token holder's own PayPa
 | `get_book` | `{ listingSlug }` | `{ product, bestPublicPriceCents, windowClosesAt, demandBands:[{fromCents,toCents,bids}] }` (anonymized, no floor, no shopper data) | `GET /listings/:id/book` summarized |
 | `place_bid` | `{ listingSlug, amountCents, idempotencyKey }` | `{ bidId, status, approveUrl? }` | `POST /bids` with source=MCP; VAULT if mandate + saved method, else approveUrl |
 | `cancel_bid` | `{ bidId }` | `{ bidId, status:"VOIDED" }` | `POST /bids/:id/cancel` |
-| `my_bids` | `{}` | `{ bids:[{ bidId, listingSlug, amountCents, status, belowLikelyClearing }] }` | `GET /bids/mine` |
+| `my_bids` | `{}` | `{ bids:[{ bidId, listingSlug, amountCents, status, belowCutoff, cutoffCents? }] }` (cutoff only during live rounds) | `GET /bids/mine` |
+| `raise_bid` | `{ bidId, amountCents, idempotencyKey }` | `{ bidId, status }` | `POST /bids/:id/raise` |
 
-Tool descriptions say plainly: "Places a real PayPal hold. Charged only if the window clears, never above amountCents."
+Tool descriptions say plainly: "Places a real PayPal hold. If you win, you're charged exactly amountCents; otherwise it's released."
 
 ## Webhooks
 
@@ -159,7 +163,7 @@ Logic:
 2. Dedupe on `id`.
 3. Update `products.best_public_*`.
 4. Run the exact-match check (GTIN equal, condition NEW, authorized merchant).
-5. For each bid `HELD` with `amount_cents > priceCents` on that product: HELD→VOIDING, `pp.void`, `void_reason=PRICE_DROP`.
+5. For each bid `HELD` with `release_if_cheaper` and `amount_cents > priceCents` on that product: HELD→VOIDING, `pp.void`, `void_reason=PRICE_DROP`.
 6. Notify the shopper with the affiliate link.
 
 Return 200 fast and do the work async.

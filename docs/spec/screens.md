@@ -57,7 +57,7 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
   - stepper of 4 steps:
     - (1) Product search with result cards: GTIN/MPN, public low, "Not your brand" disabled state;
     - (2) Quantity / floor / liquidation inputs with helper text and validation;
-    - (3) Window: start now/scheduled, 24/48/72 h segmented control, the "why 72 h max" note;
+    - (3) Window: start now/scheduled, 24/48 h segmented control, the "why 48 h max" note (PayPal card holds are guaranteed for 3 days; rounds + Clear must fit);
     - (4) Review summary with an estimate chart;
   - Save draft / Publish.
 - **States:**
@@ -92,7 +92,7 @@ Money copy rule: say "held" before a capture, "charged" only after a capture suc
 ### W07 Clear confirmation modal
 - **Features:** 10, 12
 - **Components:**
-  - summary (quantity, clearing price, winners, losers);
+  - summary (quantity, cutoff, gross revenue, winners, losers);
   - money table (gross, fee, net, vs liquidation);
   - plain-English line ("Winners are charged $219; everyone else's hold is released");
   - type-to-confirm input `CLEAR 240`;

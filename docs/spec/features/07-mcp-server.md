@@ -24,7 +24,7 @@ W19 Developer / MCP connect page · W06 (source column "MCP") · W14 (bids show 
    - if the shopper has a vault + ACTIVE mandate that covers it → HELD immediately;
    - otherwise → return `approveUrl` with text "Open this link to approve the PayPal hold."
 5. `get_book` returns anonymized price bands (e.g. $10 bands with bid counts). It never returns the floor, shopper IDs or exact bids.
-6. `my_bids` includes `belowLikelyClearing: true/false` (the single allowed signal, FR14).
+6. `my_bids` includes `belowCutoff` and, during live rounds, the real `cutoffCents` (19). `raise_bid` raises within the mandate.
 
 ## Edge cases
 | Case | Handling |

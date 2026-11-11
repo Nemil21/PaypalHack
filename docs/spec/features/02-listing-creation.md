@@ -8,7 +8,7 @@ A brand turns overstock into an open, private window. The product is pinned to a
 ## User stories
 - As a brand manager, I search my product and pick the exact SKU.
 - As a brand manager, I set quantity, a floor price and my liquidator quote so I can compare outcomes.
-- As a brand manager, I choose a window (max 72 h) and get a shareable offer link.
+- As a brand manager, I choose a window (max 48 h) and get a shareable offer link.
 
 ## Screens
 W05 Create listing wizard (4 steps) · W04 Overview (new listing card) · W10 Embed & share (after publish)
@@ -22,7 +22,7 @@ W05 Create listing wizard (4 steps) · W04 Overview (new listing card) · W10 Em
    - Helper text: "Cheapest public price $279. Floor is private; shoppers never see it."
    - Validation: floor < best public price; quantity ≥ 1.
 3. **Step 3, Window.**
-   - Start now or at a set time; length 24/48/72 h, with 72 h the maximum.
+   - Start now or at a set time; length 24/48 h, with 48 h the maximum.
    - Explain why: "Card holds are guaranteed for 3 days."
 4. **Step 4, Review.** A summary card plus an estimate: "If 60% of quantity clears at the floor: $X vs $Y liquidation."
    - "Save draft" or "Publish".
@@ -48,7 +48,7 @@ W05 Create listing wizard (4 steps) · W04 Overview (new listing card) · W10 Em
 ## Acceptance criteria
 - [ ] The search returns real Channel3 data for at least 3 demo products.
 - [ ] Wrong-brand products cannot be selected.
-- [ ] Window > 72 h is rejected by both UI and API.
+- [ ] Window > 48 h is rejected by both UI and API.
 - [ ] Publishing creates a Channel3 subscription and a working `/o/:slug` offer link.
 
 ## Test plan

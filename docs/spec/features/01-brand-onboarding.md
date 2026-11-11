@@ -17,8 +17,8 @@ W02 Brand sign-in · W03 Verification onboarding · W11 Brand settings · M10 (b
 1. W02: "Continue with PayPal" → `GET /auth/paypal/start` (Log in with PayPal, scopes `openid email`).
 2. Callback: look up `brand_users` by email. If none, create a brand_user with no brand yet and send them to W03.
 3. W03 step 1, Company: name, website domain, payout PayPal email (defaults to the login email).
-4. W03 step 2, Prove domain: show a DNS TXT record `standing-orders-verify=<token>`. A "Check now" button calls `POST /brands/verification/check`.
-   - Demo shortcut: admin approves in W20, and the UI says "Verified by Standing Orders team".
+4. W03 step 2, Prove domain: show a DNS TXT record `holdfast-verify=<token>`. A "Check now" button calls `POST /brands/verification/check`.
+   - Demo shortcut: admin approves in W20, and the UI says "Verified by Holdfast team".
 5. W03 step 3, Payout account: confirm that the payout email is the PayPal business account the user logged in with (from the Log in with PayPal identity). PayPal has no zero-amount test payout. In sandbox, accept any sandbox business email, with a note.
 6. Status VERIFIED → `verified_at` set → redirect to W04. Until then, `POST /listings/:id/publish` returns `BRAND_NOT_VERIFIED`.
 7. Invite teammates (W11): email + role (OWNER, MANAGER, VIEWER). VIEWER can't Clear.

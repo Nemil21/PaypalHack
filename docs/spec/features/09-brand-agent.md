@@ -1,12 +1,12 @@
-# 09: Brand Agent Recommendations (Read-Only)
+# 09: Brand Agent (Recommendations + Live-Round Nudges)
 
-**Priority:** P1 (demo nice-to-have, keep simple) · **Owner:** B · **Effort:** 4 h
+**Priority:** P1 (recommendations), P0 (nudge text for live rounds, 19) · **Owner:** B · **Effort:** 4 h
 
 ## Purpose
-It explains the book and recommends a quantity and price under the brand's floor and goals. It **cannot** move money or press Clear.
+It explains the book, recommends a quantity under the brand's floor and goals, and writes the live-round nudges (19). Its only write tool is `send_nudge(bidId)`, called by the round runner with numbers from code. It **cannot** move money or press Clear. With pay-your-bid (10), "net recovery" = sum of winners' own bids minus fees.
 
 ## User stories
-- As a brand manager, I get a one-line recommendation: "Clear 240 at $219: $52.6k vs $9.1k liquidation; no public price change."
+- As a brand manager, I get a one-line recommendation: "Clear 240 (cutoff $219): $54.2k gross vs $11.4k liquidation; no public price change."
 - As a brand manager, I can ask "what if I clear all 300?" and get numbers.
 
 ## Screens
@@ -14,10 +14,10 @@ W06 brand agent panel · W07 (recommendation shown in modal) · M10 brand mobile
 
 ## Logic
 1. **The recommendation is computed by code:** `core/recommend.ts` scans quantities 1..N with the pure auction. It picks the quantity maximizing `net recovery` subject to:
-   - clearing ≥ floor;
-   - clearing ≥ (1 − maxDiscount) × public low, a brand setting.
+   - cutoff ≥ floor;
+   - cutoff ≥ (1 − maxDiscount) × public low, a brand setting.
 
-   It returns `{ quantity, clearingPriceCents, netCents, liquidationCents, alternatives[2] }`.
+   It returns `{ quantity, cutoffCents, grossCents, netCents, liquidationCents, alternatives[2] }`.
 2. **Claude writes the explanation.** It gets only:
    - the recommendation JSON;
    - curve bands;

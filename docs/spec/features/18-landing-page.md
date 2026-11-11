@@ -16,7 +16,7 @@ Explain the product in 5 seconds to brands (who pay) and judges. It should look 
    - Shoppers and agents bid; PayPal holds the money;
    - You see the curve and press Clear;
    - Winners pay one fair price; you get paid.
-4. **Liquidator vs Standing Orders:** a comparison bar: $9.1k vs $47.8k net.
+4. **Liquidator vs Holdfast:** a comparison bar: $9.1k vs $47.8k net.
 5. **For agents:** MCP snippet + "Any assistant can place a real, held bid."
 6. **Trust:**
    - verified brands only;

@@ -1,4 +1,4 @@
-# Standing Orders: the dark pool for brand overstock
+# Holdfast: the dark pool for brand overstock
 
 > **One line:** Brands clear overstock into money that's already waiting, without ever posting a lower price. Shoppers' AI agents hold the money; PayPal makes every bid real.
 >
@@ -32,14 +32,15 @@
 3. **Outside agents can bid too.** Our **MCP server** (`get_book`, `place_bid`, `cancel_bid`, `my_bids`) lets any agent, such as Claude Desktop, post held bids into the same book.
 4. **The brand sees the private book** (**AG Grid / AG Studio**):
    - the held-demand curve ("$61k held at ≥ $219"), the bids grid, and a quantity slider comparing recovery to the liquidation quote;
-   - a **brand agent** recommends quantity and price under a margin floor: "Clear 240 at $219: $52.6k vs $11.4k liquidation; no public price change."
-5. **The window clears** (a 72-hour private window, uniform-price call auction):
-   - **Deterministic code** ranks the bids. The top N win, and **everyone pays the same clearing price**: the lowest winning bid.
+   - a **brand agent** recommends quantity and price under a margin floor: "Clear 240 (cutoff $219): $54.2k vs $11.4k liquidation; no public price change."
+5. **The window clears** (48 h of bidding, optional live rounds of up to 6 h, then Clear within 6 h; a pay-your-bid call auction):
+   - In **live rounds**, the brand agent tells bidders below the cutoff the real number, and their agents may raise (spec 19).
+   - **Deterministic code** ranks the bids. The top N win, and **each winner pays their own final bid**, never more than they approved.
    - Agents advise; code clears. There's no free-form haggling and no hallucinated deals.
 6. **Money moves** (**Render Workflows** fan-out, idempotent, with retries):
-   - each winner: **capture at the clearing price** (below their hold, `final_capture`), and the rest of the hold is released;
+   - each winner: **capture their own bid** (equal to their hold, `final_capture`);
    - each loser: **void**;
-   - if a capture is declined, the next bidder is promoted automatically;
+   - if a capture is declined, the next bidder wins that unit at their own bid (at most 3 tries per unit);
    - **Payouts** to the brand, net of our fee; shipment **tracking** attached.
 7. **The shopper sees** "your agent bought at $219" and was never charged more than their ceiling.
 
@@ -47,7 +48,7 @@
 They negotiate through a **structured auction, not chat**:
 - Buyer agents place, raise or cancel held bids within their owner's mandate.
 - The brand agent opens a window with quantity and floor.
-- During the window, buyer agents get one signal ("you're below the likely clearing price") and decide whether to raise.
+- In live rounds, buyer agents get the real cutoff ("the cutoff for 240 units is $219") once per round and decide whether to raise.
 - The clearing rule is fixed and auditable.
 - Pitch line: **"Agents negotiate by bidding; code clears; PayPal settles."**
 
@@ -119,7 +120,7 @@ Sandbox credentials go in `.env` (git-ignored). Never commit them.
 | Liquidity is simulated | Say so; the foreground holds are real sandbox; cite Greentoe's volume |
 | Time to the deadline (Nov 12, 12:00 PST) | Strict build order; the brand book is the hero; the buyer UI can be a chat panel |
 | Vault merchant-initiated holds unverified | Spike S2; fall back to approval per bid |
-| Card holds lapse in ~5–10 days; reauthorize is wallet-only | 72-hour windows |
+| PayPal guarantees card holds for 3 days; reauthorize is wallet-only | 48 h window + ≤ 6 h rounds + ≤ 6 h to Clear; Clear refused if a hold is > 66 h old |
 | Antitrust or MAP perception | Single-brand books, no cross-seller data, fills never advertised |
 | Trials must last to Dec 21 | AG Grid 45-day key requested now; avoid Render free Postgres expiring (~30 days) |
 

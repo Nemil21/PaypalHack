@@ -1,9 +1,9 @@
-# Standing Orders: Build Spec
+# Holdfast: Build Spec
 
 > Brands clear overstock into money that's already waiting. Shoppers' agents bid with PayPal holds. Code clears. PayPal settles.
 
 This folder is the build plan. Each file is meant to be implementable on its own.
-Product background: [../STANDING-ORDERS.md](../STANDING-ORDERS.md). Sandbox proof: [../../spikes/paypal-spikes.mjs](../../spikes/paypal-spikes.mjs) (S1, S2, S3-local and S4 passed on 2026-11-10).
+Product background: [../HOLDFAST.md](../HOLDFAST.md). Sandbox proof: [../../spikes/paypal-spikes.mjs](../../spikes/paypal-spikes.mjs) (S1, S2, S3-local and S4 passed on 2026-11-10).
 
 ## Index
 
@@ -21,7 +21,7 @@ Product background: [../STANDING-ORDERS.md](../STANDING-ORDERS.md). Sandbox proo
 | [features/07-mcp-server.md](features/07-mcp-server.md) | MCP server for outside agents |
 | [features/08-brand-console.md](features/08-brand-console.md) | AG Grid book, demand curve, quantity slider |
 | [features/09-brand-agent.md](features/09-brand-agent.md) | Brand agent recommendations (read-only) |
-| [features/10-clearing-engine.md](features/10-clearing-engine.md) | Uniform-price call auction |
+| [features/10-clearing-engine.md](features/10-clearing-engine.md) | Pay-your-bid call auction and hold-age guard |
 | [features/11-settlement-workflows.md](features/11-settlement-workflows.md) | Render Workflows: capture, void, promote |
 | [features/12-payouts-fees-tracking.md](features/12-payouts-fees-tracking.md) | Payouts, platform fee, shipment tracking |
 | [features/13-notifications.md](features/13-notifications.md) | Email, push and in-app messages |
@@ -30,23 +30,26 @@ Product background: [../STANDING-ORDERS.md](../STANDING-ORDERS.md). Sandbox proo
 | [features/16-auth-security-tenancy.md](features/16-auth-security-tenancy.md) | Auth, security, multi-tenancy, concurrency |
 | [features/17-demo-seeding.md](features/17-demo-seeding.md) | Demo seed data and simulated bidders (labelled) |
 | [features/18-landing-page.md](features/18-landing-page.md) | Marketing landing page |
+| [features/19-live-rounds.md](features/19-live-rounds.md) | Live rounds: brand agent nudges, buyer agents raise |
 
 ## Glossary
 
 | Term | Meaning |
 |---|---|
 | **Hold** | A PayPal authorization (`intent: AUTHORIZE`). The shopper's money is reserved, not charged. |
-| **Capture** | Charging a hold. We capture the **clearing price**, which is at most the hold, with `final_capture: true`; PayPal releases the rest. |
+| **Capture** | Charging a hold. We capture the winner's **own bid**, which equals the hold, with `final_capture: true`. |
 | **Void** | Releasing a hold without charging anything. |
 | **Bid** | One held offer: listing, max price, hold ID, status. |
 | **Intent** | A shopper's want that can cover several products ("any of XM5 / QC45 / M4 up to $230"). An intent owns 0–1 live bids at a time. |
 | **Mandate** | Hard limits the shopper gives their agent: max price, total held cap, allowed products, expiry, auto-roll on/off. Enforced in code. |
 | **Listing** | One product a brand is clearing: quantity, floor (minimum price), window. |
 | **Book** | All live bids on a listing. Private to that brand. |
-| **Window** | The time a listing accepts bids (default 72 h; must be ≤ 72 h). |
-| **Clearing price** | The lowest winning bid. Every winner pays it (uniform price). |
-| **Floor** | The brand's minimum price. The clearing price is never below it. |
-| **Promotion** | When a winner's capture fails, the next-best losing bid becomes a winner. |
+| **Window** | The time a listing accepts bids: ≤ 48 h, then optional live rounds (≤ 6 h), then ≤ 6 h to Clear. Keeps every capture inside PayPal's 3-day card-hold guarantee. |
+| **Live rounds** | Optional final phase: the brand agent tells bidders below the cutoff the real cutoff; their agents may raise (19). |
+| **Pay-your-bid** | Each winner pays exactly their own final bid, never more. |
+| **Cutoff** | The lowest winning bid for the chosen quantity. Used in nudges and the console; nobody else pays it. |
+| **Floor** | The brand's minimum price. No winner is below it. |
+| **Promotion** | When a winner's capture fails, the next-best losing bid wins that unit at its own bid; at most 3 promotions per unit. |
 | **Simulated bidder** | A seeded demo bidder. Always labelled "SIM" in the UI. |
 
 ## System overview
@@ -126,7 +129,7 @@ P0 = must ship for the demo. P1 = ship if time allows. P2 = describe in README o
 - [ ] One brand lists a product; shoppers place real sandbox holds from the offer page.
 - [ ] Claude Desktop places a bid over MCP; it appears live on the console.
 - [ ] A Channel3 price drop (real or replayed fixture, labelled) voids a bid.
-- [ ] Clear runs the auction; Workflows captures winners at the clearing price, voids losers, promotes after one injected decline.
+- [ ] Clear runs the auction; Workflows captures each winner at their own bid, voids losers, promotes after one injected decline (at the promoted bidder's own bid).
 - [ ] Payout to the brand's sandbox account is created.
 - [ ] Every money action has an audit row with PayPal IDs.
 - [ ] Simulated bidders are labelled SIM everywhere.
@@ -137,5 +140,5 @@ P0 = must ship for the demo. P1 = ship if time allows. P2 = describe in README o
 Figma file **PayPal-Hack26** (https://www.figma.com/design/BRS9LZjjFKWxvZqv5sQZcG/PayPal-Hack26):
 - **SO v2 — Design System**: semantic colour variables (sampled from the "bgs" paintings: night indigo, ridge violet, meadow periwinkle, grass gold), space/radius variables, effect styles, 36 icons, and components with state variants wired for Smart Animate (Button, Badge, Toggle, Chip, Input, Stat tile, Nav item, Sidebar, Tab item/bar, Status bar, Toast + Toast host, Demand chart Loading→Live, Progress, Gantt bar (Bryntum), Marketing nav). Type + motion specs included.
 - **SO v2 — Screens**: all web (W01–W21) and mobile (M01–M12) screens in Sections, built only from those components, with prototype links between steps.
-- **Standing Orders — UI v1 (archive)**: first pass, kept for reference only.
+- **Holdfast — UI v1 (archive)**: first pass, kept for reference only.
 - Order status everywhere uses a **Bryntum Gantt** (window → price watch → signal → lock → capture fan-out → payout → shipping).

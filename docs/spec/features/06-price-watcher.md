@@ -3,11 +3,11 @@
 **Priority:** P0 · **Owner:** D · **Effort:** 5 h
 
 ## Purpose
-A shopper should never be stuck holding money for a price a store now beats. When any authorized retailer sells the exact same new product for less than a bid, we release that bid and point the shopper to the cheaper offer. This is plain code, not an AI.
+This works for the shopper, not the platform. When any authorized retailer sells the exact same new product for less than a bid, and the shopper has **"Release my hold if it's cheaper elsewhere"** on (default on, switchable off per bid or in the mandate), we release that bid and point them to the cheaper offer. Shoppers who switch it off keep their bid; paying above retail is their call. The server stays neutral on price. This is plain code, not an AI.
 
 ## User stories
 - As a shopper, if Best Buy drops below my bid, my hold is released automatically and I get the link.
-- As a brand, my book only contains bids that beat the public market, so it's honest demand.
+- As a shopper who wants this seller anyway, I can switch the release off and keep my bid.
 
 ## Screens
 M06 Price-drop released notification + sheet · W15 / M04 timeline event · W06 (row disappears, toast) · W21 Price dropped state
@@ -27,7 +27,7 @@ M06 Price-drop released notification + sheet · W15 / M04 timeline event · W06 
 
    Otherwise ignore, and audit `PRICE_IGNORED` with the reason.
 4. Update `products.best_public_price_cents` if lower.
-5. `SELECT bids WHERE product = X AND status='HELD' AND amount_cents > newPrice`. For each:
+5. `SELECT bids WHERE product = X AND status='HELD' AND release_if_cheaper AND amount_cents > newPrice`. For each:
    - conditional update HELD→VOIDING;
    - `pp.void`;
    - VOIDED with `void_reason=PRICE_DROP`.

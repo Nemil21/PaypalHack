@@ -60,9 +60,13 @@ Postgres. All money is stored in **integer cents** with a `currency` column (USD
 | floor_cents | int not null check > 0 | |
 | liquidation_quote_cents | int | Per unit, for the comparison |
 | window_opens_at | timestamptz | |
-| window_closes_at | timestamptz | check ≤ opens + 72 h |
+| window_closes_at | timestamptz | check ≤ opens + 48 h |
+| target_quantity | int | Set when live rounds start (19) |
+| rounds_end_at | timestamptz | ≤ window_closes_at + 6 h |
+| clear_deadline_at | timestamptz | rounds end (or window close) + 6 h; past it → EXPIRED |
 | status | text | See state machine |
-| clearing_price_cents | int | Set on CLEARING |
+| cutoff_cents | int | Lowest winning bid, set on CLEARING (winners pay their own bids) |
+| gross_cents | int | Sum of winners' bids at Clear |
 | cleared_quantity | int | |
 | channel3_subscription_id | text | |
 | slug | text unique | For offer links |
@@ -95,7 +99,9 @@ Postgres. All money is stored in **integer cents** with a `currency` column (USD
 | listing_id | uuid FK | Index (listing_id, status, amount_cents desc, placed_at) |
 | shopper_id | uuid FK | |
 | intent_id | uuid FK null | |
-| amount_cents | int not null | The hold amount = max the shopper pays |
+| amount_cents | int not null | The hold amount = exactly what the shopper pays if they win |
+| release_if_cheaper | bool not null default true | Shopper's price-watch setting (06) |
+| raise_count | int default 0 | For the "several pending holds" warning only; not a cap |
 | source | text | `OFFER_PAGE`, `BUYER_AGENT`, `MCP`, `SIM` |
 | paypal_order_id | text | |
 | paypal_authorization_id | text unique | |
@@ -104,6 +110,7 @@ Postgres. All money is stored in **integer cents** with a `currency` column (USD
 | idempotency_key | text unique not null | From client |
 | void_reason | text | `CANCELLED`, `PRICE_DROP`, `LOST`, `WINDOW_EXPIRED`, `REPLACED` |
 | replaced_by_bid_id | uuid | When raised/rolled |
+| promotion_count | int default 0 | On the unit's settlement chain; max 3 (11) |
 
 ### settlements
 | Column | Type | Notes |
@@ -164,7 +171,8 @@ No UPDATE or DELETE grants on this table for the app role.
 
 ### Listing
 ```
-DRAFT ──publish──> OPEN ──Clear (brand)──> CLEARING ──all settlements done──> SETTLED ──payout ok──> PAID_OUT
+DRAFT ──publish──> OPEN ──(optional) start rounds──> ROUNDS ──Clear (brand)──> CLEARING
+                     └──────────────Clear (brand)──────────────────────────────> CLEARING ──all settlements done──> SETTLED ──payout ok──> PAID_OUT
    │                 │                                                   │
    └─delete          ├─window expires, not cleared──> EXPIRED (void all) └─payout failed──> PAYOUT_FAILED (retry)
                      └─brand cancels──> CANCELLED (void all)
@@ -172,8 +180,9 @@ DRAFT ──publish──> OPEN ──Clear (brand)──> CLEARING ──all se
 | From | To | Trigger | Who |
 |---|---|---|---|
 | DRAFT | OPEN | Publish, brand VERIFIED | Brand user |
-| OPEN | CLEARING | Clear click (with quantity, price) | Brand user only (never an agent) |
-| OPEN | EXPIRED | `window_closes_at` passed | Cron |
+| OPEN | ROUNDS | Start live rounds (target quantity) | Brand user only |
+| OPEN / ROUNDS | CLEARING | Clear click (quantity, expected gross), oldest hold ≤ 66 h | Brand user only (never an agent) |
+| OPEN / ROUNDS | EXPIRED | `clear_deadline_at` passed | Cron |
 | OPEN | CANCELLED | Cancel click | Brand user |
 | CLEARING | SETTLED | All settlement rows terminal | Workflow |
 | SETTLED | PAID_OUT | Payout batch SUCCESS | PayPal webhook / poll |
@@ -203,7 +212,7 @@ PENDING_APPROVAL ──buyer approves──> HELD ──(listing CLEARING, ranke
 
 1. **Conditional status updates.** Every transition is `UPDATE … SET status=$new WHERE id=$id AND status=$expected RETURNING *`. Zero rows means someone else won the race, so stop.
 2. **Listing lock at Clear.** In one transaction: `UPDATE listings SET status='CLEARING' WHERE id=$1 AND status='OPEN'`. After that, `place_bid` on this listing fails with `WINDOW_CLOSED`. The auction reads bids `WHERE status='HELD'` inside the same transaction.
-3. **Mandate cap.** On place or raise: `SELECT … FROM mandates WHERE id=$1 FOR UPDATE`, sum live holds for the mandate, reject if sum + new > `total_hold_cap_cents`.
+3. **Mandate cap.** On place or raise: `SELECT … FROM mandates WHERE id=$1 FOR UPDATE`, sum live holds for the mandate, reject if sum − replaced + new > `total_hold_cap_cents` (the hold being replaced by a raise doesn't count).
 4. **Client idempotency.** `place_bid` and `cancel_bid` need an `Idempotency-Key` header. Stored in `bids.idempotency_key` (unique). Replays return the original result.
 5. **PayPal idempotency.** Each PayPal call sends `PayPal-Request-Id`:
    - order create = `bid.id`;

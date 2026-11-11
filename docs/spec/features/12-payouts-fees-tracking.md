@@ -13,10 +13,10 @@ Pay the brand what it earned minus our success fee, and close the loop for shopp
 - **Production path (README):** PayPal multiparty with `platform_fees` and delayed disbursement, where the brand is the merchant. This needs approved-partner status.
 
 ## Logic
-1. `payoutBrand(listingId)`: insert a `payouts` row (id = sender_batch_id) → `pp.payout` to `brands.payout_email` with note "Standing Orders: <product> cleared 240 at $219" → status PENDING (S4 proven).
+1. `payoutBrand(listingId)`: insert a `payouts` row (id = sender_batch_id) → `pp.payout` to `brands.payout_email` with note "Holdfast: <product> cleared 240 at $219" → status PENDING (S4 proven).
 2. Webhook `PAYMENT.PAYOUTSBATCH.SUCCESS` → SUCCESS → listing PAID_OUT. Alternatively, poll `GET /v1/payments/payouts/{batch_id}` every 60 s for up to 30 min.
 3. **Tracking (P1):** the brand uploads a CSV or enters carrier + tracking per winner in W09 → `pp.track` per order → the shopper sees tracking on W18/M08.
-4. **Reports (W09):** payouts table, per-listing statement (gross, fee, net, units, clearing price) and CSV export.
+4. **Reports (W09):** payouts table, per-listing statement (gross, fee, net, units, cutoff, average price) and CSV export.
 
 ## Edge cases
 | Case | Handling |
