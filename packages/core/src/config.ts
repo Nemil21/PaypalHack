@@ -89,6 +89,12 @@ const envSchema = z.object({
   // page in the Render dashboard and defaults to the Blueprint's workflow name.
   RENDER_WORKFLOW_SLUG: optionalString.transform((v) => v ?? 'holdfast-workflows'),
   APP_BASE_URL: optionalString.pipe(httpUrl.optional()),
+  // Owner-role database URL for `demo:reset` only (HF-046): the truncate clears the append-only
+  // audit log, which the app role cannot. CLI only; the web service never reads it.
+  DEMO_ADMIN_DATABASE_URL: optionalString.refine(
+    (v) => v === undefined || /^postgres(ql)?:\/\//.test(v),
+    'must be a postgres:// or postgresql:// URL',
+  ),
   PAYPAL_BRAND_EMAIL: optionalString,
 
   // Flags.
