@@ -417,6 +417,26 @@ async function payout(value = 50000, perItem) {
   });
 }
 
+// Split fallback: <total> paid as separate batches of ≤ <perBatch>, one after another, each polled to terminal.
+async function payoutBatches(total = 50000, perBatch = 9500) {
+  total = Number(total); perBatch = Number(perBatch);
+  const group = randomUUID().slice(0, 8);
+  const out = [];
+  for (let left = total; left > 0.005; ) {
+    const v = +Math.min(perBatch, left).toFixed(2);
+    const calls = [];
+    const r = await payoutAndPoll(v, `Holdfast S7: split payout ${group} (${out.length + 1})`, calls);
+    out.push(saveAttempt('s7-payout', {
+      pass: r.ok, calls, group,
+      summary: { value: v, perItem: v, batchId: r.batchId, attemptId: r.attemptId, batchStatus: r.batch?.bodyStatus, itemId: r.itemId, itemStatus: r.item?.json.transaction_status, timeToTerminalMs: r.polls.at(-1)?.t, polls: r.polls },
+    }));
+    if (!r.ok) break;
+    left -= v;
+  }
+  const paid = out.filter((a) => a.pass).reduce((s, a) => s + a.summary.value, 0);
+  return { pass: Math.abs(paid - total) < 0.01, summary: { group, total, perBatch, batches: out.length, paid, statuses: out.map((a) => `${a.summary.value}: ${a.calls[0]?.http} ${a.calls[0]?.issue ?? a.calls[0]?.name ?? ''} → ${a.summary.batchStatus ?? '–'}/${a.summary.itemStatus ?? '–'}`) } };
+}
+
 // ---------- cleanup: nothing left CREATED ----------
 async function cleanup() {
   const entries = [...new Map(ledger().map((e) => [e.authId, e])).values()];
@@ -586,7 +606,7 @@ function render() {
 
 // ---------- CLI ----------
 const brief = (a) => ({ pass: a.pass, ...(a.summary ?? {}), ...(a.calls ? { calls: a.calls.map(({ label, http, bodyStatus, issue, name, note }) => [label, http, bodyStatus, issue ?? name, note].filter((x) => x !== undefined).join(' | ')) } : {}) });
-const cmds = { s3, s3x, s4, s5, s6, s7, payout, cleanup };
+const cmds = { s3, s3x, s4, s5, s6, s7, payout, 'payout-batches': payoutBatches, cleanup };
 const cmd = process.argv[2];
 if (cmd === 'serve') await serve();
 else if (cmd === 'render') render();

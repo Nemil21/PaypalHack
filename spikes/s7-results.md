@@ -1,19 +1,19 @@
 # Spike S7 results (HF-063)
 
-Run in the PayPal sandbox on Nov 11 2026, 12:40–13:00 UTC (04:40–05:00 PST), with the same app, `.env` and US sandbox business account as `spikes/paypal-spikes.mjs`. Script: `spikes/paypal-s7.mjs`; browser harness: `spikes/s7-browser.html` (`node spikes/paypal-s7.mjs serve`). Every request id, HTTP status, body `status`, issue code and PayPal debug id is in the evidence tables below.
+Run in the PayPal sandbox on Nov 11 2026, 12:40–13:40 UTC (04:40–05:40 PST), with the same app, `.env` and US sandbox business account (merchant) as `spikes/paypal-spikes.mjs`. Step 2 was approved by a human as a sandbox buyer in the harness. Script: `spikes/paypal-s7.mjs`; browser harness: `spikes/s7-browser.html` (`node spikes/paypal-s7.mjs serve`). Every request id, HTTP status, body `status`, issue code and PayPal debug id is in the evidence tables below.
 
 ## Result table (feeds CP1)
 
 | # | Step | Result | Decision / fallback |
 |---|---|---|---|
 | 1 | Card fields (JS SDK v6) → `authorize` (`authz-<bid>`) → vault | **PASS.** The browser `submit()` succeeded. Authorize returned 201 with authorization CREATED and the card VAULTED (`store_in_vault: ON_SUCCESS`, `SCA_WHEN_REQUIRED`; no 3DS challenge on 4111…). | **HF-014b builds card fields after the test-card button**, which stays as the labelled demo backup (HF-019 Part 1). |
-| 2 | Wallet approve → return → authorize (+ vault) | **BLOCKED (needs a sandbox buyer login).** Order create with `paypal.attributes.vault.store_in_vault=ON_SUCCESS` is accepted: PAYER_ACTION_REQUIRED, with a `rel=payer-action` link. PayPal's approval page needs a sandbox personal-account login (no guest option). | Until it passes, per M19: **card first, wallet second in HF-014b**. The wallet stays in HF-014b, built after the card path. |
+| 2 | Wallet approve → return → authorize (+ vault) | **PASS.** Order create with `paypal.attributes.vault.store_in_vault=ON_SUCCESS` (MERCHANT / CONSUMER) gave PAYER_ACTION_REQUIRED and a `rel=payer-action` link. The buyer approved and was returned; authorize gave 201 with authorization CREATED and the wallet **VAULTED**. The same-id replay returned the same authorization; a new id gave `ORDER_ALREADY_AUTHORIZED`. | **Wallet orders vault.** HF-014b order: **card first** (this was CP1's default while the wallet was unproven); both paths are now proven. M19's "wallet bids can't vault, raises need `approveUrl`" is wrong: raises can use the wallet `vault_id` (step 4). |
 | 3 | Replays: order create, authorize, void ×2, capture ×2 | **Recorded** (mapping below). Capture and void replay cleanly with the same id. Order-create replay works for no-source and `vault_id` orders but is **refused for raw-card orders**. | Handed to HF-004 RECONCILE (table below). |
-| 4 | Vault: 2 MIT holds from one `vault_id` + CIT hold | **PASS** on the card-fields vault (and earlier on a raw-card vault): MIT #1, MIT #2 and CIT (`payment_initiator: CUSTOMER`) all CREATED; the MIT replay with the same id returned the same order (200). | Agents can roll or raise from one vault. Wallet vault MIT is still untested (needs step 2). |
+| 4 | Vault: 2 MIT holds from one `vault_id` + CIT hold (+ wallet MIT) | **PASS.** From the card-fields vault: MIT #1, MIT #2 and CIT (`payment_initiator: CUSTOMER`) all CREATED; the MIT replay with the same id returned the same order (200). **Wallet MIT** (`payment_source.paypal.vault_id`, no buyer present): 201, authorization CREATED at order create. | Agents can roll or raise from either vault without the buyer. |
 | 5 | Mock `AUTHORIZATION_EXPIRED` on capture | **PASS.** 422 with `issue: AUTHORIZATION_EXPIRED`; the real authorization stays CREATED, so it must still be voided. Control: the mocked `INSTRUMENT_DECLINED` on capture returns **403 with an empty body** (no issue code), and the authorization stays CREATED. | HF-029 can demo the expired path with the mock. HF-004 must not rely on an issue code for the 403 decline (GET the authorization). |
-| 6 | 300 holds, 5 test cards, concurrency 20 | **PASS on re-run** (300/300 CREATED in 46 s; p50 2.8 s, p95 3.8 s, max 8.2 s; **0 rate limits**). Run 1: 239/300. `5105105105105100` is rejected (`VALIDATION_ERROR` "Invalid card number") and there was one stray `TRANSACTION_REFUSED`. | Seed (HF-045) can use concurrency 20. Cards: Visa 4111…1111, Visa 4012…1881, MC 5555…4444, Amex 3714…8431 (CVV 4 digits), Discover 6011…1117. **Don't use 5105…5100.** |
-| 7 | Capture ≥ $50k → ≈ $50k payout → GET batch + item | **FAIL / BLOCKED.** 240 × $229 captured, all COMPLETED: $54,960 gross, $1,540.80 fees, **$53,419.20 net**, in 24.6 s. But a $50k payout returns `422 INSUFFICIENT_FUNDS`. The payable amount was ≈ $10,000 (bisected) and fell after each accepted test batch. Every accepted batch ended DENIED, item FAILED **`SELF_PAY_NOT_ALLOWED`**: `PAYPAL_BRAND_EMAIL` is the merchant account itself. `GET /v1/reporting/balances` returns 403 (app lacks the reporting scope). | Needs a human: (a) a separate US sandbox account for the brand; (b) the merchant balance checked or Transaction Search enabled. Until then **HF-032 can't count on a ≈ $50k payout**: plan the demo payout at ≤ $10k, or pre-fund (spec backstop). The earlier S4 "PASS" was only the 201; that payout would also have failed on self-pay. |
-| – | Nothing left CREATED | **PASS.** All 558 spike authorizations GET-checked: 316 VOIDED, 242 CAPTURED, 0 CREATED. | – |
+| 6 | 300 holds, 5 test cards, concurrency 20 | **PASS** (run 2: 300/300 CREATED in 46 s, p50 2.8 s, p95 3.8 s; run 3: 300/300, p95 3.6 s; **0 rate limits** in either run). Run 1: 239/300. `5105105105105100` is rejected (`VALIDATION_ERROR` "Invalid card number") and there was one stray `TRANSACTION_REFUSED`. | Seed (HF-045) can use concurrency 20. Cards: Visa 4111…1111, Visa 4012…1881, MC 5555…4444, Amex 3714…8431 (CVV 4 digits), Discover 6011…1117. **Don't use 5105…5100.** |
+| 7 | Capture ≥ $50k → ≈ $50k payout → GET batch + item | **FAIL (funds).** Two runs each captured 240 × $229, all COMPLETED (`disbursement_mode: INSTANT`, no `status_details`): $54,960 gross, $1,540.80 fees, $53,419.20 net per run (≈ $106.8k net in total). The payable balance did **not** rise with the captures: $50k as 1 item, as 6 items of ≤ $9.5k, and as separate ≤ $9.5k batches all returned `422 INSUFFICIENT_FUNDS`, and so did $5k and $2.5k. **$1,000 to the new brand account: batch SUCCESS, item SUCCESS** ($0.25 fee; item SUCCESS at 21 s, batch at 29 s). The earlier `SELF_PAY_NOT_ALLOWED` is fixed by the separate brand account. Balance is still unreadable: `GET /v1/reporting/balances` and `/v1/reporting/transactions` return 403, and a fresh token has no reporting scope (Transaction Search hasn't propagated). | Payouts, polling and item statuses work end to end. **Captured card money did not become payable within ≈ 1 h in this sandbox account**, so the ≈ $50k payout can't be funded by captures alone. HF-032 should treat `INSUFFICIENT_FUNDS` as RETRY-later + alert, not FAILED (M4). The demo payout needs a decision: pre-fund the merchant (the spec backstop) or pay out an amount the balance covers. Splitting does not get around it. |
+| – | Nothing left CREATED | **PASS.** All 863 spike authorizations GET-checked: 381 VOIDED, 482 CAPTURED, 0 CREATED. | – |
 
 ## RECONCILE mapping for HF-004 (D11, B4, M2)
 
@@ -27,19 +27,20 @@ Run in the PayPal sandbox on Nov 11 2026, 12:40–13:00 UTC (04:40–05:00 PST),
 | void | same id again | **200 VOIDED** (204 without `Prefer: return=representation`) | replay → SUCCEEDED |
 | void | new id, already voided | 422 `PREVIOUSLY_VOIDED` | RECONCILE → VOIDED → SUCCEEDED |
 | void | auth was captured | 422 `PREVIOUSLY_CAPTURED` | RECONCILE → CAPTURED → alert (money taken on a loser) |
-| authorize (card fields) | same `authz-<bid>` again | **200**, same authorization id | replay → held |
-| authorize (card fields) | new id | 422 `ORDER_ALREADY_AUTHORIZED` | GET the order, take its authorization (M2) |
+| authorize (card fields or wallet) | same `authz-<bid>` again | **200**, same authorization id | replay → held |
+| authorize (card fields or wallet) | new id | 422 `ORDER_ALREADY_AUTHORIZED` | GET the order, take its authorization (M2) |
 | authorize with `payment_source` in the body | any second call | 422 `TRANSACTION_REFUSED` | don't use this pattern; authorize with no body only |
 | order create, no `payment_source` (card fields / wallet) | same id again | **200**, same order | replay |
 | order create, `vault_id` (MIT) | same id again | **200**, same order | replay |
 | order create, raw card (test-card button) | same id again | **422 `TRANSACTION_REFUSED`** (also after a 5 s gap) | not a decline: `needs_reconcile`; our DB row (bid → order id) is the dedupe (INV-4) |
 | order create | same `invoice_id`, new id | 422 `DUPLICATE_INVOICE_ID` | RECONCILE: a hold for this bid already exists; find it via the stored order id |
+| payout | amount above the available balance | 422 `INSUFFICIENT_FUNDS` (at POST; no batch is created) | RETRY later + alert; a new `sender_batch_id` on retry |
+| payout | receiver is the merchant itself | 201 PENDING → batch DENIED, item FAILED `SELF_PAY_NOT_ALLOWED` | PAYOUT_FAILED (config error) |
 
 ## Open items
 
-1. **Wallet (step 2).** Approve once as a sandbox buyer through the harness. Run `node spikes/paypal-s7.mjs serve`, open http://localhost:8787 and click "Wallet order with vault → approve". The server authorizes, replays, records vault status and voids, and `s4` then tries an MIT hold from the wallet `vault_id`.
-2. **Payout (step 7).** Set `PAYPAL_BRAND_EMAIL` to a *different* US sandbox account, confirm the merchant's available balance, then run `node spikes/paypal-s7.mjs s6 && node spikes/paypal-s7.mjs s7` (or `payout <usd>` against existing captures).
-3. Harness note: AO's hidden Browser panel swallowed clicks, so step 1 was submitted with `?auto=40`. That calls the same `placeCardHold()` → `submit()` after the fields are filled.
+1. **Payout funding (decision needed).** Captures did not raise the payable balance within ≈ 1 h, so a ≈ $50k payout funded only by captures has not been shown. Options: pre-fund the merchant sandbox account (the spec's backstop), retry `node spikes/paypal-s7.mjs payout 50000` later in case the captured funds become available, or demo a smaller payout. Once Transaction Search reaches the token, `GET /v1/reporting/balances` will show where the captured money is.
+2. Harness note: AO's hidden Browser panel swallowed clicks, so step 1 was submitted with `?auto=40`. That calls the same `placeCardHold()` → `submit()` after the fields are filled. Step 2 was approved by a human in the visible panel.
 
 <!-- s7-evidence:start -->
 _Generated by `node spikes/paypal-s7.mjs render` from spikes/s7-evidence/._
@@ -62,7 +63,18 @@ Vault after authorize: **VAULTED** (id 9ff3…)
 
 ### Step 2: wallet approve + authorize (+ vault?)
 
-_Not run._
+Last run 2026-11-11T13:20:14.203Z: **PASS**
+
+Vault after authorize: **VAULTED** (id 67m7…)
+
+| call | PayPal-Request-Id | HTTP | body status | issue / name | debug id | ms | note |
+|---|---|---|---|---|---|---|---|
+| order create (wallet + vault) | `2ad2e8f8-ad96-41be-b5e6-40160c80262f` | 200 | PAYER_ACTION_REQUIRED | – | ca58d95b4dd7e | 1194 | – |
+| GET order | `–` | 200 | APPROVED | – | ca58d97b5fcf3 | 525 | order state on return |
+| authorize | `authz-2ad2e8f8-ad96-41be-b5e6-40160c80262f` | 201 | CREATED | – | ca58d97b8e8c5 | 1916 | order COMPLETED; vault VAULTED 67m7…; 3DS "n/a" |
+| authorize replay same id | `authz-2ad2e8f8-ad96-41be-b5e6-40160c80262f` | 200 | COMPLETED | – | ca58d97c5281a | 1220 | same auth id: true |
+| authorize again new id | `authz-2ad2e8f8-ad96-41be-b5e6-40160c80262f-2` | 422 | – | ORDER_ALREADY_AUTHORIZED | ca58d97cc7f12 | 1011 | – |
+| void | `void-2ad2e8f8-ad96-41be-b5e6-40160c80262f` | 200 | VOIDED | – | ca58d97d2d9a3 | 1006 | void (spike cleanup; vault id kept) |
 
 ### Step 3: replays (order create, authorize, void ×2, capture ×2)
 
@@ -132,19 +144,21 @@ Last run 2026-11-11T12:42:27.580Z: **PASS**
 
 ### Step 4: vault: MIT ×2 from one vault_id, CIT hold
 
-Last run 2026-11-11T12:58:46.695Z: **PASS**
-Attempts: 2026-11-11T12:43:02.148Z PASS · 2026-11-11T12:58:46.695Z PASS
+Last run 2026-11-11T13:20:56.798Z: **PASS**
+Attempts: 2026-11-11T12:43:02.148Z PASS · 2026-11-11T12:58:46.695Z PASS · 2026-11-11T13:20:56.798Z PASS
 
 
 | call | PayPal-Request-Id | HTTP | body status | issue / name | debug id | ms | note |
 |---|---|---|---|---|---|---|---|
-| MIT hold #1 | `9eacc4b1-db0f-4f0c-a0d2-a221a4d2c03e` | 201 | CREATED | – | ca58d7807785e | 3823 | – |
-| MIT hold #1 replay same id | `9eacc4b1-db0f-4f0c-a0d2-a221a4d2c03e` | 200 | CREATED | – | ca58d781fadfe | 2118 | same order id: true |
-| MIT hold #2 same vault | `676f3941-0755-4c59-ba32-85b0b27b1df7` | 201 | CREATED | – | ca58d782c9db5 | 3500 | – |
-| CIT hold (payment_initiator CUSTOMER) | `a17a36ff-6742-4384-b6da-9f58a5b4ab37` | 201 | CREATED | – | ca58d784278dd | 3268 | – |
-| void | `void-9eacc4b1-db0f-4f0c-a0d2-a221a4d2c03e` | 200 | VOIDED | – | ca58d7856edd5 | 859 | cleanup void |
-| void | `void-676f3941-0755-4c59-ba32-85b0b27b1df7` | 200 | VOIDED | – | ca58d785c4a7e | 996 | cleanup void |
-| void | `void-a17a36ff-6742-4384-b6da-9f58a5b4ab37` | 200 | VOIDED | – | ca58d78628fc2 | 1244 | cleanup void |
+| MIT hold #1 | `5c319c86-6ef9-4cbc-8600-d94b1ed7a3c1` | 201 | CREATED | – | ca58d9875d9ef | 3150 | – |
+| MIT hold #1 replay same id | `5c319c86-6ef9-4cbc-8600-d94b1ed7a3c1` | 200 | CREATED | – | ca58d9889ccaf | 2417 | same order id: true |
+| MIT hold #2 same vault | `57debb37-a5ec-41a7-9b9f-b9c5bab58b45` | 201 | CREATED | – | ca58d9898a964 | 2971 | – |
+| CIT hold (payment_initiator CUSTOMER) | `552b25f4-e233-4f82-8a1c-f19f79ae3fc8` | 201 | CREATED | – | ca58d98ab3901 | 2958 | – |
+| wallet MIT hold (paypal.vault_id) | `871e28ce-5e1f-48d9-81c3-c26094e2941e` | 201 | CREATED | – | ca58d98bdba5d | 2113 | authorized at create, no buyer |
+| void | `void-5c319c86-6ef9-4cbc-8600-d94b1ed7a3c1` | 200 | VOIDED | – | ca58d98caedae | 917 | cleanup void |
+| void | `void-57debb37-a5ec-41a7-9b9f-b9c5bab58b45` | 200 | VOIDED | – | ca58d98d0aec7 | 1092 | cleanup void |
+| void | `void-552b25f4-e233-4f82-8a1c-f19f79ae3fc8` | 200 | VOIDED | – | ca58d98d77ae2 | 1047 | cleanup void |
+| void | `void-871e28ce-5e1f-48d9-81c3-c26094e2941e` | 200 | VOIDED | – | ca58d98de0f4a | 842 | cleanup void |
 
 ```json
 {
@@ -152,7 +166,7 @@ Attempts: 2026-11-11T12:43:02.148Z PASS · 2026-11-11T12:58:46.695Z PASS
   "mit1": "CREATED",
   "mit2": "CREATED",
   "cit": "CREATED",
-  "walletMit": "not run (no wallet vault)"
+  "walletMit": "CREATED"
 }
 ```
 
@@ -180,20 +194,20 @@ Last run 2026-11-11T12:43:11.817Z: **PASS**
 
 ### Step 6: volume: 300 holds, 5 test cards, concurrency 20
 
-Last run 2026-11-11T12:45:55.929Z: **PASS**
-Attempts: 2026-11-11T12:43:59.100Z FAIL · 2026-11-11T12:45:55.929Z PASS
+Last run 2026-11-11T13:22:08.262Z: **PASS**
+Attempts: 2026-11-11T12:43:59.100Z FAIL · 2026-11-11T12:45:55.929Z PASS · 2026-11-11T13:22:08.262Z PASS
 
 
 ```json
 {
   "n": 300,
   "conc": 20,
-  "wallMs": 45917,
+  "wallMs": 47909,
   "latency": {
     "n": 300,
-    "p50": 2760,
-    "p95": 3756,
-    "max": 8186
+    "p50": 2792,
+    "p95": 3649,
+    "max": 4788
   },
   "byStatus": {
     "CREATED": 300
@@ -233,14 +247,16 @@ Attempts: 2026-11-11T12:43:59.100Z FAIL · 2026-11-11T12:45:55.929Z PASS
 
 ### Step 7: capture ≥ $50k → ≈ $50k payout → GET batch + item → void the rest
 
-Last run 2026-11-11T12:46:34.040Z: **FAIL**
+Last run 2026-11-11T13:22:40.616Z: **FAIL**
+Attempts: 2026-11-11T12:46:34.040Z FAIL · 2026-11-11T13:22:40.616Z FAIL
+
 
 | call | PayPal-Request-Id | HTTP | body status | issue / name | debug id | ms | note |
 |---|---|---|---|---|---|---|---|
-| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d65c59d83 | 389 | before: total null, available null |
-| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d66619a6b | 729 | after captures: total null, available null, delta n/a |
-| POST payouts | `7349bea3-720f-4741-a152-4c2e98594dd4` | 422 | – | INSUFFICIENT_FUNDS | ca58d66662e2d | 479 | payout 50000.00 USD, sender_batch_id = attempt id |
-| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d66692e4e | 790 | after payout: total null, available null |
+| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d9aa51d75 | 346 | before: total null, available null |
+| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d9b479c85 | 704 | after captures: total null, available null, delta n/a |
+| POST payouts | `41372afc-58da-41e3-89a6-abaf134fb0a8` | 422 | – | INSUFFICIENT_FUNDS | ca58d9b4c088c | 984 | payout 50000.00 USD in 1 item(s), sender_batch_id = attempt id; batch – |
+| GET balances | `–` | 403 | – | NOT_AUTHORIZED | ca58d9b523e45 | 356 | after payout: total null, available null |
 
 ```json
 {
@@ -252,19 +268,19 @@ Last run 2026-11-11T12:46:34.040Z: **FAIL**
   "gross": 54960,
   "fees": 1540.8,
   "net": 53419.2,
-  "captureWallMs": 24577,
+  "captureWallMs": 25659,
   "captureLatency": {
     "n": 240,
-    "p50": 1882,
-    "p95": 2768,
-    "max": 3894
+    "p50": 1877,
+    "p95": 3088,
+    "max": 6071
   },
   "balanceBefore": null,
   "balanceAfterCaptures": null,
   "balanceAfterPayout": null,
   "payout": {
     "value": 50000,
-    "attemptId": "7349bea3-720f-4741-a152-4c2e98594dd4",
+    "attemptId": "41372afc-58da-41e3-89a6-abaf134fb0a8",
     "polls": []
   },
   "voided": "60/60"
@@ -300,25 +316,30 @@ Every payout attempt (UTC time; each uses a fresh `sender_batch_id`):
 | 12:50:55 | 3125 | 1 | `5c755c5a-720d-4384-a849-d11875e423cc` | 422 | INSUFFICIENT_FUNDS | – | – | f48412132ad30 |
 | 12:50:58 | 2812 | 1 | `c1c2ae71-7705-4397-9836-41effe237af7` | 422 | INSUFFICIENT_FUNDS | – | – | f819962c7843d |
 | 12:51:00 | 2656 | 1 | `959f4015-091d-40ba-9ba8-f369bc400ebe` | 422 | INSUFFICIENT_FUNDS | – | – | f292350af147e |
+| 13:22:48 | 50000 | 6 | `5f63fa80-f99d-4779-8054-dab356d264b8` | 422 | INSUFFICIENT_FUNDS | – | – | ca58d9b9ba882 |
+| 13:22:54 | 9500 | 1 | `2a86ed4d-064c-4288-9b56-0dbd977b71b9` | 422 | INSUFFICIENT_FUNDS | – | – | ca58d9bc01ec1 |
+| 13:23:09 | 5000 | 1 | `c1870cf9-9387-4012-939b-7d8447bdafd2` | 422 | INSUFFICIENT_FUNDS | – | – | ca58d9c1accdc |
+| 13:23:10 | 2500 | 1 | `4ddd02da-5d27-4253-bef6-ddf0a37f9f01` | 422 | INSUFFICIENT_FUNDS | – | – | ca58d9c2189a3 |
+| 13:23:38 | 1000 | 1 | `14b82a8c-12c8-4d1f-a53c-44eb009bca28` | 201 | PENDING | SUCCESS | SUCCESS | ca58d9c27e892 |
 
 ### Final check: every spike authorization GET-checked, none left CREATED
 
-Last run 2026-11-11T12:59:58.470Z: **PASS**
-Attempts: 2026-11-11T12:45:09.920Z PASS · 2026-11-11T12:59:58.470Z PASS
+Last run 2026-11-11T13:25:08.498Z: **PASS**
+Attempts: 2026-11-11T12:45:09.920Z PASS · 2026-11-11T12:59:58.470Z PASS · 2026-11-11T13:25:08.498Z PASS
 
 
 ```json
 {
-  "authorizations": 558,
+  "authorizations": 863,
   "before": {
-    "VOIDED": 316,
-    "CAPTURED": 242
+    "VOIDED": 381,
+    "CAPTURED": 482
   },
   "voidedNow": 0,
   "voidResults": [],
   "after": {
-    "VOIDED": 316,
-    "CAPTURED": 242
+    "VOIDED": 381,
+    "CAPTURED": 482
   },
   "leftCreated": 0,
   "openOrders": []
