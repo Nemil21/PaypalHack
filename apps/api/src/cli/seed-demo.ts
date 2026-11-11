@@ -12,6 +12,7 @@
  * or card numbers.
  */
 import { parseArgs } from 'node:util';
+import pg from 'pg';
 import {
   ConfigError,
   createChannel3Client,
@@ -25,7 +26,7 @@ import { formatUsd, type SimulateResponse } from '@holdfast/shared';
 import { DEMO_ACCOUNTS } from '../auth/store.js';
 import { FIXTURE_LABEL, PRICE_DROP_FIXTURE } from '../demo/aurel-fixture.js';
 import { DEFAULT_SEED, DEMO_QUANTITY } from '../demo/bid-table.js';
-import { demoReset } from '../demo/reset.js';
+import { DemoResetRefusedError, DemoResetVerifyError, demoReset } from '../demo/reset.js';
 import {
   DemoDataExistsError,
   SeedAbortedError,
@@ -95,6 +96,14 @@ if (
   process.exit(1);
 }
 
+if (values.reset && (!config.DEMO_MODE || !config.DEMO_ADMIN_DATABASE_URL)) {
+  console.error(
+    'seed:demo --reset runs demo:reset first: it needs DEMO_MODE=true and DEMO_ADMIN_DATABASE_URL ' +
+      '(the owner role; locally it can equal DATABASE_URL).',
+  );
+  process.exit(1);
+}
+
 const pool = createPool(config, concurrency + 4);
 const db = createDb(pool);
 const paypal = createPayPalClient(config);
@@ -104,7 +113,19 @@ const started = Date.now();
 try {
   if (values.reset) {
     console.log('seed:demo --reset → demo:reset (HF-046)');
-    await demoReset({ db, paypal });
+    const adminPool = new pg.Pool({ connectionString: config.DEMO_ADMIN_DATABASE_URL, max: 3 });
+    try {
+      await demoReset({
+        db,
+        paypal,
+        adminDb: createDb(adminPool),
+        channel3,
+        stubMode: stub,
+        log: (l) => console.log(`  ${l}`),
+      });
+    } finally {
+      await adminPool.end();
+    }
   }
   console.log(
     `seed:demo: seed ${seed}, PayPal ${stub ? 'STUB (FakePayPal)' : 'SANDBOX'}, concurrency ${concurrency}`,
@@ -116,7 +137,9 @@ try {
   print(result, Date.now() - started);
   exitCode = 0;
 } catch (err) {
-  if (err instanceof DemoDataExistsError) {
+  if (err instanceof DemoResetVerifyError || err instanceof DemoResetRefusedError) {
+    console.error(`${err.message} (run npm run demo:reset for the details)`);
+  } else if (err instanceof DemoDataExistsError) {
     console.error(err.message);
   } else if (err instanceof SeedAbortedError) {
     console.error(err.message);

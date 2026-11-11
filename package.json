@@ -36,6 +36,9 @@
     "fixture:offer": "node scripts/offer-fixture.mjs",
     "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts",
     "seed:demo": "tsx --conditions=source apps/api/src/cli/seed-demo.ts",
+    "sim:stream": "tsx --conditions=source apps/api/src/cli/sim-stream.ts",
+    "demo:decline": "tsx --conditions=source apps/api/src/cli/demo-decline.ts",
+    "demo:reset": "tsx --conditions=source apps/api/src/cli/demo-reset.ts",
     "eval:agent": "tsx --conditions=source scripts/agent-eval.ts"
   },
   "devDependencies": {
