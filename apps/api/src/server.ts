@@ -36,6 +36,7 @@ import {
   type PayPalWebhookRouteDeps,
 } from './routes/paypal-webhook.js';
 import { registerProductRoutes } from './routes/products.js';
+import { registerAgentRoutes, type AgentRoutesDeps } from './routes/agent.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -78,6 +79,11 @@ export interface ServerDeps {
   channel3?: Channel3Client;
   /** `POST /api/webhooks/paypal` (HF-033): verifier and processor deps. Not mounted without it. */
   paypalWebhooks?: PayPalWebhookRouteDeps;
+  /**
+   * Buyer agent (HF-039): the Claude model (null without `ANTHROPIC_API_KEY`: every turn shows
+   * the fallback). Mounted with `bids`, whose bid service executes confirmed actions.
+   */
+  agent?: Omit<AgentRoutesDeps, 'money' | 'channel3'>;
 }
 
 /**
@@ -159,6 +165,9 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     });
   registerProductRoutes(app, { channel3, ...(deps.sql ? { db: deps.sql.pool } : {}) });
   if (deps.sql) registerListingRoutes(app, { db: deps.sql, channel3, money: deps.listings?.money });
+  if (deps.bids) {
+    registerAgentRoutes(app, { model: null, ...deps.agent, channel3, money: deps.bids.money });
+  }
 
   registerAuthRoutes(app, {
     config,

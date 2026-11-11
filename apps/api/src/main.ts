@@ -2,6 +2,7 @@ import {
   auditHook,
   ConfigError,
   createChannel3Client,
+  createClaudeAgentModel,
   createClaudeNudgePhraser,
   createDb,
   createPayPalClient,
@@ -124,6 +125,13 @@ const app = buildServer(config, {
       kickSettlement: settlement.kick,
       demoMode: config.DEMO_MODE,
     },
+  },
+  // HF-039: the buyer agent. Without a key every chat turn answers with the "bid directly"
+  // fallback; the confirm endpoint still works for actions proposed earlier.
+  agent: {
+    model: config.ANTHROPIC_API_KEY
+      ? createClaudeAgentModel({ apiKey: config.ANTHROPIC_API_KEY, model: config.ANTHROPIC_MODEL })
+      : null,
   },
   bids: {
     money: {

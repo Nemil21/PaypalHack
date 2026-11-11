@@ -38,3 +38,4 @@ export * from './bid-price-watch.js';
 export * from './listings/cancel-quantity.js';
 export * from './crons/index.js';
 export * from './paypal-webhooks/index.js';
+export * from './agent/index.js';
