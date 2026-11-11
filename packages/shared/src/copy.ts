@@ -67,6 +67,21 @@ export function moneyLine(status: BidStatus, amountCents: number): string {
   }
 }
 
+/**
+ * Copy key for a bid's money (HF-016): like `moneyState`, but a VOIDING bid is "releasing", so no
+ * surface says "released" before the void has landed (VOIDED).
+ */
+export type MoneyCopyKey = 'held' | 'releasing' | 'released' | 'charged' | 'none';
+
+export function moneyCopyKey(status: BidStatus): MoneyCopyKey {
+  return status === 'VOIDING' ? 'releasing' : moneyState(status);
+}
+
+/** "Releasing your $249 hold." (VOIDING; "released" only once VOIDED). */
+export function releasingHoldMessage(amountCents: number): string {
+  return `Releasing your ${formatUsd(amountCents)} hold.`;
+}
+
 /** "We released your $249 hold. Your bank may show it as pending for a few days." */
 export function releasedHoldMessage(amountCents: number): string {
   return `We released your ${formatUsd(amountCents)} hold. ${BANK_PENDING_NOTE}`;

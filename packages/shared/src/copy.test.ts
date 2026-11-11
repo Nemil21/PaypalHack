@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   BANK_PENDING_NOTE,
+  moneyCopyKey,
   moneyLine,
   moneyState,
   releasedHoldMessage,
+  releasingHoldMessage,
   winnersChargedSummary,
   wonMessage,
 } from './copy.js';
@@ -43,5 +45,17 @@ describe('money copy (D14)', () => {
     );
     expect(winnersChargedSummary([22_900])).toBe('The winner is charged their own bid of $229.');
     expect(() => winnersChargedSummary([])).toThrow(RangeError);
+  });
+});
+
+describe('releasing vs released (HF-016)', () => {
+  it('VOIDING is "releasing"; only VOIDED is "released"', () => {
+    expect(moneyCopyKey('VOIDING')).toBe('releasing');
+    expect(moneyCopyKey('VOIDED')).toBe('released');
+    for (const s of BID_STATUSES) {
+      if (s !== 'VOIDING') expect(moneyCopyKey(s)).toBe(moneyState(s));
+    }
+    expect(releasingHoldMessage(22_900)).toBe('Releasing your $229 hold.');
+    expect(releasingHoldMessage(22_900)).not.toMatch(/released/);
   });
 });
