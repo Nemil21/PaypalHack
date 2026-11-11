@@ -13,3 +13,6 @@ export * from './listings/clear-listing.js';
 export * from './settlement/outbox.js';
 export * from './paypal/index.js';
 export * from './bids.js';
+export * from './settlement/view.js';
+export * from './settlement/promote.js';
+export * from './settlement/settle-bid.js';
