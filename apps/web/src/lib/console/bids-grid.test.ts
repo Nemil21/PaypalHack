@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BookResponse } from '@holdfast/shared';
 import {
   amountLabel,
+  armRaiseExpiry,
   compareRank,
   createBidRowTracker,
   heldBySource,
@@ -310,5 +311,70 @@ describe('labels and helpers', () => {
       { source: 'OFFER_PAGE', label: 'Offer page', count: 1, heldCents: 25_000, simulated: 0 },
       { source: 'MCP', label: 'MCP', count: 1, heldCents: 1_000, simulated: 0 },
     ]);
+  });
+});
+
+describe('armRaiseExpiry', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('staggered raises each clear on time with no new book (the timer re-arms)', () => {
+    vi.useFakeTimers({ now: T0 });
+    const t = createBidRowTracker();
+    t.apply(
+      book([
+        { id: 'a', cents: 21_900, shopper: 1 },
+        { id: 'b', cents: 22_000, shopper: 2 },
+      ]),
+      Date.now(),
+    );
+    const cleared: string[][] = [];
+    const onExpired = (rows: BidRow[]) => cleared.push(rows.map((r) => r.rowId));
+
+    // Raise A at t=0; the grid arms on that book.
+    t.noteRaise('a2', 'a');
+    t.apply(
+      book([
+        { id: 'a2', cents: 24_100, shopper: 1 },
+        { id: 'b', cents: 22_000, shopper: 2 },
+      ]),
+      Date.now(),
+    );
+    let cancel = armRaiseExpiry(t, onExpired);
+
+    // Raise B at t=1s; the grid re-arms on the new book (cancelling the old timer).
+    vi.advanceTimersByTime(1_000);
+    t.noteRaise('b2', 'b');
+    t.apply(
+      book([
+        { id: 'a2', cents: 24_100, shopper: 1 },
+        { id: 'b2', cents: 25_000, shopper: 2 },
+      ]),
+      Date.now(),
+    );
+    cancel();
+    cancel = armRaiseExpiry(t, onExpired);
+
+    vi.advanceTimersByTime(RAISE_FLASH_MS - 1_000 + 50); // ≈ 4 s: A clears
+    expect(cleared).toEqual([['a']]);
+    vi.advanceTimersByTime(1_000); // ≈ 5 s: B clears, with no new book in between
+    expect(cleared).toEqual([['a'], ['b']]);
+    expect(t.rows().every((r) => r.raisedFromCents === null)).toBe(true);
+    expect(t.nextRaiseExpiry()).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+    cancel();
+  });
+
+  it('cancel stops the pending timer', () => {
+    vi.useFakeTimers({ now: T0 });
+    const t = createBidRowTracker();
+    t.apply(book([{ id: 'a', cents: 21_900, shopper: 1 }]), Date.now());
+    t.noteRaise('a2', 'a');
+    t.apply(book([{ id: 'a2', cents: 24_100, shopper: 1 }]), Date.now());
+    const onExpired = vi.fn();
+    const cancel = armRaiseExpiry(t, onExpired);
+    expect(vi.getTimerCount()).toBe(1);
+    cancel();
+    vi.advanceTimersByTime(RAISE_FLASH_MS * 2);
+    expect(onExpired).not.toHaveBeenCalled();
   });
 });

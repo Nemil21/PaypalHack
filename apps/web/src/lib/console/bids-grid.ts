@@ -302,3 +302,49 @@ export function createBidRowTracker(): BidRowTracker {
     },
   };
 }
+
+/** Timer seam for `armRaiseExpiry`, so tests can drive it with fake timers. */
+export interface ExpiryClock {
+  now(): number;
+  setTimeout(fn: () => void, ms: number): unknown;
+  clearTimeout(id: unknown): void;
+}
+
+const realClock: ExpiryClock = {
+  now: () => Date.now(),
+  setTimeout: (fn, ms) => setTimeout(fn, ms),
+  clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
+};
+
+/**
+ * Clear each raise flash when it ends: one timer at the earliest `raisedUntil`, re-armed after
+ * every expiry, so staggered raises each clear on time even when no new book arrives.
+ * `onExpired` gets the cleared rows (apply them as updates). Returns a cancel function.
+ */
+export function armRaiseExpiry(
+  tracker: BidRowTracker,
+  onExpired: (rows: BidRow[]) => void,
+  clock: ExpiryClock = realClock,
+): () => void {
+  let timer: unknown = null;
+  let cancelled = false;
+  const arm = () => {
+    timer = null;
+    const at = tracker.nextRaiseExpiry();
+    if (at === null || cancelled) return;
+    timer = clock.setTimeout(
+      () => {
+        if (cancelled) return;
+        const done = tracker.expireRaises(clock.now());
+        if (done.length) onExpired(done);
+        arm();
+      },
+      Math.max(0, at - clock.now()) + 20,
+    );
+  };
+  arm();
+  return () => {
+    cancelled = true;
+    if (timer !== null) clock.clearTimeout(timer);
+  };
+}

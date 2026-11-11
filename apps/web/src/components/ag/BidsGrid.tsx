@@ -15,6 +15,7 @@ import { gridTheme, registerAg } from '../../lib/ag';
 import { cn } from '../../lib/cn';
 import {
   amountLabel,
+  armRaiseExpiry,
   compareRank,
   heldBySource,
   rankLabel,
@@ -270,25 +271,19 @@ export default function BidsGrid({ book, tracker, slider }: BidsGridProps) {
     );
   }, [api, book, tracker]);
 
-  // Raise flashes end after a few seconds: clear "$219 →" from those rows.
+  // Raise flashes end after a few seconds: clear "$219 →" from those rows. The timer re-arms
+  // for the next raise in the book, so staggered raises each clear on time.
   useEffect(() => {
     if (!api) return;
-    const at = tracker.nextRaiseExpiry();
-    if (at === null) return;
-    const id = setTimeout(
-      () => {
-        const done = tracker.expireRaises(Date.now());
-        if (!done.length || api.isDestroyed()) return;
-        // The amount is unchanged, so the grid would keep the cell: repaint it without the arrow.
-        api.applyTransactionAsync({ update: done }, (res) => {
-          if (!api.isDestroyed()) {
-            api.refreshCells({ rowNodes: res.update, columns: ['bid'], force: true });
-          }
-        });
-      },
-      Math.max(0, at - Date.now()) + 20,
-    );
-    return () => clearTimeout(id);
+    return armRaiseExpiry(tracker, (done) => {
+      if (api.isDestroyed()) return;
+      // The amount is unchanged, so the grid would keep the cell: repaint it without the arrow.
+      api.applyTransactionAsync({ update: done }, (res) => {
+        if (!api.isDestroyed()) {
+          api.refreshCells({ rowNodes: res.update, columns: ['bid'], force: true });
+        }
+      });
+    });
   }, [api, book, tracker]);
 
   // "Would win?" follows the slider: repaint that column once per frame while dragging.
