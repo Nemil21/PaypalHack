@@ -36,6 +36,9 @@ import type { HoldResult, OrderView } from '../paypal/types.js';
  * 5. PENDING_APPROVAL with an unknown outcome, per path:
  *    - card / vault create timed out (`needs_reconcile`): replay the create with the same request
  *      id (or GET the order when its id is known); void any hold found; then ABANDONED;
+ *    - ABANDONED with `needs_reconcile` (a cancel, HF-012b / HF-016, overtook a server-side create
+ *      that may still have made a hold): the same replay; a hold found is voided, else the flag is
+ *      cleared (the cancel's `error_code` is kept);
  *    - wallet / card-fields orders older than 30 min (or `needs_reconcile`): GET the order.
  *      APPROVED (or authorized) and the listing still biddable → `authorizeAndLand` (replays
  *      `authz-<bidId>`, lands via `landHold`); otherwise void any authorization and ABANDONED.
@@ -261,9 +264,11 @@ async function sweepPendingApprovals(ctx: Ctx): Promise<void> {
     await ctx.deps.db.pool.query(
       `SELECT b.*, (b.placed_at < now() - make_interval(secs => $2)) AS overdue
          FROM bids b
-        WHERE b.status = 'PENDING_APPROVAL'
-          AND ((b.needs_reconcile AND b.placed_at < now() - make_interval(secs => $1))
-               OR b.placed_at < now() - make_interval(secs => $2))
+        WHERE ((b.status = 'PENDING_APPROVAL'
+                AND ((b.needs_reconcile AND b.placed_at < now() - make_interval(secs => $1))
+                     OR b.placed_at < now() - make_interval(secs => $2)))
+               OR (b.status = 'ABANDONED' AND b.needs_reconcile
+                   AND b.updated_at < now() - make_interval(secs => $1)))
           AND ${NOT_STUCK}
         ORDER BY b.placed_at, b.id LIMIT $3`,
       [ctx.grace, ctx.abandonAfter, ctx.limit],
@@ -271,7 +276,11 @@ async function sweepPendingApprovals(ctx: Ctx): Promise<void> {
   ).rows as Array<BidRow & { overdue: boolean; payment_method: string | null }>;
   for (const bid of rows) {
     try {
-      if (isTwoStep(bid.payment_method) && bid.paypal_order_id) {
+      if (
+        bid.status === 'PENDING_APPROVAL' &&
+        isTwoStep(bid.payment_method) &&
+        bid.paypal_order_id
+      ) {
         await pollOrder(ctx, bid, bid.overdue);
       } else {
         await reconcileCreate(ctx, bid, bid.overdue);
@@ -290,6 +299,17 @@ async function sweepPendingApprovals(ctx: Ctx): Promise<void> {
  */
 async function reconcileCreate(ctx: Ctx, bid: BidRow, overdue: boolean): Promise<void> {
   const { deps } = ctx;
+  if (bid.paypal_authorization_id) {
+    // A hold was already recorded on the bid (e.g. `landHold` refused it after a cancel).
+    const auth = await deps.paypal.getAuthorization(bid.paypal_authorization_id);
+    if (auth.status === 'CREATED') {
+      await voidAndAbandon(ctx, bid, auth.id, auth.orderId, 'RECONCILED_VOIDED');
+      return;
+    }
+    if (auth.status === 'PENDING' && !overdue) return;
+    await abandon(ctx, bid, 'RECONCILED_NO_HOLD', null);
+    return;
+  }
   if (bid.paypal_order_id) {
     const order = await deps.paypal.getOrder(bid.paypal_order_id);
     const hold = order.authorizations.find((a) => a.status === 'CREATED');
@@ -337,7 +357,7 @@ async function reconcileCreate(ctx: Ctx, bid: BidRow, overdue: boolean): Promise
       await voidAndAbandon(ctx, bid, result.authorizationId, result.orderId, 'RECONCILED_VOIDED');
       return;
     case 'needs_approval':
-      if (isTwoStep(bid.payment_method)) {
+      if (isTwoStep(bid.payment_method) && bid.status === 'PENDING_APPROVAL') {
         // The order exists and waits for the buyer: the order poll handles it from here.
         await deps.db.pool.query(
           `UPDATE bids SET paypal_order_id = $2, needs_reconcile = false
@@ -349,6 +369,10 @@ async function reconcileCreate(ctx: Ctx, bid: BidRow, overdue: boolean): Promise
       await abandon(ctx, bid, `PAYER_ACTION_REQUIRED:${result.status}`, null, result.orderId);
       return;
     case 'denied':
+      if (bid.status !== 'PENDING_APPROVAL') {
+        await abandon(ctx, bid, result.code, null, result.orderId);
+        return;
+      }
       await markHoldFailed(deps, bid, result.code, result.orderId, SYSTEM);
       ctx.out.holdFailed++;
       return;
@@ -446,8 +470,8 @@ async function stillAccepts(q: Queryable, bid: BidRow): Promise<boolean> {
 async function recordOrder(ctx: Ctx, bidId: string, orderId: string | null): Promise<void> {
   if (!orderId) return;
   await ctx.deps.db.pool.query(
-    `UPDATE bids SET paypal_order_id = $2 WHERE id = $1 AND status = 'PENDING_APPROVAL'
-        AND paypal_order_id IS NULL`,
+    `UPDATE bids SET paypal_order_id = $2
+      WHERE id = $1 AND status IN ('PENDING_APPROVAL', 'ABANDONED') AND paypal_order_id IS NULL`,
     [bidId, orderId],
   );
 }
@@ -490,8 +514,31 @@ async function abandon(
         paypalId: r.paypal_order_id,
         data: { reason: code, held: false, ...extra },
       });
+      return r;
     }
-    return r;
+    // Already ABANDONED by a cancel with a create in flight: no hold exists, so clear the flag.
+    // The cancel's error_code stays; ids PayPal reported are kept for reconcile:holds.
+    const cleared = (
+      await tx.query(
+        `UPDATE bids SET needs_reconcile = false,
+                         paypal_order_id = COALESCE(paypal_order_id, $2),
+                         paypal_authorization_id = COALESCE(paypal_authorization_id, $3)
+          WHERE id = $1 AND status = 'ABANDONED' AND needs_reconcile RETURNING *`,
+        [bid.id, orderId ?? null, authorizationId],
+      )
+    ).rows[0] as BidRow | undefined;
+    if (cleared) {
+      await ctx.deps.audit?.(tx, {
+        actor: SYSTEM,
+        action: 'BID_RECONCILED',
+        entity: 'bid',
+        entityId: cleared.id,
+        listingId: cleared.listing_id,
+        paypalId: cleared.paypal_order_id,
+        data: { reason: code, held: false, ...extra },
+      });
+    }
+    return null;
   });
   if (row) ctx.out.abandoned++;
 }

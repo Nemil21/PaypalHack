@@ -470,6 +470,48 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-034 crons', { timeout: 60_000 }, () => {
       expect(voidCalls()).toHaveLength(voidsSoFar);
     });
 
+    it('a cancel that overtook a VAULT create (ABANDONED + needs_reconcile) → the hold is voided, the flag cleared', async () => {
+      const l = await fx.listing();
+      const vaulted = await vaultedShopper();
+      fake.failNext('order_create', { kind: 'drop_response' }, 2);
+      const placed = await placeBid(deps({ paypal: impatient }), bidInput(l.id, vaulted, 'VAULT'));
+      const id = placed.bid!.id;
+      // What HF-012b / HF-016 leave behind when the cancel wins the race with the create.
+      await db.pool.query(
+        `UPDATE bids SET status = 'ABANDONED', void_reason = 'CANCELLED', error_code = 'CANCELLED'
+          WHERE id = $1`,
+        [id],
+      );
+      const hold = newAuths().find((a) => a.amountCents === 21_000)!;
+      expect(hold.status).toBe('CREATED');
+
+      await sweepHolds(deps(), { graceSeconds: 0 });
+      expect(await bid(id)).toMatchObject({
+        status: 'ABANDONED',
+        needs_reconcile: false,
+        void_reason: 'CANCELLED',
+        error_code: 'CANCELLED',
+        paypal_authorization_id: hold.id,
+      });
+      expect(authStatus(hold.id)).toBe('VOIDED');
+      expect(voidCalls().map((c) => c.requestId)).toEqual([voidKey(id)]);
+
+      // Nothing left to do: the next pass skips it.
+      await sweepHolds(deps(), { graceSeconds: 0 });
+      expect(voidCalls()).toHaveLength(1);
+    });
+
+    it('ABANDONED + needs_reconcile with a hold already recorded and voided → flag cleared, no PayPal void', async () => {
+      const l = await listing({ status: 'CANCELLED', opensIn: -3, closesIn: 21, deadlineIn: 27 });
+      const b = await heldOnFake(l.id, 'ABANDONED');
+      await client.void(b.authId, voidKey(b.id));
+      await db.pool.query(`UPDATE bids SET needs_reconcile = true WHERE id = $1`, [b.id]);
+      const before = voidCalls().length;
+      await sweepHolds(deps(), { graceSeconds: 0 });
+      expect(await bid(b.id)).toMatchObject({ status: 'ABANDONED', needs_reconcile: false });
+      expect(voidCalls()).toHaveLength(before);
+    });
+
     it('respects the 2 min grace for fresh late holds and fresh VOIDING rows', async () => {
       const clearing = await listing({
         status: 'CLEARING',
