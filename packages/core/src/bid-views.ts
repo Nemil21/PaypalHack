@@ -1,5 +1,6 @@
 import {
   isRaisable,
+  AFFILIATE_DISCLOSURE,
   moneyCopyKey,
   moneyLine,
   nudgeText,
@@ -85,6 +86,21 @@ export interface MyBid {
   cutoffCents: number | null;
   /** Set only while `belowCutoff` is true (ROUNDS, live bid, nudged this round); else null. */
   nudge: MyBidNudge | null;
+  /**
+   * Released because a store sells it cheaper (`void_reason = PRICE_DROP`, HF-042a): the cheaper
+   * offer with its affiliate link and disclosure, for W14 and MCP `my_bids` (D18). Null otherwise.
+   */
+  priceDrop: MyBidPriceDrop | null;
+}
+
+export interface MyBidPriceDrop {
+  newCents: number | null;
+  merchant: string | null;
+  url: string | null;
+  /** `AFFILIATE_DISCLOSURE`, shown next to `url`. */
+  disclosure: string;
+  /** HF-042a replay: label it "replayed event (demo)". */
+  replayed: boolean;
 }
 
 const LIVE: ReadonlySet<string> = new Set(['PENDING_APPROVAL', 'HELD']);
@@ -182,7 +198,42 @@ function nudgeOf(r: BidViewRow, cutoffCents: number): MyBidNudge | null {
   };
 }
 
-function toMyBid(r: BidViewRow): MyBid {
+/** The latest PRICE_DROP void request per bid (watcher or toggle), for the cheaper offer. */
+async function priceDropAudits(
+  q: Queryable,
+  bidIds: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const out = new Map<string, Record<string, unknown>>();
+  if (bidIds.length === 0) return out;
+  const res = await q.query(
+    `SELECT entity_id, data FROM audit_events
+      WHERE entity = 'bid' AND entity_id = ANY($1::uuid[]) AND action = 'BID_VOID_REQUESTED'
+        AND data->>'reason' = 'PRICE_DROP'
+      ORDER BY id`,
+    [bidIds],
+  );
+  for (const r of res.rows as Array<{ entity_id: string; data: Record<string, unknown> }>) {
+    out.set(r.entity_id, r.data ?? {});
+  }
+  return out;
+}
+
+function myBidPriceDrop(
+  r: BidViewRow,
+  data: Record<string, unknown> | undefined,
+): MyBidPriceDrop | null {
+  if (r.void_reason !== 'PRICE_DROP') return null;
+  const url = str(data?.url) ?? r.best_public_offer_url;
+  return {
+    newCents: num(data?.newPriceCents) ?? r.best_public_price_cents,
+    merchant: str(data?.merchant) ?? r.best_public_merchant,
+    url,
+    disclosure: AFFILIATE_DISCLOSURE,
+    replayed: data?.replayed === true,
+  };
+}
+
+function toMyBid(r: BidViewRow, drop: Record<string, unknown> | undefined = undefined): MyBid {
   let belowCutoff: boolean | null = null;
   let cutoffCents: number | null = null;
   let nudge: MyBidNudge | null = null;
@@ -237,13 +288,18 @@ function toMyBid(r: BidViewRow): MyBid {
     belowCutoff,
     cutoffCents,
     nudge,
+    priceDrop: myBidPriceDrop(r, drop),
   };
 }
 
 /** `GET /bids/mine`: every bid of this shopper, newest first. Clients poll it every 5 s in ROUNDS. */
 export async function listMyBids(q: Queryable, shopperId: string): Promise<{ bids: MyBid[] }> {
-  const res = await q.query(VIEW_SQL, [shopperId, null]);
-  return { bids: (res.rows as BidViewRow[]).map(toMyBid) };
+  const rows = (await q.query(VIEW_SQL, [shopperId, null])).rows as BidViewRow[];
+  const drops = await priceDropAudits(
+    q,
+    rows.filter((r) => r.void_reason === 'PRICE_DROP').map((r) => r.id),
+  );
+  return { bids: rows.map((r) => toMyBid(r, drops.get(r.id))) };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -540,7 +596,7 @@ export async function getBidDetail(
   }
 
   return {
-    bid: toMyBid(self),
+    bid: toMyBid(self, priceDropAudit.get(self.id)?.data),
     chain: oldestFirst.map((r) => ({
       bidId: r.id,
       amountCents: r.amount_cents,

@@ -12,7 +12,9 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  * - `listing-expiry`: every minute;
  * - `hold-sweeper`: every 5 min;
  * - `paypal-webhook-replay`: every minute (and at boot), HF-033's `reprocessPayPalWebhooks`
- *   (`webhook_events` rows with `processed_at IS NULL`, M14).
+ *   (`webhook_events` rows with `processed_at IS NULL`, M14);
+ * - `price-event-replay`: every minute (and at boot), HF-042a's `reprocessPriceEvents` (Channel3
+ *   rows with `processed_at IS NULL`, M13/M14).
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -20,6 +22,7 @@ export const CRON_JOB_IDS = {
   listingExpiry: 'listing-expiry',
   holdSweeper: 'hold-sweeper',
   paypalWebhookReplay: 'paypal-webhook-replay',
+  priceEventReplay: 'price-event-replay',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -31,6 +34,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   pollPayouts?: () => Promise<unknown>;
   /** HF-033 `() => reprocessPayPalWebhooks(webhookDeps)`. No replay job without it. */
   reprocessPayPalWebhooks?: () => Promise<unknown>;
+  /** HF-042a `() => reprocessPriceEvents(priceWatchDeps)`. No price-event job without it. */
+  reprocessPriceEvents?: () => Promise<unknown>;
   sweep?: SweepOptions;
   onError?: (err: unknown, context: { job: string; detail?: string }) => void;
 }
@@ -59,6 +64,14 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
   const replay = deps.reprocessPayPalWebhooks;
   if (replay) {
     jobs.push({ id: CRON_JOB_IDS.paypalWebhookReplay, intervalMs: MINUTE_MS, run: () => replay() });
+  }
+  const priceReplay = deps.reprocessPriceEvents;
+  if (priceReplay) {
+    jobs.push({
+      id: CRON_JOB_IDS.priceEventReplay,
+      intervalMs: MINUTE_MS,
+      run: () => priceReplay(),
+    });
   }
   jobs.push({
     id: CRON_JOB_IDS.listingExpiry,

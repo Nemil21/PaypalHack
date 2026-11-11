@@ -6,6 +6,7 @@ import {
   type Config,
   type Db,
   type KickSettlement,
+  type PriceWatchDeps,
   type RoundsDeps,
 } from '@holdfast/core';
 import { createGuards, registerAuth, Sessions, type McpTokenVerifier } from './auth/guards.js';
@@ -24,6 +25,7 @@ import { registerBookRoutes } from './routes/book.js';
 import { registerBrandOverviewRoutes } from './routes/brand-overview.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
+import { registerAdminPriceEventRoutes } from './routes/admin-price-events.js';
 import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerListingRoutes } from './routes/listings.js';
@@ -85,6 +87,8 @@ export interface ServerDeps {
    * the fallback). Mounted with `bids`, whose bid service executes confirmed actions.
    */
   agent?: Omit<AgentRoutesDeps, 'money' | 'channel3'>;
+  /** Price watcher (HF-042a): mounts `POST /api/admin/replay-price-event`. Not mounted without it. */
+  priceWatch?: PriceWatchDeps;
 }
 
 /**
@@ -153,6 +157,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });
+  if (deps.priceWatch) registerAdminPriceEventRoutes(app, deps.priceWatch);
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   if (deps.sql) {
     registerSettlementRoutes(app, {
