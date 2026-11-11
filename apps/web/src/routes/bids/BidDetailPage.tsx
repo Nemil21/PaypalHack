@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { BANK_PENDING_NOTE, formatUsd } from '@holdfast/shared';
 import {
   Badge,
@@ -22,7 +22,9 @@ import {
   offerHref,
   releaseReason,
   ROUNDS_POLL_MS,
+  roundsAction,
   shouldPoll,
+  shouldWatchRounds,
   sourceChip,
   statusPill,
   timeLeftText,
@@ -38,6 +40,7 @@ import { HoldConfirmation } from './HoldConfirmation';
 import { useNow, usePolling } from './hooks';
 import { PriceDropSheet } from './PriceDropSheet';
 import { ReleaseToggle } from './ReleaseToggle';
+import { RoundsRaise } from './RoundsRaise';
 
 type Load =
   | { state: 'loading' }
@@ -91,9 +94,13 @@ export function BidDetailPage() {
     !!detail &&
     (detail.chain.some((c) => c.status === 'VOIDING' || c.status === 'WON') ||
       (detail.bid.status === 'PENDING_APPROVAL' && justHeld));
-  usePolling(!!detail && (shouldPoll([detail.bid]) || settling), ROUNDS_POLL_MS, () => {
-    void fetchDetail();
-  });
+  usePolling(
+    !!detail && (shouldPoll([detail.bid]) || shouldWatchRounds([detail.bid]) || settling),
+    ROUNDS_POLL_MS,
+    () => {
+      void fetchDetail();
+    },
+  );
 
   if (load.state === 'loading') return <DetailSkeleton />;
   if (load.state === 'failed') {
@@ -173,9 +180,11 @@ function Summary({
   const now = useNow();
   const pill = statusPill(bid.status);
   const left = timeLeftText(bid, now);
-  const hint = belowHint(bid);
+  const rounds = roundsAction(bid);
+  const hint = rounds ? null : belowHint(bid);
   const chip = sourceChip(bid.source);
   const reason = releaseReason(bid);
+  const navigate = useNavigate();
   const live = bid.status === 'HELD' || bid.status === 'PENDING_APPROVAL';
 
   return (
@@ -217,6 +226,14 @@ function Summary({
           {hint && <span className="text-[14px] text-orange">{hint}</span>}
         </div>
       )}
+      <RoundsRaise
+        bid={bid}
+        // Follow the chain to the new head bid; the timeline shows the raise row.
+        onRaised={(res) =>
+          res.bidId === bid.bidId ? onChanged() : navigate(`/bids/${res.bidId}`, { replace: true })
+        }
+        onRefresh={onChanged}
+      />
       {live && showToggle && <ReleaseToggle bid={bid} onChanged={onChanged} />}
     </section>
   );

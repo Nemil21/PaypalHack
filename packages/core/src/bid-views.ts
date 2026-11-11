@@ -1,9 +1,13 @@
 import {
+  isRaisable,
   moneyCopyKey,
   moneyLine,
+  nudgeText,
   promotedMessage,
   releasingHoldMessage,
+  suggestedRaiseCents,
   type BidStatus,
+  type ListingStatus,
   type MoneyCopyKey,
 } from '@holdfast/shared';
 import type { Queryable } from './db.js';
@@ -25,6 +29,28 @@ export interface MyBidListing {
   imageUrl: string | null;
   windowClosesAt: string | null;
   roundsEndAt: string | null;
+  roundEndsAt: string | null;
+  /**
+   * D7 `isRaisable` at the database clock: OPEN before `window_closes_at`, or ROUNDS before
+   * `rounds_end_at`. ROUNDS and false = frozen book ("Rounds ended. Waiting for the brand to clear.").
+   */
+  raisable: boolean;
+}
+
+/**
+ * The current round's nudge for a live bid that is still below the cutoff (HF-038a, W14/W15):
+ * "You're out at $219. The cutoff is $240. Raise to $241?". Numbers are `clear()` output and the
+ * shopper's own bid only, never the floor. When the shopper raised since the nudge but is still
+ * below, `suggestedCents` and `text` are recomputed for the current bid with the same formula.
+ */
+export interface MyBidNudge {
+  id: string;
+  round: number;
+  cutoffCents: number;
+  /** `max(cutoff + minRaise(cutoff), current + minRaise(current))` (19 §Logic 4). */
+  suggestedCents: number;
+  text: string;
+  sentAt: string;
   roundEndsAt: string | null;
 }
 
@@ -57,6 +83,8 @@ export interface MyBid {
    */
   belowCutoff: boolean | null;
   cutoffCents: number | null;
+  /** Set only while `belowCutoff` is true (ROUNDS, live bid, nudged this round); else null. */
+  nudge: MyBidNudge | null;
 }
 
 const LIVE: ReadonlySet<string> = new Set(['PENDING_APPROVAL', 'HELD']);
@@ -86,8 +114,15 @@ interface BidViewRow {
   rounds_end_at: Date | null;
   round_ends_at: Date | null;
   cleared_at: Date | null;
+  nudge_id: string | null;
+  nudge_round: number | null;
   nudge_bid_id: string | null;
   nudge_cutoff_cents: number | null;
+  nudge_target_cents: number | null;
+  nudge_text: string | null;
+  nudge_sent_at: Date | null;
+  nudge_round_ends_at: Date | null;
+  db_now: Date;
   best_public_price_cents: number | null;
   best_public_merchant: string | null;
   best_public_offer_url: string | null;
@@ -102,7 +137,10 @@ const VIEW_SQL = `
          l.id AS listing_id, l.product_id, l.slug AS listing_slug, l.status AS listing_status,
          p.title AS listing_title, p.image_url AS listing_image_url,
          l.window_closes_at, l.rounds_end_at, l.round_ends_at, l.cleared_at,
-         n.bid_id AS nudge_bid_id, n.cutoff_cents AS nudge_cutoff_cents,
+         n.id AS nudge_id, n.round AS nudge_round, n.bid_id AS nudge_bid_id,
+         n.cutoff_cents AS nudge_cutoff_cents, n.target_cents AS nudge_target_cents,
+         n.text AS nudge_text, COALESCE(n.sent_at, n.created_at) AS nudge_sent_at,
+         n.round_ends_at AS nudge_round_ends_at, clock_timestamp() AS db_now,
          p.best_public_price_cents, p.best_public_merchant, p.best_public_offer_url,
          p.price_updated_at
     FROM bids b
@@ -123,9 +161,31 @@ export function moneyText(status: BidStatus, amountCents: number): string {
   return status === 'VOIDING' ? releasingHoldMessage(amountCents) : moneyLine(status, amountCents);
 }
 
+function nudgeOf(r: BidViewRow, cutoffCents: number): MyBidNudge | null {
+  if (!r.nudge_id || r.nudge_round == null) return null;
+  // The nudged bid itself keeps its snapshot (and HF-036b's phrasing); a later, still-low raise
+  // gets the same template recomputed for its own amount.
+  const own = r.nudge_bid_id === r.id && r.nudge_target_cents != null && !!r.nudge_text;
+  const suggestedCents = own
+    ? r.nudge_target_cents!
+    : suggestedRaiseCents(cutoffCents, r.amount_cents);
+  return {
+    id: r.nudge_id,
+    round: r.nudge_round,
+    cutoffCents,
+    suggestedCents,
+    text: own
+      ? r.nudge_text!
+      : nudgeText({ yourBidCents: r.amount_cents, cutoffCents, suggestedCents }),
+    sentAt: iso(r.nudge_sent_at) ?? r.db_now.toISOString(),
+    roundEndsAt: iso(r.nudge_round_ends_at),
+  };
+}
+
 function toMyBid(r: BidViewRow): MyBid {
   let belowCutoff: boolean | null = null;
   let cutoffCents: number | null = null;
+  let nudge: MyBidNudge | null = null;
   if (r.listing_status === 'ROUNDS' && LIVE.has(r.status)) {
     belowCutoff = false;
     if (r.nudge_cutoff_cents != null) {
@@ -134,6 +194,7 @@ function toMyBid(r: BidViewRow): MyBid {
       // at the cutoff loses on time priority).
       belowCutoff =
         r.nudge_bid_id === r.id || r.nudge_bid_id == null || r.amount_cents <= r.nudge_cutoff_cents;
+      if (belowCutoff) nudge = nudgeOf(r, r.nudge_cutoff_cents);
     }
   }
   return {
@@ -163,9 +224,19 @@ function toMyBid(r: BidViewRow): MyBid {
       windowClosesAt: iso(r.window_closes_at),
       roundsEndAt: iso(r.rounds_end_at),
       roundEndsAt: iso(r.round_ends_at),
+      raisable: isRaisable(
+        {
+          status: r.listing_status as ListingStatus,
+          // No window yet (DRAFT) = never biddable.
+          windowClosesAt: r.window_closes_at ?? 0,
+          roundsEndAt: r.rounds_end_at,
+        },
+        r.db_now,
+      ),
     },
     belowCutoff,
     cutoffCents,
+    nudge,
   };
 }
 

@@ -3,6 +3,7 @@ import {
   minRaiseCents,
   raisedMessage,
   raiseFailedMessage,
+  ROUNDS_ENDED_COPY,
   severalHoldsWarning,
   formatUsd,
 } from '@holdfast/shared';
@@ -237,6 +238,7 @@ export async function raiseBid(deps: PlaceBidDeps, input: RaiseBidInput): Promis
       bidId: null,
       amountCents: input.amountCents,
       released: false,
+      roundsEnded: listing?.status === 'ROUNDS',
     });
   }
 
@@ -360,6 +362,7 @@ async function insertRaise(
       bidId: null,
       amountCents: input.amountCents,
       released: false,
+      roundsEnded: listing?.status === 'ROUNDS',
     });
   }
 
@@ -715,6 +718,8 @@ export interface RaisedBidBody {
   amountCents: number;
   replacesBidId: string;
   previousAmountCents: number;
+  /** The replaced bid now: VOIDED once its hold is released, VOIDING until then (D14 copy). */
+  previousStatus: string;
   authorizationId: string | null;
   authorizedAt: string | null;
   raiseCount: number;
@@ -741,6 +746,7 @@ export function raiseBidResponse(result: RaiseBidResult): IdempotentResponse {
       amountCents: bid.amount_cents,
       replacesBidId: oldBid.id,
       previousAmountCents: oldBid.amount_cents,
+      previousStatus: oldBid.status,
       authorizationId: bid.paypal_authorization_id,
       authorizedAt: bid.authorized_at ? bid.authorized_at.toISOString() : null,
       raiseCount,
@@ -770,6 +776,13 @@ export function raiseBidResponse(result: RaiseBidResult): IdempotentResponse {
   const envelope = response.body as { error: { message: string } };
   if (error.code === 'HOLD_FAILED' && stands !== null) {
     envelope.error.message = raiseFailedMessage(stands);
+  } else if (error.code === 'WINDOW_CLOSED' && error.roundsEnded) {
+    // Frozen book (D7, HF-038a): the bid page shows the same copy and hides Raise.
+    envelope.error.message =
+      stands !== null
+        ? `${ROUNDS_ENDED_COPY} Your ${formatUsd(stands)} bid still stands.`
+        : ROUNDS_ENDED_COPY;
+    (envelope.error as Record<string, unknown>).roundsEnded = true;
   } else if (error.code === 'WINDOW_CLOSED') {
     envelope.error.message =
       stands !== null
