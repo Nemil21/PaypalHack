@@ -3,6 +3,9 @@ import { AppShell } from './components/layout/AppShell';
 import { ToastProvider } from './components/ui';
 import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
+import { BrandGate } from './routes/brand/BrandGate';
+import { BrandIndex } from './routes/brand/BrandIndex';
+import { ListingConsole } from './routes/brand/ListingConsole';
 import { OfferPage } from './routes/offer/OfferPage';
 import { MandateEditorPage, MandatesPage } from './routes/Mandates';
 import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
@@ -32,16 +35,16 @@ const router = createBrowserRouter([
         element: <ScreenPlaceholder screen="Brand verification (W03)" ticket="HF-011b" />,
       },
       {
-        path: 'brand',
-        element: <ScreenPlaceholder screen="Brand overview (W04)" ticket="HF-026" />,
-      },
-      {
         path: 'brand/listings/new',
         element: <ScreenPlaceholder screen="Create listing (W05)" ticket="HF-013" />,
       },
       {
-        path: 'brand/listings/:listingId',
-        element: <ScreenPlaceholder screen="Listing console (W06)" ticket="HF-023" />,
+        // HF-023: brand session + listings; `/brand` opens the newest console until W04 (HF-026).
+        element: <BrandGate />,
+        children: [
+          { path: 'brand', element: <BrandIndex /> },
+          { path: 'brand/listings/:listingId', element: <ListingConsole /> },
+        ],
       },
       {
         path: 'brand/listings/:listingId/settlement',

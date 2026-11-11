@@ -30,7 +30,8 @@
     "test:db": "npm test -w @holdfast/db",
     "workflows:hello": "node apps/api/dist/cli/workflows-hello.js",
     "admin:verify": "tsx --conditions=source apps/api/src/cli/admin-verify.ts",
-    "fixture:offer": "node scripts/offer-fixture.mjs"
+    "fixture:offer": "node scripts/offer-fixture.mjs",
+    "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
