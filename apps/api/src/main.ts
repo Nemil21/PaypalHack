@@ -1,4 +1,12 @@
-import { ConfigError, createDb, createPool, loadConfig, loadDotenv } from '@holdfast/core';
+import {
+  auditHook,
+  ConfigError,
+  createDb,
+  createPayPalClient,
+  createPool,
+  loadConfig,
+  loadDotenv,
+} from '@holdfast/core';
 import { buildServer } from './server.js';
 
 loadDotenv();
@@ -15,7 +23,20 @@ try {
 }
 
 const pool = createPool(config);
-const app = buildServer(config, { db: pool, sql: createDb(pool) });
+const sql = createDb(pool);
+const app = buildServer(config, {
+  db: pool,
+  sql,
+  bids: {
+    money: {
+      db: sql,
+      paypal: createPayPalClient(config),
+      audit: auditHook,
+      // The labelled sandbox test card (S1): demo only, never on a live PayPal base.
+      allowTestCard: config.DEMO_MODE && (config.paypalIsSandbox || config.PAYPAL_MODE === 'stub'),
+    },
+  },
+});
 // An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
 pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool error'));
 app.addHook('onClose', () => pool.end());
