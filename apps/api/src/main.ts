@@ -8,7 +8,9 @@ import {
   inProcessSettlementRunner,
   loadConfig,
   loadDotenv,
+  makePayoutBrand,
   mockDeclinesAllowed,
+  retryPayout,
   startPriceWatchRetrier,
   startSettlementOutboxKicker,
   testCardAllowed,
@@ -39,6 +41,15 @@ const channel3 = createChannel3Client(config, {
   // Calls happen only once the server is built, so `app` is initialised by then.
   logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
 });
+// HF-032: the brand payout. The coordinator calls it once the listing is SETTLED; the HF-034
+// minute cron runs `pollPayouts` with the same deps.
+const payouts = {
+  db: sql,
+  paypal,
+  // Called only once the server is built, so `app` is initialised by then.
+  onError: (err: unknown, ctx: { step: string; listingId?: string }) =>
+    app.log.warn({ err: (err as Error).message, ...ctx }, 'payout step failed'),
+};
 // HF-030a: the in-process settlement coordinator is the default runner (HF-030b adds Workflows).
 const settlement =
   config.SETTLEMENT_RUNNER === 'inprocess'
@@ -46,6 +57,7 @@ const settlement =
         db: sql,
         paypal,
         allowMockDecline: mockDeclinesAllowed(config),
+        payoutBrand: makePayoutBrand(payouts),
       })
     : null;
 const app = buildServer(config, {
@@ -53,7 +65,10 @@ const app = buildServer(config, {
   sql,
   events,
   channel3,
-  settlement: { kick: settlement?.kick },
+  settlement: {
+    kick: settlement?.kick,
+    retryPayout: (input) => retryPayout(payouts, input),
+  },
   bids: {
     money: {
       db: sql,

@@ -67,3 +67,5 @@ jobs:
         run: npx vitest run --maxWorkers=2 packages/core/src/settlement
       - name: My bids, cancel and release-if-cheaper integration + race tests (HF-016, HF-020)
         run: npx vitest run packages/core/src/bid-cancel.test.ts packages/core/src/bid-price-watch.test.ts apps/api/src/routes/my-bids.test.ts
+      - name: Brand payout integration + race tests on the FakePayPal stub (HF-032)
+        run: npx vitest run --maxWorkers=2 packages/core/src/payouts apps/api/src/routes/payout-retry.test.ts

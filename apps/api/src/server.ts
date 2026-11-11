@@ -24,7 +24,7 @@ import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerListingRoutes } from './routes/listings.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
-import { registerSettlementRoutes } from './routes/settlement.js';
+import { registerSettlementRoutes, type RetryPayout } from './routes/settlement.js';
 import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
 import { registerOfferRoutes } from './routes/offers.js';
@@ -48,10 +48,11 @@ export interface ServerDeps {
    */
   rounds?: Omit<RoundsDeps, 'db'>;
   /**
-   * Settlement runner (HF-030a): admin retry re-kicks through it. The settlement routes are
-   * mounted whenever `sql` is set.
+   * Settlement runner (HF-030a): admin retry re-kicks through it. `retryPayout` (HF-032) backs
+   * the admin payout retry; without it that route answers 500. The settlement routes are mounted
+   * whenever `sql` is set.
    */
-  settlement?: { kick?: KickSettlement };
+  settlement?: { kick?: KickSettlement; retryPayout?: RetryPayout };
   /** Shared rate limiter (one web instance). Tests pass their own. */
   limiter?: RateLimiter;
   /** MCP token lookup (HF-043). Without it every MCP call is 401. */
@@ -130,7 +131,11 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
   if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
   if (deps.sql) {
-    registerSettlementRoutes(app, { db: deps.sql, kickSettlement: deps.settlement?.kick });
+    registerSettlementRoutes(app, {
+      db: deps.sql,
+      kickSettlement: deps.settlement?.kick,
+      retryPayout: deps.settlement?.retryPayout,
+    });
   }
   const channel3 =
     deps.channel3 ??

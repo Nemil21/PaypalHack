@@ -222,7 +222,7 @@ No UPDATE or DELETE grants on this table for the app role, and a trigger rejects
 DRAFT ──publish──> OPEN ──(optional, once) start rounds──> ROUNDS ──Clear (brand)──> CLEARING
                      └──────────────Clear (brand)──────────────────────────────> CLEARING ──all settlements done──> SETTLED ──payout ok──> PAID_OUT
    │                 │                                    │                                          │                    │
-   └─delete          ├─clear deadline passed──> EXPIRED (void all)                                   │                    └─payout failed──> PAYOUT_FAILED ──retry──> SETTLED
+   └─delete          ├─clear deadline passed──> EXPIRED (void all)                                   │                    └─payout failed──> PAYOUT_FAILED ──retry ok──> PAID_OUT
                      └─brand cancels (OPEN or ROUNDS)──> CANCELLED (async void all)                  └─gross 0: stays SETTLED, no payout
 ```
 | From | To | Trigger | Who |
@@ -234,8 +234,8 @@ DRAFT ──publish──> OPEN ──(optional, once) start rounds──> ROUND
 | OPEN / ROUNDS | CANCELLED | Cancel click. Async: bids → VOIDING, voids run at concurrency ≤ 10, `202` + SSE progress (M7) | Brand user |
 | CLEARING | SETTLED | Conditional update, once: no CAPTURE open **and** every WON bid has a SUCCEEDED capture (D9) | Settlement coordinator |
 | SETTLED | PAID_OUT | Payout batch/item SUCCESS | Payout poll (cron) / PayPal webhook |
-| SETTLED | PAYOUT_FAILED | Payout DENIED / item UNCLAIMED | Payout poll / webhook |
-| PAYOUT_FAILED | SETTLED | Admin retry (new payout attempt id) | Admin |
+| SETTLED | PAYOUT_FAILED | Payout DENIED / item UNCLAIMED (or `INSUFFICIENT_FUNDS` on the last automatic attempt) | Payout poll / webhook |
+| PAYOUT_FAILED | PAID_OUT | Admin retry (new payout attempt id) reaches item SUCCESS; the listing stays PAYOUT_FAILED while it runs (HF-032) | Payout poll / webhook |
 
 **Who can bid when (D7).** Shared `isBiddable` / `isRaisable` in `packages/shared`:
 - new bid: `status='OPEN' AND now() < window_closes_at`;
