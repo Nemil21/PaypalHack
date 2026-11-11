@@ -11,3 +11,4 @@ export * from './webhooks.js';
 export type { Queryable } from './db.js';
 export * from './listings/clear-listing.js';
 export * from './settlement/outbox.js';
+export * from './paypal/index.js';

@@ -1,0 +1,7 @@
+{
+  "//": "Typechecks the PayPal client tests too: client.test.ts uses @ts-expect-error to prove every call needs its PayPal-Request-Id (HF-004).",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src/paypal"],
+  "exclude": []
+}
