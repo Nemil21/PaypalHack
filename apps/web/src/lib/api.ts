@@ -29,6 +29,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** Every other field of the error envelope, e.g. a 409's `reason` and new numbers. */
+    readonly details: Readonly<Record<string, unknown>> = {},
   ) {
     super(message);
     this.name = 'ApiError';
@@ -96,11 +98,14 @@ export function createApiClient(opts: ApiClientOptions = {}): ApiClient {
       const text = await res.text();
       const data: unknown = text ? safeJson(text) : undefined;
       if (!res.ok) {
-        const env = (data as { error?: { code?: unknown; message?: unknown } } | undefined)?.error;
+        const env = (data as { error?: Record<string, unknown> } | undefined)?.error;
+        const { code, message, ...details } =
+          env && typeof env === 'object' ? env : ({} as Record<string, unknown>);
         throw new ApiError(
           res.status,
-          typeof env?.code === 'string' ? env.code : `HTTP_${res.status}`,
-          typeof env?.message === 'string' ? env.message : res.statusText || 'Request failed',
+          typeof code === 'string' ? code : `HTTP_${res.status}`,
+          typeof message === 'string' ? message : res.statusText || 'Request failed',
+          details,
         );
       }
       return data as T;
