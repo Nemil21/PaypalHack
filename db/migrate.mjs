@@ -7,12 +7,13 @@
 // Each file runs in its own transaction, and the whole run holds an advisory lock,
 // so two concurrent deploys never apply the same file twice.
 //
-// Usage:   DATABASE_URL=postgres://... npm run migrate
+// Usage:   DATABASE_URL=postgres://... npm run migrate   (or put DATABASE_URL in the repo-root .env)
 // Library: import { migrate } from '@holdfast/db/migrate.mjs'
 //
 // Run it only from Render's preDeployCommand (HF-048a), never at app boot.
 
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -98,8 +99,20 @@ export async function migrate({ connectionString, client, dir, log = () => {} } 
   return { applied, skipped };
 }
 
+/**
+ * Load the repo-root `.env` (the parent of db/) if it exists, so `npm run migrate` works
+ * locally. Variables already set in the environment win (Render sets DATABASE_URL directly
+ * and has no .env). Never logs values. Needs Node >= 20.12 for process.loadEnvFile.
+ */
+export function loadRootDotenv(file = path.join(here, '..', '.env')) {
+  if (!existsSync(file) || typeof process.loadEnvFile !== 'function') return null;
+  process.loadEnvFile(file);
+  return file;
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
+  loadRootDotenv();
   migrate({ connectionString: process.env.DATABASE_URL, log: (msg) => console.log(`[migrate] ${msg}`) })
     .then(({ applied, skipped }) => {
       console.log(`[migrate] done: ${applied.length} applied, ${skipped.length} already up to date`);

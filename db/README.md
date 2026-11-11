@@ -6,7 +6,7 @@ Postgres schema for Holdfast (HF-002) and the migration runner. The schema is fr
 - `migrate.mjs`: applies pending files in name order, one transaction per file, under an advisory lock. Re-running is a no-op. Run it only from Render's `preDeployCommand` (HF-048a), not at app boot.
 
 ```sh
-DATABASE_URL=postgres://... npm run migrate -w @holdfast/db     # or: cd db && npm run migrate
+npm run migrate      # from the repo root; DATABASE_URL from the env or the repo-root .env (env wins)
 ```
 
 From code: `import { migrate } from '@holdfast/db/migrate.mjs'` (accepts `{ connectionString }` or an open `pg` `{ client }`).
