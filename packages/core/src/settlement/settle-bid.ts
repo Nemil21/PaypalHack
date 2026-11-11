@@ -22,7 +22,7 @@ import type {
   VoidResult,
 } from '../paypal/types.js';
 import {
-  promoteWithin as placeholderPromoteWithin,
+  promoteWithin as defaultPromoteWithin,
   type PromoteOutcome,
   type PromoteWithin,
 } from './promote.js';
@@ -60,7 +60,7 @@ export interface SettleBidDeps {
   sleep?: (ms: number) => Promise<void>;
   leaseSeconds?: number;
   retryDelaySeconds?: number;
-  /** HF-031 `promoteWithin`; defaults to the placeholder that promotes nobody. */
+  /** HF-031 `promoteWithin`; tests may wrap it. */
   promoteWithin?: PromoteWithin;
   /** HF-017a `mandates.onCaptured(bidId)`, called after the capture commits. */
   onCaptured?: (bidId: string) => Promise<void>;
@@ -491,7 +491,7 @@ async function finishCaptureFailed(
   info: { authorizationStatus: string | null; alert: boolean },
 ): Promise<SettleBidResult> {
   const { deps, s, bid } = ctx;
-  const promote = deps.promoteWithin ?? placeholderPromoteWithin;
+  const promote = deps.promoteWithin ?? defaultPromoteWithin;
   const { failed, promotion } = await deps.db.tx(async (tx) => {
     // Lock order: listing → bids (data-model §Locking rule 3); promoteWithin locks it again.
     await tx.query(`SELECT id FROM listings WHERE id = $1 FOR UPDATE`, [s.listing_id]);

@@ -41,8 +41,8 @@ export const DEFAULT_MAX_RUN_MS = 5 * 60_000;
 export const DEFAULT_SETTLEMENT_POLL_MS = 1_000;
 
 /**
- * Audit actions that record what happened to a failed winner's unit (HF-031's `promoteWithin`
- * and the placeholder). The outcome row must name the failed bid as `entity_id` or as
+ * Audit actions that record what happened to a failed winner's unit (HF-031's `promoteWithin`;
+ * `PROMOTION_SKIPPED` is the pre-HF-031 placeholder's, kept for rows it wrote). The outcome row must name the failed bid as `entity_id` or as
  * `data.fromBidId` / `data.failedBidId`; phase 3 waits for it.
  */
 export const PROMOTION_OUTCOME_ACTIONS = [

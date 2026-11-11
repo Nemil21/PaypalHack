@@ -16,7 +16,7 @@ import { TEST_DATABASE_URL, createTestDatabase, type TestDatabase } from '../mon
 import { PayPalRestClient } from '../paypal/client.js';
 import { captureRequestId } from '../paypal/ids.js';
 import type { PromoteWithin } from './promote.js';
-import { promoteWithin as placeholder } from './promote.js';
+import { promoteWithin } from './promote.js';
 import { settleBid, type SettleBidDeps } from './settle-bid.js';
 import { seedSettlement, type SeededSettlement, type SeedOptions } from './test-fixtures.js';
 
@@ -32,7 +32,7 @@ describe.skipIf(!enabled)('HF-029 settleBid: PayPal sandbox', () => {
 
   const promote: PromoteWithin = async (tx, bidId) => {
     promotions.push(bidId);
-    return placeholder(tx, bidId);
+    return promoteWithin(tx, bidId);
   };
   const deps = (): SettleBidDeps => ({
     db,

@@ -111,6 +111,15 @@ export function wonMessage(bidCents: number, opts: { captured: boolean }): strin
 }
 
 /**
+ * Promotion copy (features/13 `promoted`, HF-031): "A unit opened up. You won at your bid of
+ * $219." and, once the capture succeeded, "… Charged $219." Like `wonMessage`, never "Charged"
+ * before the money moved.
+ */
+export function promotedMessage(bidCents: number, opts: { captured: boolean }): string {
+  return `A unit opened up. ${wonMessage(bidCents, opts)}`;
+}
+
+/**
  * Brand-side summary of what winners pay under pay-your-bid:
  * "Each winner is charged their own bid (lowest $219, average $226)."
  * The average is rounded to whole dollars; it is a summary, not an amount anyone is charged.

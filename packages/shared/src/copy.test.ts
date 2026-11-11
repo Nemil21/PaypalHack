@@ -4,6 +4,7 @@ import {
   moneyCopyKey,
   moneyLine,
   moneyState,
+  promotedMessage,
   releasedHoldMessage,
   releasingHoldMessage,
   winnersChargedSummary,
@@ -40,6 +41,12 @@ describe('money copy (D14)', () => {
       'You won at your bid of $229. Charged $229.',
     );
     expect(wonMessage(22_900, { captured: false })).toBe('You won at your bid of $229.');
+    expect(promotedMessage(21_900, { captured: true })).toBe(
+      'A unit opened up. You won at your bid of $219. Charged $219.',
+    );
+    expect(promotedMessage(21_900, { captured: false })).toBe(
+      'A unit opened up. You won at your bid of $219.',
+    );
     expect(winnersChargedSummary([21_900, 22_500, 22_900, 23_100])).toBe(
       'Each winner is charged their own bid (lowest $219, average $226).',
     );

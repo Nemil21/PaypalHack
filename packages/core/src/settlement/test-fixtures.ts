@@ -1,11 +1,9 @@
 /**
  * Test-only fixtures for the HF-029 suites (stub and sandbox). Not exported from the package.
  */
-import { audit } from '../audit.js';
 import type { Db } from '../db.js';
 import { orderRequestId } from '../paypal/ids.js';
 import type { PayPalClient, TestCard } from '../paypal/types.js';
-import type { PromoteWithin } from './promote.js';
 
 // PayPal's published sandbox test card (S7 step 6); not a real card.
 export const SETTLE_TEST_CARD: TestCard = {
@@ -256,75 +254,3 @@ export async function seedClearedListing(
   ).id;
   return out;
 }
-
-/**
- * Stand-in for HF-031's `promoteWithin` so the coordinator's promotion path can be tested before
- * HF-031 merges: the minimal D10 selection (unit cap 1 + 3, best reserve whose VOID is still
- * QUEUED, `SKIP LOCKED`, VOID QUEUED → CANCELLED, LOST → WON, CAPTURE at the bidder's own bid),
- * with the same outcome audits (`PROMOTED { fromBidId }`, `UNFILLED_UNIT`). No skip rules.
- */
-export const testPromoteWithin: PromoteWithin = async (tx, failedBidId) => {
-  const failed = (
-    await tx.query(`SELECT listing_id, unit_root_bid_id FROM bids WHERE id = $1`, [failedBidId])
-  ).rows[0] as { listing_id: string; unit_root_bid_id: string };
-  const root = failed.unit_root_bid_id;
-  const unfilled = async (reason: string) => {
-    await audit(tx, {
-      actorType: 'WORKFLOW',
-      listingId: failed.listing_id,
-      entity: 'bid',
-      entityId: failedBidId,
-      action: 'UNFILLED_UNIT',
-      data: { reason, unitRootBidId: root },
-    });
-    return { promotedBidId: null, settlementId: null, reason: 'UNFILLED_UNIT' };
-  };
-  const captures = (
-    await tx.query(
-      `SELECT count(*)::int AS n FROM settlements s JOIN bids b ON b.id = s.bid_id
-        WHERE s.action = 'CAPTURE' AND b.unit_root_bid_id = $1`,
-      [root],
-    )
-  ).rows[0] as { n: number };
-  if (captures.n >= 4) return unfilled('CAP');
-  for (;;) {
-    const cand = (
-      await tx.query(
-        `SELECT b.id, b.amount_cents, v.id AS void_id
-           FROM bids b JOIN settlements v ON v.bid_id = b.id AND v.action = 'VOID'
-          WHERE b.listing_id = $1 AND b.status = 'LOST' AND v.is_reserve AND v.status = 'QUEUED'
-          ORDER BY b.amount_cents DESC, b.id
-          FOR UPDATE OF b SKIP LOCKED LIMIT 1`,
-        [failed.listing_id],
-      )
-    ).rows[0] as { id: string; amount_cents: number; void_id: string } | undefined;
-    if (!cand) return unfilled('RESERVE_EMPTY');
-    const claimed = await tx.query(
-      `UPDATE settlements SET status = 'CANCELLED' WHERE id = $1 AND status = 'QUEUED'`,
-      [cand.void_id],
-    );
-    if (!claimed.rowCount) continue;
-    await tx.query(
-      `UPDATE bids SET status = 'WON', unit_root_bid_id = $2, void_reason = NULL,
-              promotion_count = promotion_count + 1
-        WHERE id = $1 AND status = 'LOST'`,
-      [cand.id, root],
-    );
-    const s = (
-      await tx.query(
-        `INSERT INTO settlements (listing_id, bid_id, action, amount_cents)
-         VALUES ($1, $2, 'CAPTURE', $3) RETURNING id`,
-        [failed.listing_id, cand.id, cand.amount_cents],
-      )
-    ).rows[0] as { id: string };
-    await audit(tx, {
-      actorType: 'WORKFLOW',
-      listingId: failed.listing_id,
-      entity: 'bid',
-      entityId: cand.id,
-      action: 'PROMOTED',
-      data: { fromBidId: failedBidId, toBidId: cand.id, root },
-    });
-    return { promotedBidId: cand.id, settlementId: s.id };
-  }
-};
