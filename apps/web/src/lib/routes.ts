@@ -9,6 +9,15 @@ export const paths = {
   bids: '/bids',
   agent: '/agent',
   mandates: '/mandates',
+  /** W17 / M09 new mandate; W13 "Let my agent manage this" (HF-020) prefills the product and price. */
+  newMandate: (prefill: { productId?: string; maxPriceCents?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (prefill.productId) q.set('productId', prefill.productId);
+    if (prefill.maxPriceCents) q.set('maxPriceCents', String(prefill.maxPriceCents));
+    const qs = q.toString();
+    return qs ? `/mandates/new?${qs}` : '/mandates/new';
+  },
+  mandate: (mandateId: string) => `/mandates/${encodeURIComponent(mandateId)}`,
   developer: '/developer',
   admin: '/admin',
   devComponents: '/dev/components',

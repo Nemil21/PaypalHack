@@ -4,6 +4,7 @@ import { ToastProvider } from './components/ui';
 import { DemoHub } from './routes/DemoHub';
 import { DevComponents } from './routes/DevComponents';
 import { OfferPage } from './routes/offer/OfferPage';
+import { MandateEditorPage, MandatesPage } from './routes/Mandates';
 import { NotFound, ScreenPlaceholder } from './routes/ScreenPlaceholder';
 
 /**
@@ -66,10 +67,9 @@ const router = createBrowserRouter([
         path: 'agent',
         element: <ScreenPlaceholder screen="Buyer agent (W16 / M05)" ticket="HF-041" />,
       },
-      {
-        path: 'mandates',
-        element: <ScreenPlaceholder screen="Mandates (W17 / M09)" ticket="HF-017b" />,
-      },
+      { path: 'mandates', element: <MandatesPage /> },
+      { path: 'mandates/new', element: <MandateEditorPage /> },
+      { path: 'mandates/:mandateId', element: <MandateEditorPage /> },
       {
         path: 'developer',
         element: <ScreenPlaceholder screen="Developer / MCP (W19)" ticket="HF-043" />,
