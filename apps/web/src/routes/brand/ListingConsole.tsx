@@ -11,6 +11,7 @@ import { ClearAction } from '../../components/console/ClearModal';
 import { QuantitySlider } from '../../components/console/QuantitySlider';
 import { Badge, Button, EmptyState, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { cn } from '../../lib/cn';
+import { createBidRowTracker, type BidRowTracker } from '../../lib/console/bids-grid';
 import { buildCurveModel } from '../../lib/console/curve';
 import { consoleKpisAt, type ConsoleKpis } from '../../lib/console/kpis';
 import { navPhaseLabel, phaseView } from '../../lib/console/phase';
@@ -22,6 +23,7 @@ import { ConsoleHeader, ShareButton } from './ConsoleHeader';
 
 const ConsoleKpiStudio = lazy(() => import('../../components/ag/ConsoleKpiStudio'));
 const DemandCurveChart = lazy(() => import('../../components/ag/DemandCurveChart'));
+const BidsGrid = lazy(() => import('../../components/ag/BidsGrid'));
 
 const KPI_KINDS: KpiKind[] = ['held', 'bids', 'projected', 'recovery', 'released'];
 
@@ -47,8 +49,16 @@ export function ListingConsole() {
   const navigate = useNavigate();
   const now = useNow();
 
+  // The bids grid's row model (HF-025), per listing. `bid.raised` notices tell it which new bid
+  // replaces which, so a raise updates its row in place when the refetched book lands.
+  const tracker = useMemo(() => createBidRowTracker(), [listingId]);
   const live = useConsoleBook(listingId, {
     onPriceDrop: (t) => toast.show({ ...t, duration: 8000 }),
+    onNotice: (n) => {
+      if (n.type === 'bid.raised' && n.ids.bidId && n.ids.replacesBidId) {
+        tracker.noteRaise(n.ids.bidId, n.ids.replacesBidId);
+      }
+    },
   });
   const { book } = live;
 
@@ -143,6 +153,7 @@ export function ListingConsole() {
                 viewer={viewer}
               />
             )}
+            {book && !empty && <BidsPanel book={book} slider={slider} tracker={tracker} />}
           </div>
         </SliderContext.Provider>
       </div>
@@ -291,6 +302,34 @@ function DemandPanel({
       )}
       <QuantitySlider disabled={locked} />
       <ClearAction listingId={book.listing.id} phase={phase} viewer={viewer} />
+    </section>
+  );
+}
+
+/** Bids grid (HF-025, features/08 §Layout 5): every live bid, anonymized, with SIM chips. */
+function BidsPanel({
+  book,
+  slider,
+  tracker,
+}: {
+  book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
+  slider: SliderStore;
+  tracker: BidRowTracker;
+}) {
+  return (
+    <section
+      aria-label="Bids"
+      className="flex flex-col gap-4 rounded-md border border-line bg-white p-4"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="label text-[11px] text-muted">Bids</h2>
+        <span className="text-[12px] text-muted">
+          Shopper labels only · SIM marks simulated bidders
+        </span>
+      </div>
+      <Suspense fallback={<Skeleton className="h-[520px] w-full" />}>
+        <BidsGrid book={book} slider={slider} tracker={tracker} />
+      </Suspense>
     </section>
   );
 }

@@ -6,6 +6,7 @@ import {
   type Db,
   type MoneyDeps,
   type PayPalVoidPort,
+  voidBid,
 } from '@holdfast/core';
 
 /**
@@ -123,4 +124,82 @@ export async function placeSimBid(
   return landed.ok
     ? { ok: true, bidId, amountCents }
     : { ok: false, bidId, amountCents, reason: landed.reason };
+}
+
+/**
+ * A random live SIM bid on the listing (stub hold only, so nothing real is ever touched), or
+ * null when there is none.
+ */
+async function pickSimBid(
+  db: Db,
+  listingId: string,
+  random: () => number,
+): Promise<{ id: string; shopperId: string; amountCents: number } | null> {
+  const rows = (
+    await db.pool.query<{ id: string; shopper_id: string; amount_cents: number }>(
+      `SELECT id, shopper_id, amount_cents FROM bids
+        WHERE listing_id = $1 AND status = 'HELD' AND source = 'SIM'
+          AND paypal_authorization_id LIKE $2
+        ORDER BY id`,
+      [listingId, `${STUB_AUTH_PREFIX}%`],
+    )
+  ).rows;
+  const r = rows[Math.floor(random() * rows.length)];
+  return r ? { id: r.id, shopperId: r.shopper_id, amountCents: r.amount_cents } : null;
+}
+
+export type SimChangeOutcome =
+  | { ok: true; bidId: string; fromCents: number; toCents: number; replacesBidId?: string }
+  | { ok: false; reason: string };
+
+/**
+ * `dev:bids --raise` (HF-025): one SIM shopper raises by $10–$40. The raise goes through
+ * `landHold` with `replacesBidId` exactly like HF-018 (old HELD→VOIDING, new HELD, `bid.held` +
+ * `bid.raised` on COMMIT), then the old stub hold is released (VOIDING→VOIDED).
+ */
+export async function raiseSimBid(
+  db: Db,
+  listing: SimListing,
+  random: () => number = Math.random,
+): Promise<SimChangeOutcome> {
+  const old = await pickSimBid(db, listing.id, random);
+  if (!old) return { ok: false, reason: 'NO_SIM_BID' };
+  const toCents = old.amountCents + (1 + Math.floor(random() * 4)) * 1_000;
+  const bidId = (
+    await db.pool.query<{ id: string }>(
+      `INSERT INTO bids (listing_id, shopper_id, amount_cents, status, payment_method, source,
+                         idempotency_key)
+       VALUES ($1, $2, $3, 'PENDING_APPROVAL', 'TEST_CARD', 'SIM', $4)
+       RETURNING id`,
+      [listing.id, old.shopperId, toCents, `dev-bids-raise:${randomUUID()}`],
+    )
+  ).rows[0]!.id;
+  const deps: MoneyDeps = { db, paypal: stubVoids, audit: auditHook };
+  const actor = { type: 'SYSTEM' as const, id: 'dev:bids' };
+  const landed = await landHold(deps, {
+    bidId,
+    authorizationId: `${STUB_AUTH_PREFIX}${randomUUID()}`,
+    authorizedAt: new Date(),
+    authorizedAmountCents: toCents,
+    replacesBidId: old.id,
+    actor,
+  });
+  if (!landed.ok) return { ok: false, reason: landed.reason };
+  await voidBid(deps, old.id, 'REPLACED', actor, { from: ['VOIDING'] });
+  return { ok: true, bidId, fromCents: old.amountCents, toCents, replacesBidId: old.id };
+}
+
+/** `dev:bids --release` (HF-025): one SIM shopper cancels; the stub hold is released. */
+export async function releaseSimBid(
+  db: Db,
+  listing: SimListing,
+  random: () => number = Math.random,
+): Promise<SimChangeOutcome> {
+  const bid = await pickSimBid(db, listing.id, random);
+  if (!bid) return { ok: false, reason: 'NO_SIM_BID' };
+  const deps: MoneyDeps = { db, paypal: stubVoids, audit: auditHook };
+  const r = await voidBid(deps, bid.id, 'CANCELLED', { type: 'SYSTEM', id: 'dev:bids' });
+  return r.outcome === 'VOIDED'
+    ? { ok: true, bidId: bid.id, fromCents: bid.amountCents, toCents: 0 }
+    : { ok: false, reason: r.outcome };
 }
