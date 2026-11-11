@@ -713,6 +713,20 @@ async function myBids(ctx: ToolContext): Promise<ToolOutcome> {
         ...(b.listing.status === 'ROUNDS' && b.belowCutoff !== null
           ? { belowCutoff: b.belowCutoff, cutoffCents: b.cutoffCents }
           : {}),
+        // Released because a store sells it cheaper (HF-042a, D18): the offer, its affiliate
+        // link and the disclosure to show with it.
+        ...(b.priceDrop
+          ? {
+              priceDrop: {
+                newCents: b.priceDrop.newCents,
+                newPrice: b.priceDrop.newCents == null ? null : formatUsd(b.priceDrop.newCents),
+                store: data(b.priceDrop.merchant),
+                url: data(b.priceDrop.url, 2048),
+                disclosure: b.priceDrop.disclosure,
+                replayedDemoEvent: b.priceDrop.replayed,
+              },
+            }
+          : {}),
       })),
     },
     isError: false,
