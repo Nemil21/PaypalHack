@@ -246,6 +246,14 @@ describe('HF-060 orderTimeline', () => {
       expect(p.shipping!.state).toBe('skipped');
     });
 
+    it('lost out with no settlement row on a SETTLED listing: capture skipped, never "Now"', () => {
+      for (const outcome of ['released', 'lost'] as const) {
+        const p = shopper({ listingStatus: 'SETTLED', outcome, settlement: null, payout: null });
+        expect(p.capture!.state).toBe('skipped');
+        expect(p.capture!.detail).not.toMatch(/Winners pay/);
+      }
+    });
+
     it('declined at capture: failed, "not charged", nothing ships', () => {
       const p = shopper({
         outcome: 'declined',

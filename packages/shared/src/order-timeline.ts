@@ -255,8 +255,18 @@ export function orderTimeline(f: OrderTimelineFacts, nowDate: Date): OrderPhase[
     const label = shopper ? 'Charge or release' : 'Capture fan-out';
     if (stopped) {
       phases.push(skipped('capture', label, 'Nothing charged'));
-    } else if (shopper && f.outcome === 'released' && (!s || s.total === 0)) {
-      phases.push(skipped('capture', label, 'Released before the Clear, never charged'));
+    } else if (lostOut && (!s || s.total === 0)) {
+      // Out of the order with no settlement row of their own (a price-drop void happens before
+      // the Clear, so Clear never queues one): nothing will happen here, so never "Now".
+      phases.push(
+        skipped(
+          'capture',
+          label,
+          f.outcome === 'released'
+            ? 'Released before the Clear, never charged'
+            : 'Your hold was already released',
+        ),
+      );
     } else if (!s || s.total === 0) {
       phases.push({
         key: 'capture',
