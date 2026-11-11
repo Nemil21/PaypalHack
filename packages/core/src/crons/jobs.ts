@@ -1,3 +1,4 @@
+import { NOTIFY_INTERVAL_MS } from '../notifications/subscriber.js';
 import { CHANNEL3_PROBE_INTERVAL_MS } from '../price-watch/health.js';
 import { PRICE_POLL_CHECK_INTERVAL_MS } from '../price-watch/poll.js';
 import { SETTLEMENT_KICK_INTERVAL_MS, type KickSettlement } from '../settlement/outbox.js';
@@ -24,7 +25,9 @@ import { sweepHolds, SWEEP_INTERVAL_MS, type SweepDeps, type SweepOptions } from
  * - `price-poll`: hourly, HF-042b's `pollPublicPrices`, which polls only when the last poll is
  *   ≥ 23 h old (the nightly backup for missed Channel3 webhooks);
  * - `intent-move-rule`: every minute, HF-052's `runOpenIntents` (place when a book opens or the
- *   current one closed lost, move when a better book opens).
+ *   current one closed lost, move when a better book opens);
+ * - `notify`: every 5 s, HF-054a's audit subscriber plus the 12 h / 6 h window scan. It reports
+ *   only notifications created, never rows scanned: a `CRON_RUN` row is itself an audit event.
  */
 export const CRON_JOB_IDS = {
   settlementKick: 'settlement-kick',
@@ -37,6 +40,7 @@ export const CRON_JOB_IDS = {
   channel3Probe: 'channel3-probe',
   pricePoll: 'price-poll',
   intentMoveRule: 'intent-move-rule',
+  notify: 'notify',
 } as const;
 
 export const MINUTE_MS = 60_000;
@@ -56,6 +60,8 @@ export interface HoldfastCronDeps extends SweepDeps {
   pollPublicPrices?: () => Promise<unknown>;
   /** HF-052 `() => runOpenIntents(bidDeps)`. No intent job without it. */
   runIntents?: () => Promise<unknown>;
+  /** HF-054a `() => runNotifyJob(…)`: `{ notified }`. No notifications without it. */
+  notify?: () => Promise<{ notified: number }>;
   sweep?: SweepOptions;
   /** HF-053 auto-roll. Default on; `false` leaves the job out. */
   autoRoll?: boolean;
@@ -114,6 +120,10 @@ export function holdfastCronJobs(deps: HoldfastCronDeps): CronJob[] {
   const intents = deps.runIntents;
   if (intents) {
     jobs.push({ id: CRON_JOB_IDS.intentMoveRule, intervalMs: MINUTE_MS, run: () => intents() });
+  }
+  const notifyJob = deps.notify;
+  if (notifyJob) {
+    jobs.push({ id: CRON_JOB_IDS.notify, intervalMs: NOTIFY_INTERVAL_MS, run: () => notifyJob() });
   }
   jobs.push({
     id: CRON_JOB_IDS.listingExpiry,

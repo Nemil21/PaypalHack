@@ -47,3 +47,4 @@ export * from './agent/index.js';
 export * from './price-watch/index.js';
 export * from './mcp-clients.js';
 export * from './mcp-tools.js';
+export * from './notifications/index.js';
