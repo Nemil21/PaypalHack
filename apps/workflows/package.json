@@ -1,0 +1,15 @@
+{
+  "name": "@holdfast/workflows",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Render Workflows adapter over packages/core settlement tasks (HF-030b). Placeholder until then.",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@holdfast/core": "0.0.0"
+  }
+}
