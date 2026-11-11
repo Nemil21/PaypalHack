@@ -1,4 +1,4 @@
-import { ConfigError, loadConfig, loadDotenv } from '@holdfast/core';
+import { ConfigError, createPool, loadConfig, loadDotenv } from '@holdfast/core';
 import { buildServer } from './server.js';
 
 loadDotenv();
@@ -14,7 +14,11 @@ try {
   throw err;
 }
 
-const app = buildServer(config);
+const pool = createPool(config);
+const app = buildServer(config, { db: pool });
+// An idle client dropping (e.g. a Postgres restart) must not crash the process; /healthz reports it.
+pool.on('error', (err) => app.log.warn({ err: err.message }, 'postgres pool error'));
+app.addHook('onClose', () => pool.end());
 try {
   await app.listen({ port: config.PORT, host: config.HOST });
 } catch (err) {

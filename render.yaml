@@ -1,0 +1,115 @@
+# Holdfast on Render (HF-048a). Setup and manual steps: docs/deploy/render.md.
+# Schema: https://render.com/schema/render.yaml.json
+#
+# Rules this file encodes:
+# - Paid instances only (free web services sleep; free Postgres expires before judging ends Dec 21).
+# - One web instance: in-process jobs and rate limits assume a single process.
+# - Migrations only on deploy (preDeployCommand). Never seed on deploy: seeding is manual or the
+#   HF-048b `demo:refresh` cron.
+# - Secrets are `sync: false`: Render prompts for them when the Blueprint is first applied and
+#   never reads them from this file. Env groups cannot hold prompted values, so the group below
+#   carries non-secret flags only.
+
+envVarGroups:
+  - name: holdfast-config
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_MODE
+        value: sandbox
+      # In-process settlement until HF-030b's Render smoke is green (D9 / M17).
+      - key: SETTLEMENT_RUNNER
+        value: inprocess
+      # Judges get the one-click demo sign-ins (HF-006, D13).
+      - key: DEMO_MODE
+        value: 'true'
+      - key: RENDER_WORKFLOW_SLUG
+        value: holdfast-workflows
+
+databases:
+  - name: holdfast-db
+    databaseName: holdfast
+    user: holdfast
+    region: oregon
+    # Paid: the free instance expires ~30 days after creation, before judging ends.
+    plan: basic-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: '16'
+    # Private network only. Add a teammate's IP in the dashboard for psql access when needed.
+    ipAllowList: []
+
+services:
+  - type: web
+    name: holdfast
+    runtime: node
+    region: oregon
+    plan: starter
+    numInstances: 1
+    # NODE_ENV=production is set at build time too, so ask npm for devDependencies (tsc, vite).
+    buildCommand: npm ci --include=dev && npm run build
+    preDeployCommand: npm run migrate
+    startCommand: npm start
+    healthCheckPath: /healthz
+    # HF-048b turns this off from 21:00 PST Nov 11 through recording, and after submission.
+    autoDeployTrigger: commit
+    envVars:
+      - fromGroup: holdfast-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: holdfast-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYPAL_BRAND_EMAIL
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: CHANNEL3_WEBHOOK_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        sync: false
+      - key: AG_GRID_LICENSE_KEY
+        sync: false
+      # Account API key that triggers workflow tasks (Account Settings > API Keys).
+      - key: RENDER_API_KEY
+        sync: false
+
+  # Render Workflows: the hello-world task now (HF-048a), settlement tasks in HF-030b.
+  # Compute plan, retries and timeouts are set per task in apps/workflows/src/tasks.ts.
+  - type: workflow
+    name: holdfast-workflows
+    runtime: node
+    region: oregon
+    buildCommand: npm ci --include=dev && npm run build -w @holdfast/shared -w @holdfast/core -w @holdfast/workflows
+    startCommand: node apps/workflows/dist/main.js
+    autoDeployTrigger: commit
+    envVars:
+      - fromGroup: holdfast-config
+      - key: DATABASE_URL
+        fromDatabase:
+          name: holdfast-db
+          property: connectionString
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
