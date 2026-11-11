@@ -8,6 +8,7 @@ import {
 import type { Queryable, Tx } from '../db.js';
 import type { Actor, MandateCheck, MandateRefusal, MoneyDeps } from './deps.js';
 import { emit } from './emit.js';
+import { landingMandateCheck } from '../mandates.js';
 import { lockBidsById, lockListing, lockMandate, type LockedListing } from './locks.js';
 import type { BidRow } from './rows.js';
 import { transition } from './transition.js';
@@ -78,30 +79,12 @@ export type LandHoldResult =
       voided: boolean;
     };
 
-const MANDATE_LIVE_STATUSES = ['PENDING_APPROVAL', 'HELD', 'WON', 'LOST'] as const;
-
 /**
- * D12 cap, used when no HF-017a check is supplied: the mandate is ACTIVE and not expired, the
- * bid is within `max_price_cents`, and live holds (`PENDING_APPROVAL`, `HELD`, `WON`, `LOST`,
- * the new bid included, the replaced bid excluded) stay within `total_hold_cap_cents`.
+ * The mandate re-check `landHold` runs when no `deps.mandateCheck` is supplied: HF-017a's
+ * `landingMandateCheck` (ACTIVE and not expired, max price, D12 cap with the replaced bid
+ * excluded, allowed products). Any refusal voids the new hold with `MANDATE_PAUSED`.
  */
-export const defaultMandateCheck: MandateCheck = async (
-  tx,
-  { mandate, bid, replacesBidId, now },
-) => {
-  if (mandate.status !== 'ACTIVE') return 'MANDATE_PAUSED';
-  if (mandate.expires_at && mandate.expires_at.getTime() <= now.getTime()) return 'MANDATE_PAUSED';
-  if (bid.amount_cents > mandate.max_price_cents) return 'MANDATE_CAP';
-  const res = await tx.query(
-    `SELECT coalesce(sum(amount_cents), 0)::bigint AS live
-       FROM bids
-      WHERE mandate_id = $1 AND status = ANY($2::text[]) AND id IS DISTINCT FROM $3`,
-    [mandate.id, MANDATE_LIVE_STATUSES, replacesBidId],
-  );
-  const live = Number((res.rows[0] as { live: string }).live);
-  // The new bid is PENDING_APPROVAL, so `live` already includes it.
-  return live > mandate.total_hold_cap_cents ? 'MANDATE_CAP' : null;
-};
+export const defaultMandateCheck: MandateCheck = landingMandateCheck;
 
 class Refused extends Error {
   constructor(readonly reason: LandHoldFailure) {

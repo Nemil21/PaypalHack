@@ -55,7 +55,7 @@ export interface MandateCheckInput {
 
 /**
  * Runs in `landHold` with the mandate locked `FOR UPDATE`. Returns null to allow the hold.
- * HF-017a supplies the full rules; `defaultMandateCheck` implements ACTIVE + D12 cap.
+ * `defaultMandateCheck` (HF-017a `landingMandateCheck`) implements the full rules.
  */
 export type MandateCheck = (
   tx: Queryable,
