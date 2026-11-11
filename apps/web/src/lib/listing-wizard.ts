@@ -149,6 +149,16 @@ export function floorBelowPublic(floorCents: number, bestPublicPriceCents: numbe
 
 export const FLOOR_ABOVE_PUBLIC = 'No one will bid above a cheaper store.';
 
+/**
+ * The typed GTIN / MPN, trimmed, only while the identifier fields are shown. Values typed for an
+ * earlier pick (manual entry, or a hit without identifiers) are ignored once the brand picks a hit
+ * the catalogue already identifies: the server would compare them with that product's identity
+ * and answer PRODUCT_MISMATCH for a field the brand can no longer see.
+ */
+export function typedIdentifiers(v: WizardValues): { gtin: string; mpn: string } {
+  return needsIdentifier(v) ? { gtin: v.gtin.trim(), mpn: v.mpn.trim() } : { gtin: '', mpn: '' };
+}
+
 export function validateProduct(v: WizardValues): WizardErrors {
   const e: WizardErrors = {};
   if (v.manual) {
@@ -159,10 +169,10 @@ export function validateProduct(v: WizardValues): WizardErrors {
     const block = hitBlock(v.hit);
     if (block) e.product = `${HIT_BLOCK_LABEL[block]}: pick another product.`;
   }
-  const gtin = v.gtin.trim();
+  const { gtin, mpn } = typedIdentifiers(v);
   if (gtin && !normalizeGtin(gtin)) {
     e.gtin = 'That GTIN is not valid (8, 12, 13 or 14 digits with a check digit).';
-  } else if (needsIdentifier(v) && !gtin && !v.mpn.trim()) {
+  } else if (needsIdentifier(v) && !gtin && !mpn) {
     e.gtin = 'Enter the GTIN or MPN so the product can be matched exactly.';
   }
   return e;
@@ -231,8 +241,7 @@ export function firstInvalidStep(v: WizardValues): WizardStep | null {
  */
 export function buildCreateRequest(v: WizardValues): CreateListingRequest | null {
   if (firstInvalidStep(v) !== null) return null;
-  const gtin = v.gtin.trim();
-  const mpn = v.mpn.trim();
+  const { gtin, mpn } = typedIdentifiers(v);
   const body: CreateListingRequest = {
     ...(v.manual
       ? { title: v.title.trim() }

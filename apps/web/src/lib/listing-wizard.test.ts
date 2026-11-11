@@ -119,6 +119,36 @@ describe('Step 1: search and product pick', () => {
     expect(validateProduct(filled({ mpn: '', hit: hit({ mpn: 'A1' }) }))).toEqual({});
   });
 
+  it('a GTIN typed for an earlier pick is not sent with a hit the catalogue identifies', () => {
+    // Typed in manual mode (here an invalid one), then the brand searches and picks a hit with a GTIN.
+    const identified = hit({ channel3Id: 'Ft39C5h', variant: null, gtin: '0012345678905' });
+    const fromManual = aurelA7({
+      manual: false,
+      hit: identified,
+      gtin: '0012345678904',
+      mpn: 'A7',
+    });
+    expect(validateProduct(fromManual)).toEqual({});
+    const body = buildCreateRequest(fromManual)!;
+    expect(body).toMatchObject({ channel3Id: 'Ft39C5h', variant: null });
+    expect(body).not.toHaveProperty('gtin');
+    expect(body).not.toHaveProperty('mpn');
+
+    // Typed for a hit without identifiers, then the brand switches to one with an MPN.
+    const switched = filled({
+      hit: hit({ channel3Id: '29C6zIk', mpn: 'JBL-1' }),
+      gtin: '96385074',
+    });
+    expect(buildCreateRequest(switched)).not.toHaveProperty('gtin');
+    expect(buildCreateRequest(switched)).not.toHaveProperty('mpn');
+
+    // Back to a hit without identifiers: the typed values count again.
+    expect(buildCreateRequest({ ...switched, hit: hit() })).toMatchObject({
+      gtin: '96385074',
+      mpn: 'JBLT770NCGRN',
+    });
+  });
+
   it('manual entry needs a title and a valid identifier', () => {
     expect(validateProduct(aurelA7())).toEqual({});
     expect(validateProduct(aurelA7({ title: ' ' })).title).toBeDefined();

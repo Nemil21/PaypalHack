@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatUsd, type CreateListingRequest } from '@holdfast/shared';
 import { PageHeader } from '../../components/layout/AppShell';
@@ -269,33 +269,32 @@ function ProductStep({
   setValues(fn: (v: WizardValues) => WizardValues): void;
 }) {
   const [input, setInput] = useState('');
-  const [submitted, setSubmitted] = useState<string | null>(null);
+  // A new object per search, so Enter or Retry on the same text fetches again.
+  const [submitted, setSubmitted] = useState<{ q: string } | null>(null);
   const [search, setSearch] = useState<Search>({ state: 'idle' });
-  const lastQ = useRef<string | null>(null);
 
-  // 400 ms debounce; Enter searches at once (`submitted`).
+  // 400 ms debounce; Enter searches at once.
   useEffect(() => {
     const q = searchQuery(input);
-    if (!q || q === submitted) return;
-    const t = setTimeout(() => setSubmitted(q), SEARCH_DEBOUNCE_MS);
+    if (!q || q === submitted?.q) return;
+    const t = setTimeout(() => setSubmitted({ q }), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [input, submitted]);
 
   useEffect(() => {
-    if (!submitted || submitted === lastQ.current) return;
-    lastQ.current = submitted;
+    if (!submitted) return;
+    const { q } = submitted;
     const ctl = new AbortController();
-    setSearch({ state: 'loading', q: submitted });
+    setSearch({ state: 'loading', q });
     api
       .request<{ results: ProductSearchHit[] }>({
         method: 'GET',
-        path: `/api/products/search?q=${encodeURIComponent(submitted)}`,
+        path: `/api/products/search?q=${encodeURIComponent(q)}`,
         signal: ctl.signal,
       })
-      .then((r) => setSearch({ state: 'results', q: submitted, hits: r.results }))
+      .then((r) => setSearch({ state: 'results', q, hits: r.results }))
       .catch((err: unknown) => {
         if (ctl.signal.aborted) return;
-        lastQ.current = null; // let the same query retry
         const e = err instanceof ApiError ? err : null;
         if (e && (e.code === 'CHANNEL3_ERROR' || e.status === 0 || e.status >= 500)) {
           setSearch({ state: 'unavailable', message: e.message });
@@ -317,7 +316,8 @@ function ProductStep({
             message={search.message}
             onRetry={() => {
               manual(false);
-              setSearch({ state: 'idle' });
+              setSubmitted((s) => (s ? { q: s.q } : s));
+              if (!submitted) setSearch({ state: 'idle' });
             }}
           />
         )}
@@ -353,10 +353,7 @@ function ProductStep({
         onSubmit={(e) => {
           e.preventDefault();
           const q = searchQuery(input);
-          if (q) {
-            if (q === submitted) lastQ.current = null;
-            setSubmitted(q);
-          }
+          if (q) setSubmitted({ q });
         }}
       >
         <input
@@ -409,9 +406,6 @@ function ProductStep({
           </p>
           <IdentifierFields values={values} errors={errors} set={set} />
         </div>
-      )}
-      {values.hit && !needsIdentifier(values) && errors.gtin && (
-        <FieldError>{errors.gtin}</FieldError>
       )}
 
       <button
