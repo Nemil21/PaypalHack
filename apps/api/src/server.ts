@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   createChannel3Client,
+  type CancelListingDeps,
   type Channel3Client,
   type Config,
   type Db,
@@ -63,6 +64,8 @@ export interface ServerDeps {
   events?: ListingEventBus;
   /** SSE heartbeat interval (default 15 s); tests shorten it. */
   sseHeartbeatMs?: number;
+  /** Listing cancel (HF-012b): the PayPal void port and audit hook. Without it cancel is not mounted. */
+  listings?: { money?: CancelListingDeps };
   /** Channel3 client (HF-009). Default: `createChannel3Client(config)` (`CHANNEL3_MODE`). */
   channel3?: Channel3Client;
 }
@@ -143,7 +146,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
       logger: (entry) => app.log.info({ channel3: entry }, 'channel3'),
     });
   registerProductRoutes(app, { channel3, ...(deps.sql ? { db: deps.sql.pool } : {}) });
-  if (deps.sql) registerListingRoutes(app, { db: deps.sql, channel3 });
+  if (deps.sql) registerListingRoutes(app, { db: deps.sql, channel3, money: deps.listings?.money });
 
   registerAuthRoutes(app, {
     config,

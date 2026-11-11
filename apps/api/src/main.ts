@@ -69,6 +69,8 @@ const app = buildServer(config, {
     kick: settlement?.kick,
     retryPayout: (input) => retryPayout(payouts, input),
   },
+  // HF-012b: listing cancel voids every hold through the same PayPal client.
+  listings: { money: { db: sql, paypal, audit: auditHook } },
   bids: {
     money: {
       db: sql,
