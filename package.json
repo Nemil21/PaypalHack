@@ -39,7 +39,9 @@
     "sim:stream": "tsx --conditions=source apps/api/src/cli/sim-stream.ts",
     "demo:decline": "tsx --conditions=source apps/api/src/cli/demo-decline.ts",
     "demo:reset": "tsx --conditions=source apps/api/src/cli/demo-reset.ts",
-    "eval:agent": "tsx --conditions=source scripts/agent-eval.ts"
+    "eval:agent": "tsx --conditions=source scripts/agent-eval.ts",
+    "security:secrets": "bash scripts/secret-scan.sh",
+    "security:audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -51,6 +53,6 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.2",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.12"
   }
 }

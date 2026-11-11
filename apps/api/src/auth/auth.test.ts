@@ -16,7 +16,7 @@ import { RateLimiter } from '../http/rate-limit.js';
 import { buildServer, type ServerDeps } from '../server.js';
 import { BRAND_COOKIE, SHOPPER_COOKIE } from './guards.js';
 import { DEMO_ACCOUNTS } from './store.js';
-import { signToken } from './tokens.js';
+import { sealToken, signToken } from './tokens.js';
 
 const SECRET = 'q'.repeat(40);
 const BASE_ENV = {
@@ -375,6 +375,12 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
       const url = new URL(links[0]!.url);
       expect(url.origin).toBe('http://holdfast.test');
       expect(url.pathname).toBe('/api/auth/shopper/magic-link/verify');
+      // No personal data in URLs (HF-047): the token is sealed, so the email can't be decoded.
+      const token = url.searchParams.get('token')!;
+      expect(links[0]!.url.toLowerCase()).not.toContain('maya');
+      expect(Buffer.from(token, 'base64url').toString('latin1').toLowerCase()).not.toContain(
+        'maya',
+      );
 
       // Opened in the browser that asked for it: the provisional shopper gets the email.
       const verify = await app.inject({
@@ -503,7 +509,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
 
     it('rejects tampered or expired links, bad emails and open redirects', async () => {
       const app = server();
-      const expired = signToken(SECRET, 'magic-link', {
+      const expired = sealToken(SECRET, 'magic-link', {
         sub: 'x@example.com',
         exp: Date.now() - 1,
       });
@@ -511,7 +517,16 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-006 auth (Postgres)', () => {
         sub: 'x@example.com',
         exp: Date.now() + 60_000,
       });
-      for (const t of [expired, forged, 'nope']) {
+      // A readable signed token for the right purpose is not a magic link either (HF-047).
+      const signed = signToken(SECRET, 'magic-link', {
+        sub: 'x@example.com',
+        exp: Date.now() + 60_000,
+      });
+      const otherPurpose = sealToken(SECRET, 'paypal-state', {
+        sub: 'x@example.com',
+        exp: Date.now() + 60_000,
+      });
+      for (const t of [expired, forged, signed, otherPurpose, 'nope']) {
         const res = await app.inject({
           method: 'GET',
           url: `/api/auth/shopper/magic-link/verify?token=${t}`,

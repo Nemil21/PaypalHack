@@ -79,8 +79,9 @@ export function registerWebApp(
       index: false,
       // We set Cache-Control ourselves below.
       cacheControl: false,
-      setHeaders(res, path) {
-        res.setHeader(
+      // @fastify/static 10 passes the Fastify reply (v9 passed the raw response).
+      setHeaders(reply, path) {
+        reply.header(
           'Cache-Control',
           path.startsWith(assetsDir) ? 'public, max-age=31536000, immutable' : 'no-cache',
         );
