@@ -21,6 +21,8 @@ export interface CronJob<R = unknown> {
 
 export type JobRun<R> =
   | { ran: false; reason: 'LOCKED' }
+  /** Only from `startCrons`: queued for a slot when `stop()` was called, so never started. */
+  | { ran: false; reason: 'STOPPED' }
   /** Only from `startCrons`: the run threw (already audited `CRON_FAILED` and passed to onError). */
   | { ran: false; reason: 'FAILED'; error: unknown }
   | { ran: true; result: R; ms: number };
@@ -146,8 +148,11 @@ export function startCrons(opts: StartCronsOptions): Crons {
     const running = inFlight.get(job.id);
     if (running) return running;
     const p = slot()
-      .then(async (release) => {
+      .then(async (release): Promise<JobRun<unknown>> => {
         try {
+          // Queued behind the concurrency cap when `stop()` came in: don't start new PayPal,
+          // payout or email work during shutdown; `stop()` only waits for runs already going.
+          if (stopped) return { ran: false, reason: 'STOPPED' };
           return await runJob(opts.db, job);
         } finally {
           release();
