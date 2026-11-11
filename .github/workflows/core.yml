@@ -1,0 +1,38 @@
+name: core
+
+on:
+  push:
+    branches: [main]
+    paths: ['packages/**', 'db/**', 'package.json', 'package-lock.json', '.github/workflows/core.yml']
+  pull_request:
+    paths: ['packages/**', 'db/**', 'package.json', 'package-lock.json', '.github/workflows/core.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npx eslint packages
+      - name: Typecheck packages
+        run: |
+          npm run build -w @holdfast/shared
+          npm run typecheck -w @holdfast/core
+      - name: Unit + integration tests (money primitives race tests on Postgres)
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: npx vitest run packages
