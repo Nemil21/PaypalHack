@@ -24,11 +24,13 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "migrate": "npm run migrate -w @holdfast/db"
+    "migrate": "node scripts/with-env.mjs npm run migrate -w @holdfast/db",
+    "test:db": "node scripts/with-env.mjs npm test -w @holdfast/db"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@types/node": "^20.19.43",
+    "dotenv": "^17.4.2",
     "eslint": "^9.39.5",
     "globals": "^16.5.0",
     "prettier": "^3.10.0",
