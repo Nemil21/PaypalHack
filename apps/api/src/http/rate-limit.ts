@@ -40,11 +40,15 @@ export class RateLimiter {
     private readonly windowMs = RATE_WINDOW_MS,
   ) {}
 
-  /** Record one call for `key` in `bucket`; refused calls are not counted. */
-  hit(bucket: RateBucket, key: string): RateDecision {
+  /**
+   * Record one call for `key` in `bucket`; refused calls are not counted. `maxPerMin` (e.g. an
+   * MCP token's own limit) can only lower the bucket's limit.
+   */
+  hit(bucket: RateBucket, key: string, maxPerMin?: number): RateDecision {
     const t = this.now();
     this.sweep(t);
-    const limit = this.limits[bucket];
+    const limit =
+      maxPerMin && maxPerMin > 0 ? Math.min(this.limits[bucket], maxPerMin) : this.limits[bucket];
     const id = `${bucket}:${key}`;
     const since = t - this.windowMs;
     const log = (this.hits.get(id) ?? []).filter((at) => at > since);

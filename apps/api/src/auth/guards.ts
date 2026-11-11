@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isAdminEmail, type Config, type Db, type Principal } from '@holdfast/core';
 import { ApiError } from '../http/errors.js';
@@ -28,7 +27,7 @@ import {
  *   app.post('/api/listings/:id/clear', { onRequest: app.guards.requireBrandUser('MANAGER') }, …)
  *   app.post('/api/bids', { onRequest: app.guards.requireShopper }, …)
  *   app.get('/api/offers/:slug', { onRequest: app.guards.ensureShopper }, …)
- *   app.post('/mcp', { onRequest: app.guards.requireMcpToken('bids:write') }, …)
+ *   app.route({ url: '/mcp', onRequest: app.guards.requireMcpToken(), … })   // scopes per tool
  *
  * Sessions are HMAC-signed cookies (stateless); the user row is loaded on every guarded request,
  * so a role change or a deleted user takes effect immediately.
@@ -48,6 +47,8 @@ export interface McpPrincipal {
   clientId: string;
   shopperId: string;
   scopes: string[];
+  /** `mcp_clients.rate_limit_per_min`; can only lower the 30/min MCP limit. */
+  rateLimitPerMin?: number;
 }
 
 /** HF-043 issues and hashes MCP tokens; it plugs its lookup in here. */
@@ -81,7 +82,8 @@ export interface Guards {
   requireBrandUser(minRole?: BrandRole): Hook;
   requireShopper: Hook;
   requireAdmin: Hook;
-  requireMcpToken(scope: string): Hook;
+  /** Bearer token only; with `scope`, the token must hold it (`/mcp` checks scopes per tool). */
+  requireMcpToken(scope?: string): Hook;
   /** Offer-page visit: load the shopper, or create a provisional one bound to a new cookie (D13). */
   ensureShopper: Hook;
   /** Per-principal limit for a bucket, e.g. `rateLimit('agent')` after `requireShopper`. */
@@ -296,18 +298,25 @@ export function createGuards(deps: AuthDeps, sessions: Sessions): Guards {
     req.auth.principal = { type: 'BRAND_USER', id: user.id };
   };
 
-  const requireMcpToken = (scope: string): Hook =>
+  const requireMcpToken = (scope?: string): Hook =>
     async function requireMcpToken(req, reply) {
-      // Bearer only: cookies are ignored on /mcp (api.md).
+      // Bearer only: cookies are ignored on /mcp (api.md), so a browser can't be driven into it.
       req.auth = emptyAuth();
       const token = bearerToken(req);
       if (!token) throw new ApiError('UNAUTHENTICATED', 'An MCP bearer token is required.');
-      // Limit before the lookup, keyed by the token's hash: invalid tokens are throttled too.
-      const key = createHash('sha256').update(token).digest('base64url');
-      if (!applyRateDecision(reply, limiter.hit('mcp', key))) return reply;
       const principal = deps.mcpTokens ? await deps.mcpTokens.verify(token) : null;
-      if (!principal) throw new ApiError('UNAUTHENTICATED', 'The MCP token is invalid or revoked.');
-      if (!principal.scopes.includes(scope)) {
+      if (!principal) {
+        // Throttle guessing per client IP; valid tokens are limited per token below.
+        if (!applyRateDecision(reply, limiter.hit('mcp', `invalid:${req.ip}`))) return reply;
+        throw new ApiError('UNAUTHENTICATED', 'The MCP token is invalid or revoked.');
+      }
+      // 30 calls/min per mcp_clients.id (features/07); the row's own limit can only lower it.
+      if (
+        !applyRateDecision(reply, limiter.hit('mcp', principal.clientId, principal.rateLimitPerMin))
+      ) {
+        return reply;
+      }
+      if (scope && !principal.scopes.includes(scope)) {
         throw new ApiError('FORBIDDEN', `The MCP token lacks the ${scope} scope.`);
       }
       req.auth.mcp = principal;
