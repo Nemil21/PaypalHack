@@ -20,3 +20,4 @@ export * from './overview.js';
 export * from './rounds-activity.js';
 export * from './mcp.js';
 export * from './notifications.js';
+export * from './brand-agent.js';
