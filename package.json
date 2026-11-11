@@ -33,7 +33,8 @@
     "admin:verify": "tsx --conditions=source apps/api/src/cli/admin-verify.ts",
     "reconcile:holds": "tsx --conditions=source apps/api/src/cli/reconcile-holds.ts",
     "fixture:offer": "node scripts/offer-fixture.mjs",
-    "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts"
+    "dev:bids": "tsx --conditions=source apps/api/src/cli/dev-bids.ts",
+    "eval:agent": "tsx --conditions=source scripts/agent-eval.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
