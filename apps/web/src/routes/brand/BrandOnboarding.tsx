@@ -18,6 +18,7 @@ import {
   type OnboardingBrand,
   type OnboardingLoad,
   type OnboardingStep,
+  type VerificationStatus,
 } from '../../lib/brand-onboarding';
 import { cn } from '../../lib/cn';
 import { paths } from '../../lib/routes';
@@ -213,7 +214,7 @@ export function BrandOnboarding() {
             values={values}
             errors={errors}
             loginEmail={loginEmail}
-            readOnly={readOnly}
+            status={brand?.verificationStatus ?? null}
             onChange={(k, v) => {
               setValues((x) => ({ ...x, [k]: v }));
               setErrors((x) => ({ ...x, [k]: undefined }));
@@ -308,15 +309,17 @@ function CompanyStep({
   values,
   errors,
   loginEmail,
-  readOnly,
+  status,
   onChange,
 }: {
   values: CompanyValues;
   errors: CompanyErrors;
   loginEmail: string;
-  readOnly: boolean;
+  /** Null before step 1 is saved. Only a PENDING brand (or none yet) can edit these. */
+  status: VerificationStatus | null;
   onChange(key: keyof CompanyValues, value: string): void;
 }) {
+  const readOnly = status === 'VERIFIED' || status === 'REJECTED';
   return (
     <section aria-label="Company" className="flex flex-col gap-5">
       <TextField
@@ -343,9 +346,15 @@ function CompanyStep({
         readOnly
         onChange={() => undefined}
       />
-      {readOnly && (
+      {status === 'VERIFIED' && (
         <p className="text-[13px] text-body">
           Your brand is verified; change these details in brand settings.
+        </p>
+      )}
+      {status === 'REJECTED' && (
+        <p className="text-[13px] text-body">
+          This brand was rejected, so these details are locked. Contact support@holdfast.example to
+          have it reviewed.
         </p>
       )}
     </section>
