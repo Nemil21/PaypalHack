@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Holdfast S7: card fields + wallet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font: 15px/1.4 system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    section { border: 1px solid #ccc; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; }
+    .card-field { height: 3rem; margin-bottom: .75rem; }
+    button { font: inherit; padding: .5rem 1rem; }
+    pre { background: #f5f5f5; padding: .75rem; white-space: pre-wrap; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Spike S7 (HF-063)</h1>
+  <p>Served by <code>node spikes/paypal-s7.mjs serve</code>. The server creates orders and authorizes; card data goes only to PayPal's card fields.</p>
+
+  <section>
+    <h2>Step 1: card fields → authorize → vault</h2>
+    <p>Sandbox test card: 4111 1111 1111 1111, any future expiry, CVV 123.</p>
+    <div id="card-name" class="card-field"></div>
+    <div id="card-number" class="card-field"></div>
+    <div id="card-expiry" class="card-field"></div>
+    <div id="card-cvv" class="card-field"></div>
+    <button id="card-pay" hidden>Place $229 hold</button>
+    <pre id="card-log">loading SDK…</pre>
+  </section>
+
+  <section>
+    <h2>Step 2: PayPal wallet approve → return → authorize</h2>
+    <button id="wallet-vault">Wallet order with vault → approve</button>
+    <button id="wallet-plain">Wallet order without vault → approve</button>
+    <pre id="wallet-log"></pre>
+  </section>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (id, msg) => { $(id).textContent += `\n${new Date().toISOString().slice(11, 19)} ${typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}`; };
+    const post = (path, body) => fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }).then((r) => r.json());
+
+    async function onPayPalWebSdkLoaded() {
+      try {
+        const { clientId } = await fetch('/api/client-id').then((r) => r.json());
+        const sdk = await window.paypal.createInstance({ clientId, components: ['card-fields'] });
+        const methods = await sdk.findEligibleMethods({ currencyCode: 'USD' });
+        const eligible = methods.isEligible('advanced_cards');
+        log('card-log', `SDK loaded; advanced_cards eligible: ${eligible}`);
+        if (!eligible) return;
+        const session = sdk.createCardFieldsOneTimePaymentSession();
+        for (const [type, placeholder] of [['name', 'Name on card'], ['number', 'Card number'], ['expiry', 'MM/YY'], ['cvv', 'CVV']])
+          $(`card-${type}`).appendChild(session.createCardFieldsComponent({ type, placeholder }));
+        $('card-pay').hidden = false;
+        $('card-pay').onclick = () => placeCardHold(session);
+        // ?auto=<s>: submit after <s> seconds, for driving the page from automation when clicks can't reach it.
+        const auto = Number(new URLSearchParams(location.search).get('auto'));
+        if (auto) { log('card-log', `auto-submit in ${auto}s`); setTimeout(() => placeCardHold(session), auto * 1000); }
+      } catch (e) {
+        log('card-log', `SDK init failed: ${e.message}`);
+      }
+    }
+
+    async function placeCardHold(session) {
+      $('card-pay').disabled = true;
+      try {
+        const order = await post('/api/card/order');
+        log('card-log', { order });
+        if (!order.orderId) return;
+        const { data, state } = await session.submit(order.orderId, { billingAddress: { countryCode: 'US' } });
+        const submit = { state, data: data ? { orderId: data.orderId, liabilityShift: data.liabilityShift, message: data.message } : null };
+        log('card-log', { submit });
+        if (state !== 'succeeded') { await post('/api/card/submit-failed', { orderId: order.orderId, submit }); return; }
+        const result = await post('/api/card/authorize', { orderId: order.orderId, submit });
+        log('card-log', result);
+        log('card-log', result.pass ? 'CARD FIELDS PASS' : 'CARD FIELDS FAIL');
+      } catch (e) {
+        log('card-log', `error: ${e.message}`);
+      } finally {
+        $('card-pay').disabled = false;
+      }
+    }
+
+    async function startWallet(vault) {
+      const order = await post(`/api/wallet/order?vault=${vault ? 1 : 0}`);
+      log('wallet-log', order);
+      if (order.payerAction) location.href = order.payerAction; // rel=payer-action; PayPal returns to /wallet-return
+    }
+    $('wallet-vault').onclick = () => startWallet(true);
+    $('wallet-plain').onclick = () => startWallet(false);
+    document.addEventListener('click', (e) => log('card-log', `click on <${e.target.tagName.toLowerCase()}${e.target.id ? '#' + e.target.id : ''}>`), true);
+    window.addEventListener('error', (e) => log('card-log', `page error: ${e.message}`));
+    window.addEventListener('unhandledrejection', (e) => log('card-log', `unhandled: ${e.reason?.message ?? e.reason}`));
+    const q = new URLSearchParams(location.search);
+    if (q.get('wallet') === 'cancel') log('wallet-log', 'buyer cancelled on PayPal');
+  </script>
+  <script async src="https://www.sandbox.paypal.com/web-sdk/v6/core" onload="onPayPalWebSdkLoaded()"></script>
+</body>
+</html>
