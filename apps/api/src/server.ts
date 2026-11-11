@@ -17,6 +17,7 @@ import { registerClearRoute, type ClearRouteDeps } from './routes/clear.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
+import { registerOfferRoutes } from './routes/offers.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -107,6 +108,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });
   }
   if (deps.sql) registerAdminBrandRoutes(app, deps.sql);
+  if (deps.sql) registerOfferRoutes(app, { db: deps.sql });
 
   registerAuthRoutes(app, {
     config,

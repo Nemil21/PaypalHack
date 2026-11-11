@@ -23,3 +23,4 @@ export * from './bid-cancel.js';
 export * from './bid-views.js';
 export * from './mandates.js';
 export * from './brands/verify.js';
+export * from './offers/index.js';

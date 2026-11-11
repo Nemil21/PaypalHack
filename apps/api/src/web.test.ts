@@ -93,7 +93,13 @@ describe('same-origin SPA (M31)', () => {
   it('exposes the AG licence and demo flag at runtime, uncached', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/client-config' });
     expect(res.headers['cache-control']).toBe('no-store');
-    expect(res.json()).toEqual({ agGridLicenseKey: 'lic-123', demoMode: true });
+    expect(res.json()).toEqual({
+      agGridLicenseKey: 'lic-123',
+      demoMode: true,
+      paypalClientId: 'test-client-id',
+      paypalSandbox: true,
+      testCardEnabled: true,
+    });
   });
 });
 
@@ -111,7 +117,22 @@ describe('without a web build', () => {
 
   it('returns a null licence when none is configured', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/client-config' });
-    expect(res.json()).toEqual({ agGridLicenseKey: null, demoMode: false });
+    expect(res.json()).toEqual({
+      agGridLicenseKey: null,
+      demoMode: false,
+      paypalClientId: 'test-client-id',
+      paypalSandbox: true,
+      testCardEnabled: false,
+    });
+  });
+
+  it('has no SDK client id with the FakePayPal stub', async () => {
+    const stub = buildServer(loadConfig({ ...REQUIRED, PAYPAL_MODE: 'stub', DEMO_MODE: 'true' }), {
+      webDistDir: null,
+    });
+    const res = await stub.inject({ method: 'GET', url: '/api/client-config' });
+    expect(res.json()).toMatchObject({ paypalClientId: null, testCardEnabled: true });
+    await stub.close();
   });
 });
 

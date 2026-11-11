@@ -23,7 +23,7 @@ import { signToken, verifyToken } from './tokens.js';
  *   POST /api/auth/shopper/magic-link         { email, next? } → 202; link console-logged locally
  *   GET  /api/auth/shopper/magic-link/verify  ?token=…   → 302 to `next` with the shopper cookie
  *   POST /api/auth/demo/brand                 { role?: 'OWNER' | 'VIEWER' }   DEMO_MODE only
- *   POST /api/auth/demo/shopper                                               DEMO_MODE only
+ *   POST /api/auth/demo/shopper               { email? }                      DEMO_MODE only
  * With `DEMO_MODE=false` the demo routes are not registered at all, so they answer 404.
  * Log in with PayPal (HF-010) adds /api/auth/paypal/* next to these.
  */
@@ -168,8 +168,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     return { brandUser: brandUserView(user, config) };
   });
 
+  // Instant demo sign-in (D13, HF-019): with an email, create or load that shopper at once (the
+  // magic link without the round trip); without one, the fixed demo shopper.
   app.post('/api/auth/demo/shopper', async (req, reply) => {
-    const shopper = await ensureDemoShopper(db().pool);
+    const body = parse(z.object({ email: email.optional() }), req.body ?? {}, 'body');
+    const shopper = body.email
+      ? await claimShopperEmail(db(), sessions.shopperClaims(req)?.sub ?? null, body.email)
+      : await ensureDemoShopper(db().pool);
     sessions.setShopper(req, reply, shopper.id);
     return { shopper: shopperView(shopper) };
   });
