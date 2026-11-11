@@ -10,3 +10,4 @@ export * from './settlement.js';
 export * from './copy.js';
 export * from './errors.js';
 export * from './bids.js';
+export * from './book.js';
