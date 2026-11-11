@@ -10,6 +10,7 @@ import {
   Skeleton,
   useToast,
 } from '../../components/ui';
+import { OrderTimeline } from '../../components/bryntum/OrderTimeline';
 import { ApiError, api } from '../../lib/api';
 import {
   belowHint,
@@ -168,6 +169,12 @@ export function BidDetailPage() {
       />
       <Timeline detail={load.detail} onOpenDrop={() => setSheetOpen(true)} />
       <MoneyBox detail={load.detail} />
+      {/* HF-060: the order's progress (window → Clear → charge → shipping), not the bid's history. */}
+      <OrderTimeline
+        path={`/api/bids/${encodeURIComponent(bid.bidId)}/order-timeline`}
+        title="Order status"
+        refreshKey={`${bid.status}:${bid.listing.status}`}
+      />
       {showBar && <ActionBar detail={load.detail} onChanged={() => void fetchDetail()} />}
 
       {sheetOpen && priceDrop && (

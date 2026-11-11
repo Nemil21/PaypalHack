@@ -23,3 +23,4 @@ export * from './notifications.js';
 export * from './brand-agent.js';
 export * from './notification-channels.js';
 export * from './payouts-report.js';
+export * from './order-timeline.js';

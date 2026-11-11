@@ -177,6 +177,9 @@ export const payoutViewSchema = z.object({
   /** Payout item status, e.g. SUCCESS / UNCLAIMED / DENIED. */
   itemStatus: z.string().nullable(),
   failureReason: z.string().nullable(),
+  /** When this attempt was created / reached SUCCESS (HF-060 Gantt payout milestone). */
+  createdAt: iso.optional(),
+  completedAt: iso.nullable().optional(),
 });
 
 export const payoutUpdatedEvent = z.object({

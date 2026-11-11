@@ -136,11 +136,22 @@ export function settlementFixture(listingId = FIXTURE_LISTING_ID): SettlementFix
       delayMs,
       event: { type: 'listing.status', listingId, at: at(delayMs), from, to },
     });
-  const payout = (delayMs: number, p: PayoutView) =>
+  const payout = (delayMs: number, p: PayoutView) => {
+    const when = at(delayMs);
     frames.push({
       delayMs,
-      event: { type: 'payout.updated', listingId, at: at(delayMs), payout: p },
+      event: {
+        type: 'payout.updated',
+        listingId,
+        at: when,
+        payout: {
+          ...p,
+          createdAt: p.createdAt ?? when,
+          completedAt: p.status === 'SUCCESS' ? when : (p.completedAt ?? null),
+        },
+      },
     });
+  };
 
   // Phase 1: captures for every winner plus below-floor voids (D9).
   let k = 0;
@@ -206,7 +217,8 @@ export function settlementFixture(listingId = FIXTURE_LISTING_ID): SettlementFix
     failureReason: null,
   };
   payout(500, p);
-  payout(2_500, { ...p, status: 'SUCCESS', itemStatus: 'SUCCESS' });
+  const sent = (frames.at(-1)!.event as { payout: PayoutView }).payout.createdAt;
+  payout(2_500, { ...p, createdAt: sent, status: 'SUCCESS', itemStatus: 'SUCCESS' });
   status(100, 'SETTLED', 'PAID_OUT');
 
   return { initial, frames };
