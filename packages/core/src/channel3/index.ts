@@ -6,3 +6,4 @@ export * from './match.js';
 export * from './client.js';
 export * from './products.js';
 export * from './search.js';
+export * from './webhook-signature.js';

@@ -47,6 +47,8 @@ export const bookListingSchema = z.object({
     merchant: z.string().nullable(),
     offerUrl: z.string().nullable(),
     priceUpdatedAt: isoOrNull,
+    /** HF-042b: Channel3 unreachable; the console shows "Public price check paused". */
+    pausedAt: isoOrNull.optional(),
   }),
 });
 export type BookListing = z.infer<typeof bookListingSchema>;

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { formatUsd, type BookResponse } from '@holdfast/shared';
 import { Badge, Button, ErrorBanner, Skeleton, useToast } from '../../components/ui';
+import { PriceWatchPausedBanner } from '../../components/PriceWatchPausedBanner';
 import type { PhaseView } from '../../lib/console/phase';
 import { paths } from '../../lib/routes';
 import { useApiAction } from '../../lib/use-api-action';
@@ -87,21 +88,26 @@ function ProductImage({ url, loading }: { url: string | null; loading: boolean }
 
 function PriceWatch({ book }: { book: BookResponse }) {
   const pw = book.listing.priceWatch;
+  // HF-042b: Channel3 unreachable → the watch is paused even with a subscription.
+  const on = pw.on && !pw.pausedAt;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[13px] text-body">
-      {pw.bestPublicPriceCents !== null && (
-        <Badge tone="neutral">
-          Public low {formatUsd(pw.bestPublicPriceCents)}
-          {pw.merchant ? ` · ${pw.merchant}` : ''}
-        </Badge>
-      )}
-      <span className="inline-flex items-center gap-1.5">
-        <span
-          aria-hidden
-          className={pw.on ? 'size-1.5 rounded-full bg-success' : 'size-1.5 rounded-full bg-muted'}
-        />
-        Price watch {pw.on ? 'on' : 'paused'}
-      </span>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-body">
+        {pw.bestPublicPriceCents !== null && (
+          <Badge tone="neutral">
+            Public low {formatUsd(pw.bestPublicPriceCents)}
+            {pw.merchant ? ` · ${pw.merchant}` : ''}
+          </Badge>
+        )}
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className={on ? 'size-1.5 rounded-full bg-success' : 'size-1.5 rounded-full bg-muted'}
+          />
+          Price watch {on ? 'on' : 'paused'}
+        </span>
+      </div>
+      {pw.pausedAt && <PriceWatchPausedBanner />}
     </div>
   );
 }

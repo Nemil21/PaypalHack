@@ -17,6 +17,8 @@ export interface OfferView {
     url: string | null;
     updatedAt: string | null;
   } | null;
+  /** HF-042b: Channel3 unreachable; show "Public price check paused". Absent on older APIs. */
+  priceWatchPaused?: boolean;
   status: string;
   phase: string;
   biddable: boolean;

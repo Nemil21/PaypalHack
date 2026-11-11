@@ -15,6 +15,8 @@ import {
   makePayoutBrand,
   mockDeclinesAllowed,
   pollPayouts,
+  pollPublicPrices,
+  probeChannel3,
   reprocessPayPalWebhooks,
   reprocessPriceEvents,
   retryPayout,
@@ -86,8 +88,8 @@ const paypalWebhooks = {
   onError: (err: unknown, ctx: { eventId: string; step: string }) =>
     app.log.warn({ err: (err as Error).message, ...ctx }, 'paypal webhook step failed'),
 };
-// HF-042a: the price watcher. The admin replay and the minute / boot reprocess of unprocessed
-// Channel3 rows share these deps (HF-042b adds the live webhook on the same path).
+// HF-042a: the price watcher. The admin replay, the live Channel3 webhook (HF-042b), the minute /
+// boot reprocess of unprocessed Channel3 rows, the outage probe and the nightly poll share these.
 const priceWatch = {
   db: sql,
   paypal,
@@ -186,6 +188,10 @@ const crons = startCrons({
     pollPayouts: () => pollPayouts(payouts),
     reprocessPayPalWebhooks: () => reprocessPayPalWebhooks(paypalWebhooks),
     reprocessPriceEvents: () => reprocessPriceEvents(priceWatch),
+    // HF-042b: the Channel3 heartbeat behind the "Public price check paused" banner, and the
+    // nightly detail-endpoint poll that catches price changes no webhook delivered.
+    probeChannel3: () => probeChannel3(priceWatch),
+    pollPublicPrices: () => pollPublicPrices(priceWatch),
     onError: (err, ctx) =>
       app.log.warn(
         { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

@@ -59,6 +59,7 @@ interface ListingHead {
   best_public_offer_url: string | null;
   price_updated_at: Date | null;
   channel3_subscription_id: string | null;
+  price_watch_paused_at: Date | null;
   fee_bps: number;
   released_by_price_watch: string;
   db_now: Date;
@@ -97,6 +98,7 @@ async function loadSnapshot(tx: Tx, brandId: string, listingId: string): Promise
               l.round_ends_at, l.current_round, l.target_quantity, l.clear_deadline_at,
               p.title, p.image_url, p.best_public_price_cents, p.best_public_merchant,
               p.best_public_offer_url, p.price_updated_at, p.channel3_subscription_id,
+              l.price_watch_paused_at,
               br.fee_bps,
               (SELECT count(*) FROM bids
                 WHERE listing_id = l.id AND void_reason = 'PRICE_DROP') AS released_by_price_watch,
@@ -220,6 +222,7 @@ export async function loadBook(db: Db, brandId: string, listingId: string): Prom
           merchant: head.best_public_merchant,
           offerUrl: head.best_public_offer_url,
           priceUpdatedAt: iso(head.price_updated_at),
+          pausedAt: iso(head.price_watch_paused_at),
         },
       },
       stats: {
