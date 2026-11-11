@@ -9,6 +9,7 @@ import {
   createPayPalClient,
   createPool,
   holdfastCronJobs,
+  createNotifyJob,
   inProcessSettlementRunner,
   loadConfig,
   loadDotenv,
@@ -208,6 +209,14 @@ const crons = startCrons({
             app.log.warn({ err: (err as Error).message, intentId }, 'intent move rule failed'),
         },
       ),
+    // HF-054a: notify() as an audit subscriber (after commit) plus the 12 h / 6 h window scan.
+    notify: createNotifyJob(sql, {
+      onError: (err, ev) =>
+        app.log.warn(
+          { err: (err as Error).message, auditId: ev.id, action: ev.action },
+          'notify failed',
+        ),
+    }),
     onError: (err, ctx) =>
       app.log.warn(
         { err: (err as Error).message, job: ctx.job, detail: ctx.detail },

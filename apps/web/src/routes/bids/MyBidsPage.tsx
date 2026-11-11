@@ -31,6 +31,7 @@ import {
 } from '../../lib/bids';
 import { cn } from '../../lib/cn';
 import { useApiAction } from '../../lib/use-api-action';
+import { NotificationBell } from '../../components/NotificationBell';
 import { ErrorState } from './ErrorState';
 import { RoundsRaise } from './RoundsRaise';
 import { SWIPE_OPEN_PX, useNow, usePolling, usePullToRefresh, useSwipeLeft } from './hooks';
@@ -97,9 +98,12 @@ export function MyBidsPage() {
         </span>
       </div>
 
-      <h1 className="text-[28px] leading-[1.1] font-medium tracking-headline text-ink sm:text-[40px]">
-        My bids
-      </h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-[28px] leading-[1.1] font-medium tracking-headline text-ink sm:text-[40px]">
+          My bids
+        </h1>
+        <NotificationBell audience="shopper" />
+      </div>
 
       {errorParam && <ErrorState code={errorParam} />}
 

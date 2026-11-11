@@ -38,6 +38,7 @@ import { registerRoundsRoutes } from './routes/rounds.js';
 import { registerSettlementRoutes, type RetryPayout } from './routes/settlement.js';
 import { registerMandateRoutes } from './routes/mandates.js';
 import { registerMyBidRoutes } from './routes/my-bids.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
 import { registerOfferRoutes } from './routes/offers.js';
 import {
   registerPayPalWebhookRoute,
@@ -170,6 +171,7 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   }
   if (deps.sql) registerBookRoutes(app, deps.sql);
   if (deps.sql) registerBrandOverviewRoutes(app, deps.sql);
+  if (deps.sql) registerNotificationRoutes(app, deps.sql);
   if (deps.sql) registerRoundsRoutes(app, { ...deps.rounds, db: deps.sql });
   if (deps.events && deps.sql) {
     registerEventRoutes(app, { sql: deps.sql, bus: deps.events, heartbeatMs: deps.sseHeartbeatMs });

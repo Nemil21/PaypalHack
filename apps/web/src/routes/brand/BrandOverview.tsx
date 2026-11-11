@@ -28,6 +28,7 @@ import { formatUsdCompact } from '../../lib/console/kpis';
 import { createCoalescedRefetch } from '../../lib/console/refetch';
 import { subscribeListingEvents } from '../../lib/listing-events';
 import { paths } from '../../lib/routes';
+import { NotificationBell } from '../../components/NotificationBell';
 import { formatWhen } from '../bids/format';
 import { useBrand } from './BrandGate';
 
@@ -52,7 +53,10 @@ export function BrandOverview() {
       <div className="min-w-0 flex-1">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <PageHeader eyebrow={me.brand.name} title="Overview" />
-          {cta && <div className="pb-8 lg:pb-12">{cta}</div>}
+          <div className="flex items-center gap-3 pb-8 lg:pb-12">
+            <NotificationBell audience="brand" />
+            {cta}
+          </div>
         </div>
 
         {banner && (
