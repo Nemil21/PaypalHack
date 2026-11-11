@@ -44,8 +44,13 @@ export type AgentEvent =
       reason: 'end_turn' | 'confirm_required' | 'iteration_cap' | 'unavailable';
     };
 
-/** What `POST /api/agent/actions/:id/confirm` answers on success (place / raise / cancel). */
+/**
+ * What `POST /api/agent/actions/:id/confirm` answered (place / raise / cancel). The server also
+ * appends it to the conversation for every executed action, including failed ones, whose body is
+ * the error envelope (`bidErrorResponse`: WINDOW_CLOSED, HOLD_FAILED, …).
+ */
 export interface ConfirmResultBody {
+  error?: { code?: string; message?: string };
   bidId?: string;
   status?: string;
   amountCents?: number;
@@ -129,6 +134,8 @@ export type ConfirmState =
   | { status: 'declined' }
   | { status: 'done'; result: ConfirmResultBody }
   | { status: 'expired'; message: string }
+  /** Executed, but the bid service refused it: nothing was held (D14: never "sent"). */
+  | { status: 'failed'; message: string }
   /** No saved payment method: the server sent us to the offer page (M24). */
   | { status: 'offer_page'; offerUrl: string | null };
 
@@ -165,6 +172,8 @@ export type ChatAction =
   | { type: 'confirmed'; actionId: string; result: ConfirmResultBody }
   | { type: 'declined'; actionId: string }
   | { type: 'expired'; actionId: string; message: string }
+  /** The confirm answered a terminal error: replays the same error, so Approve stays off. */
+  | { type: 'action_failed'; actionId: string; message: string }
   | { type: 'offer_page'; actionId: string; offerUrl: string | null }
   /** The thread rebuilt from history (`threadFromHistory`). */
   | { type: 'hydrate'; state: ChatState }
@@ -194,8 +203,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         message: action.message,
         fallbackUrl: action.fallbackUrl,
       }));
-    case 'confirmed':
-      return setConfirm(state, action.actionId, { status: 'done', result: action.result });
+    case 'confirmed': {
+      const card = state.items.find(
+        (it): it is Extract<ThreadItem, { kind: 'confirm' }> =>
+          it.kind === 'confirm' && it.card.actionId === action.actionId,
+      )?.card;
+      const failed = card ? failureOf(card, action.result) : null;
+      return setConfirm(
+        state,
+        action.actionId,
+        failed ? { status: 'failed', message: failed } : { status: 'done', result: action.result },
+      );
+    }
+    case 'action_failed':
+      return setConfirm(state, action.actionId, { status: 'failed', message: action.message });
     case 'declined':
       return setConfirm(state, action.actionId, { status: 'declined' });
     case 'expired':
@@ -527,6 +548,28 @@ export function expiryText(expiresAt: string | null, now: number): string | null
   return `Expires in ${min} min`;
 }
 
+/** "That bid didn’t go through: <why>." for a refused place / raise / cancel. */
+export function failedText(card: ConfirmRequired, why: string | null | undefined): string {
+  const what = card.tool === 'raise_bid' ? 'raise' : card.tool === 'cancel_bid' ? 'cancel' : 'bid';
+  const reason = why?.trim().replace(/\.$/, '');
+  return reason ? `That ${what} didn’t go through: ${reason}.` : `That ${what} didn’t go through.`;
+}
+
+/**
+ * Null when the confirm answer is a real outcome; else the failure copy. An error envelope, a
+ * place / raise without a bid, or a cancel without its per-bid list is not something we can call
+ * held, sent or cancelled.
+ */
+export function failureOf(card: ConfirmRequired, result: ConfirmResultBody): string | null {
+  if (result.error && typeof result.error === 'object') {
+    return failedText(card, result.error.message ?? result.error.code);
+  }
+  if (card.tool === 'cancel_bid') {
+    return Array.isArray(result.cancelled) ? null : failedText(card, result.message);
+  }
+  return result.bidId && result.status ? null : failedText(card, result.message);
+}
+
 /** What the "action done" state says, from the confirm endpoint's answer (never the model's). */
 export function doneText(card: ConfirmRequired, result: ConfirmResultBody): string {
   if (card.tool === 'cancel_bid') {
@@ -544,7 +587,7 @@ export function doneText(card: ConfirmRequired, result: ConfirmResultBody): stri
       : `${amount} held, not charged.`;
   }
   if (result.status === 'PENDING_APPROVAL') return `${amount} is waiting for PayPal approval.`;
-  return result.message ?? `Bid ${amount}: ${result.status ?? 'sent'}.`;
+  return result.message ?? `Bid ${amount}: ${(result.status ?? '').toLowerCase()}.`;
 }
 
 // ---------------------------------------------------------------------------------------------

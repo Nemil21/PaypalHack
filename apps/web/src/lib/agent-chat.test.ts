@@ -6,6 +6,7 @@ import {
   createFrameParser,
   doneText,
   expiryText,
+  failureOf,
   initialChat,
   resultLabel,
   threadFromHistory,
@@ -136,6 +137,41 @@ describe('chat reducer on the recorded stream', () => {
     expect(item.state).toEqual({ status: 'done', result: FIXTURE_CONFIRM_RESULT });
     expect(doneText(item.card, FIXTURE_CONFIRM_RESULT)).toBe('$229 held, not charged.');
     expect(activeConfirmId(s.items)).toBeNull();
+  });
+
+  it('a confirm answer that is an error envelope is a failed card, never "sent"', () => {
+    let s = play(FIXTURE_EVENTS);
+    s = chatReducer(s, {
+      type: 'confirmed',
+      actionId: FIXTURE_ACTION_ID,
+      result: { error: { code: 'WINDOW_CLOSED', message: 'This book closed.' } },
+    });
+    expect(confirmItem(s).state).toEqual({
+      status: 'failed',
+      message: 'That bid didn’t go through: This book closed.',
+    });
+    expect(activeConfirmId(s.items)).toBeNull();
+    // The live path: a terminal 4xx from confirm.
+    s = chatReducer(play(FIXTURE_EVENTS), {
+      type: 'action_failed',
+      actionId: FIXTURE_ACTION_ID,
+      message: 'That bid didn’t go through: The hold failed.',
+    });
+    expect(confirmItem(s).state.status).toBe('failed');
+  });
+
+  it('failureOf: only real outcomes count as done', () => {
+    const card = confirmItem(play(FIXTURE_EVENTS)).card;
+    expect(failureOf(card, FIXTURE_CONFIRM_RESULT)).toBeNull();
+    expect(failureOf(card, {})).toBe('That bid didn’t go through.');
+    expect(failureOf(card, { error: { code: 'HOLD_FAILED' } })).toBe(
+      'That bid didn’t go through: HOLD_FAILED.',
+    );
+    const cancel = { ...card, tool: 'cancel_bid' as const };
+    expect(failureOf(cancel, { cancelled: [] })).toBeNull();
+    expect(failureOf(cancel, { status: 'HELD', bidId: 'x' })).toBe(
+      'That cancel didn’t go through.',
+    );
   });
 
   it('decline, expiry and the no-vault offer page are card states', () => {
@@ -294,5 +330,26 @@ describe('history rebuild', () => {
     expect(confirmItem(s).state).toEqual({ status: 'done', result: FIXTURE_CONFIRM_RESULT });
     expect(s.items.filter((i) => i.kind === 'user')).toHaveLength(1);
     expect(s.phase).toBe('idle');
+  });
+
+  it('a server confirm note with an error body rebuilds as failed, not done', () => {
+    const body = { error: { code: 'WINDOW_CLOSED', message: 'This book is not taking bids.' } };
+    const s = threadFromHistory(FIXTURE_CONVERSATION_ID, [
+      ...messages,
+      {
+        seq: 6,
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `[Holdfast server] The shopper confirmed action ${FIXTURE_ACTION_ID} (place_bid). Result: ${JSON.stringify(body)}`,
+          },
+        ],
+      },
+    ]);
+    expect(confirmItem(s).state).toEqual({
+      status: 'failed',
+      message: 'That bid didn’t go through: This book is not taking bids.',
+    });
   });
 });

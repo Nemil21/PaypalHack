@@ -10,6 +10,7 @@ import {
   cardWhere,
   doneText,
   expiryText,
+  failedText,
   type ChatAction,
   type ConfirmResultBody,
   type ThreadItem,
@@ -81,6 +82,14 @@ export function ConfirmCard({
         });
       } else if (reason === 'ACTION_REJECTED') {
         dispatch({ type: 'declined', actionId: card.actionId });
+      } else if (!e.retryable) {
+        // The action executed and the bid service refused it (WINDOW_CLOSED, HOLD_FAILED, …):
+        // the server stored that answer, so Approve would only replay it.
+        dispatch({
+          type: 'action_failed',
+          actionId: card.actionId,
+          message: failedText(card, e.message),
+        });
       } else {
         setError(e);
       }
@@ -216,6 +225,14 @@ export function ConfirmCard({
         </div>
       )}
       {state.status === 'expired' && <p className="text-[13px] text-body">{state.message}</p>}
+      {state.status === 'failed' && (
+        <div className="flex flex-col gap-2">
+          <p role="alert" className="text-[14px] text-danger">
+            {state.message}
+          </p>
+          <p className="text-[13px] text-body">Nothing was held. Ask the agent to try again.</p>
+        </div>
+      )}
       {state.status === 'declined' && (
         <p className="text-[13px] text-body">Not placed. Nothing was held.</p>
       )}
@@ -246,12 +263,14 @@ function StatusBadge({ item, expired }: { item: ConfirmItem; expired: boolean })
       ) : item.state.result.status === 'HELD' ? (
         <Badge tone="held">Held · not charged</Badge>
       ) : (
-        <Badge tone="neutral">{item.state.result.status ?? 'Sent'}</Badge>
+        <Badge tone="neutral">{item.state.result.status}</Badge>
       );
     case 'offer_page':
       return <Badge tone="neutral">Finish on offer page</Badge>;
     case 'expired':
       return <Badge tone="sim">Expired</Badge>;
+    case 'failed':
+      return <Badge tone="danger">Didn’t go through</Badge>;
     case 'declined':
       return <Badge tone="sim">Not now</Badge>;
   }
