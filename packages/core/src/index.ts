@@ -35,6 +35,8 @@ export * from './bid-won.js';
 export * from './mandates.js';
 export * from './brands/verify.js';
 export * from './brands/overview.js';
+export * from './brands/payouts-report.js';
+export * from './shipments/index.js';
 export * from './brands/onboard.js';
 export * from './brands/settings.js';
 export * from './offers/index.js';

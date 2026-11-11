@@ -2,11 +2,13 @@ import { classifyFailure, PayPalApiError, type PayPalCall } from './errors.js';
 import type { AnyRequestId, AuthorizeRequestId, VoidRequestId } from './ids.js';
 import * as orders from './orders.js';
 import * as payouts from './payouts.js';
+import * as tracking from './tracking.js';
 import type {
   CaptureInput,
   CreateAuthOrderInput,
   PayoutInput,
   PayPalClient,
+  TrackInput,
   WebhookHeaders,
 } from './types.js';
 import { verifyWebhookSignature } from './webhooks.js';
@@ -376,6 +378,9 @@ export class PayPalRestClient implements PayPalClient {
   }
   getPayoutItem(itemId: string) {
     return payouts.getPayoutItem(this.http, itemId);
+  }
+  track(orderId: string, input: TrackInput) {
+    return tracking.track(this.http, orderId, input);
   }
   verifyWebhook(headers: WebhookHeaders, rawBody: string) {
     if (this.#verify) return this.#verify(headers, rawBody);

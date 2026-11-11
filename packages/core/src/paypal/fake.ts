@@ -29,6 +29,7 @@ export type FakeOp =
   | 'payout'
   | 'get_payout_batch'
   | 'get_payout_item'
+  | 'track'
   | 'verify_webhook';
 
 export type FakeFault =
@@ -84,6 +85,15 @@ interface FakeCapture {
   createTime: string;
 }
 
+interface FakeTracker {
+  id: string;
+  orderId: string;
+  captureId: string;
+  trackingNumber: string;
+  carrier: string;
+  status: string;
+}
+
 interface FakePayoutBatch {
   id: string;
   senderBatchId: string;
@@ -122,6 +132,20 @@ function err(http: number, issue: string): Handled {
   };
 }
 
+/** Carrier enum values the sandbox accepted (HF-059b probe); others are a 400 like PayPal. */
+const FAKE_CARRIERS = new Set([
+  'UPS',
+  'USPS',
+  'FEDEX',
+  'DHL',
+  'DHL_API',
+  'ONTRAC',
+  'CANADA_POST',
+  'ROYAL_MAIL',
+  'AMAZON',
+  'OTHER',
+]);
+
 const amount = (cents: number) => ({ currency_code: 'USD', value: centsToDecimal(cents) });
 
 export class FakePayPal {
@@ -145,6 +169,7 @@ export class FakePayPal {
   readonly #replays = new Map<string, Handled>();
   readonly #batches = new Map<string, FakePayoutBatch>();
   readonly #items = new Map<string, string>();
+  readonly #trackers = new Map<string, FakeTracker>();
   readonly #faults = new Map<FakeOp | 'any', FakeFault[]>();
   webhookVerifier: (fields: Record<string, unknown>) => boolean = (f) =>
     f.transmission_sig === FAKE_VALID_WEBHOOK_SIGNATURE;
@@ -231,6 +256,11 @@ export class FakePayPal {
     return [...this.#auths.values()].map((a) => ({ ...a }));
   }
 
+  /** Trackers on an order, oldest first. */
+  trackersOf(orderId: string): Readonly<FakeTracker>[] {
+    return [...this.#trackers.values()].filter((t) => t.orderId === orderId).map((t) => ({ ...t }));
+  }
+
   capturesOf(authorizationId: string): Readonly<FakeCapture>[] {
     return [...this.#captures.values()].filter((c) => c.authorizationId === authorizationId);
   }
@@ -308,6 +338,8 @@ export class FakePayPal {
     if (method === 'POST' && path === '/v2/checkout/orders') return { op: 'order_create', id: '' };
     if (method === 'POST' && (id = m(/^\/v2\/checkout\/orders\/([^/]+)\/authorize$/)))
       return { op: 'authorize', id };
+    if (method === 'POST' && (id = m(/^\/v2\/checkout\/orders\/([^/]+)\/track$/)))
+      return { op: 'track', id };
     if (method === 'GET' && (id = m(/^\/v2\/checkout\/orders\/([^/]+)$/)))
       return { op: 'get_order', id };
     if (method === 'POST' && (id = m(/^\/v2\/payments\/authorizations\/([^/]+)\/capture$/)))
@@ -409,6 +441,8 @@ export class FakePayPal {
       }
       case 'payout':
         return this.#replayable(call, op, '', () => this.#payout(body));
+      case 'track':
+        return this.#replayable(call, op, id, () => this.#track(id, body));
       case 'get_payout_batch':
         return this.#getBatch(id);
       case 'get_payout_item': {
@@ -547,6 +581,42 @@ export class FakePayPal {
     return { http: 200, body: this.#authBody(auth) };
   }
 
+  /**
+   * Sandbox (HF-059b probe): 201 for a new tracker; the same capture + tracking number again (any
+   * request id) is 200 with the existing tracker; unknown capture 422 `CAPTURE_ID_NOT_FOUND`; a
+   * carrier outside the enum 400 `INVALID_PARAMETER_VALUE`.
+   */
+  #track(orderId: string, body: Record<string, unknown>): Handled {
+    const order = this.#orders.get(orderId);
+    if (!order) return err(404, 'INVALID_RESOURCE_ID');
+    const captureId = typeof body.capture_id === 'string' ? body.capture_id : '';
+    const trackingNumber = typeof body.tracking_number === 'string' ? body.tracking_number : '';
+    const carrier = typeof body.carrier === 'string' ? body.carrier : '';
+    if (!trackingNumber || !FAKE_CARRIERS.has(carrier)) {
+      return {
+        http: 400,
+        body: { name: 'INVALID_REQUEST', details: [{ issue: 'INVALID_PARAMETER_VALUE' }] },
+      };
+    }
+    const capture = this.#captures.get(captureId);
+    if (!capture || capture.authorizationId !== order.authorizationId) {
+      return err(422, 'CAPTURE_ID_NOT_FOUND');
+    }
+    const trackerId = `${captureId}-${trackingNumber}`;
+    const existed = this.#trackers.has(trackerId);
+    if (!existed) {
+      this.#trackers.set(trackerId, {
+        id: trackerId,
+        orderId,
+        captureId,
+        trackingNumber,
+        carrier,
+        status: 'SHIPPED',
+      });
+    }
+    return { http: existed ? 200 : 201, body: this.#orderBody(order) };
+  }
+
   #authBody(a: FakeAuthorization) {
     const order = this.#orders.get(a.orderId);
     return {
@@ -582,6 +652,7 @@ export class FakePayPal {
       ? [...this.#captures.values()].filter((c) => c.authorizationId === auth.id)
       : [];
     const vault = o.vault ? { attributes: { vault: o.vault } } : {};
+    const trackers = this.trackersOf(o.id).map((t) => ({ id: t.id, status: t.status }));
     return {
       id: o.id,
       intent: 'AUTHORIZE',
@@ -592,6 +663,7 @@ export class FakePayPal {
           invoice_id: o.invoiceId ?? undefined,
           custom_id: o.customId ?? undefined,
           amount: amount(o.amountCents),
+          ...(trackers.length ? { shipping: { trackers } } : {}),
           payments:
             auth || captures.length
               ? {

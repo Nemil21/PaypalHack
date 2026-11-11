@@ -4,6 +4,7 @@ import type {
   CaptureRequestId,
   OrderRequestId,
   PayoutRequestId,
+  TrackRequestId,
   VoidRequestId,
 } from './ids.js';
 
@@ -214,6 +215,24 @@ export interface PayoutBatchView {
   items: PayoutItemView[];
 }
 
+export interface TrackInput {
+  /** `trackRequestId(shipment.id)`: `track-<shipmentId>` (D5). */
+  requestId: TrackRequestId;
+  /** The bid's capture (`settlements.paypal_id` of its SUCCEEDED CAPTURE). */
+  captureId: string;
+  /** Free text; mapped to PayPal's carrier enum or `OTHER` (`paypalCarrier`). */
+  carrier: string;
+  trackingNumber: string;
+}
+
+/**
+ * Tracking outcome. `replayed` = PayPal answered 200 (same request id, or the same tracker already
+ * on the order), so no second tracker was added.
+ */
+export type TrackResult =
+  | { ok: true; trackerId: string; status: string; replayed: boolean }
+  | { ok: false; errorClass: ErrorClass; code: string; http: number };
+
 /** Webhook signature headers PayPal sends (lower-cased keys accepted). */
 export type WebhookHeaders = Record<string, string | string[] | undefined>;
 
@@ -234,5 +253,7 @@ export interface PayPalClient {
   payout(input: PayoutInput): Promise<PayoutResult>;
   getPayoutBatch(batchId: string): Promise<PayoutBatchView>;
   getPayoutItem(itemId: string): Promise<PayoutItemView>;
+  /** `pp.track` (HF-059b): add a shipment tracker to the order's capture. */
+  track(orderId: string, input: TrackInput): Promise<TrackResult>;
   verifyWebhook(headers: WebhookHeaders, rawBody: string): Promise<boolean>;
 }

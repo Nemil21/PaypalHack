@@ -37,6 +37,7 @@ export {
   type CaptureSettlementRow,
 } from './orders.js';
 export { payoutAmount, payoutItemOutcome } from './payouts.js';
+export { PAYPAL_CARRIERS, paypalCarrier, trackerIdFor } from './tracking.js';
 export {
   FakePayPal,
   FAKE_PAYPAL_BASE,

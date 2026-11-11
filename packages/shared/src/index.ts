@@ -22,3 +22,4 @@ export * from './mcp.js';
 export * from './notifications.js';
 export * from './brand-agent.js';
 export * from './notification-channels.js';
+export * from './payouts-report.js';

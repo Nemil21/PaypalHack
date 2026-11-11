@@ -9,7 +9,7 @@ export const paths = {
   brandOnboarding: '/brand/onboarding',
   brand: '/brand',
   newListing: '/brand/listings/new',
-  /** W04 left nav (HF-026); the screens land with HF-059b / HF-055 / HF-056. */
+  /** W04 left nav (HF-026): W09 payouts (HF-059b), W10 embed (HF-055), W11 settings (HF-056). */
   brandPayouts: '/brand/payouts',
   brandEmbed: '/brand/embed',
   brandSettings: '/brand/settings',

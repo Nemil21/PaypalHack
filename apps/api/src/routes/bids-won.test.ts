@@ -170,6 +170,32 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-059a won page', () => {
     expect(view.shipment.stage).toBe('DELIVERED');
   });
 
+  it('tracking PayPal has not accepted (PENDING, TRACKING_FAILED) is not shown', async () => {
+    const w = await wonBid();
+    await q(
+      `INSERT INTO shipments (bid_id, listing_id, carrier, tracking_number, tracking_request_id,
+                              status, error_code)
+       VALUES ($1, $2, 'UPS', 'WRONG123', 'track-x', 'TRACKING_FAILED', 'CAPTURE_ID_NOT_FOUND')`,
+      [w.bidId, w.listingId],
+    );
+    let view = (await getWon(w.bidId, w.shopperId)).json();
+    expect(view.status).toBe('CAPTURED');
+    expect(view.shipment).toMatchObject({
+      stage: 'ORDERED',
+      carrier: null,
+      trackingNumber: null,
+      trackingUrl: null,
+      shippedAt: null,
+    });
+
+    // In flight (or a retryable failure): the same.
+    await q(`UPDATE shipments SET status = 'PENDING', error_code = NULL WHERE bid_id = $1`, [
+      w.bidId,
+    ]);
+    view = (await getWon(w.bidId, w.shopperId)).json();
+    expect(view.shipment).toMatchObject({ stage: 'ORDERED', trackingNumber: null });
+  });
+
   it('a shipments row without a tracking number is still "ordered"', async () => {
     const w = await wonBid();
     await q(`INSERT INTO shipments (bid_id, listing_id) VALUES ($1, $2)`, [w.bidId, w.listingId]);
