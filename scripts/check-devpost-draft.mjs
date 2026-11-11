@@ -10,6 +10,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trademarksIn, uniformPriceIn } from './lib/copy-rules.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -58,27 +59,9 @@ const requiredTerms = {
 };
 for (const [label, re] of Object.entries(requiredTerms)) if (!re.test(text)) fail(`missing required content: ${label}`);
 
-// D14: pay-your-bid copy only.
-const uniformPrice = [
-  /one fair price/i,
-  /uniform(-| )price/i,
-  /single clearing price/i,
-  /everyone pays/i,
-  /all winners pay/i,
-  /pays? the cutoff/i,
-  /charged \$219/i,
-];
-for (const re of uniformPrice) if (re.test(text)) fail(`uniform-price copy (D14): ${re}`);
-
-// D15: fictional brand only; no real brands, retailers or competitors in the text.
-const trademarks = [
-  'Sony', 'Bose', 'Sennheiser', 'AirPods', 'JBL', 'Samsung', 'Patagonia', 'North Face', 'Best Buy',
-  'Walmart', 'Costco', 'eBay', 'Shopify', 'B-Stock', 'Greentoe', 'Priceline', 'WebHouse',
-];
-// Brands that are also ordinary words ("beats the liquidator", "an apple") match case-sensitively only.
-const commonWordTrademarks = ['Apple', 'Beats', 'Amazon', 'Target'];
-for (const tm of trademarks) if (new RegExp(`\\b${tm}\\b`, 'i').test(text)) fail(`third-party trademark (D15): ${tm}`);
-for (const tm of commonWordTrademarks) if (new RegExp(`\\b${tm}\\b`).test(text)) fail(`third-party trademark (D15): ${tm}`);
+// D14 pay-your-bid copy and D15 fictional brand (scripts/lib/copy-rules.mjs).
+for (const re of uniformPriceIn(text)) fail(`uniform-price copy (D14): ${re}`);
+for (const tm of trademarksIn(text)) fail(`third-party trademark (D15): ${tm}`);
 
 // Secrets: nothing from .env, no PayPal/Anthropic-looking keys, no card numbers, no sandbox account emails.
 if (existsSync(envFile)) {

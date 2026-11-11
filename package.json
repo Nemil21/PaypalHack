@@ -41,6 +41,7 @@
     "demo:decline": "tsx --conditions=source apps/api/src/cli/demo-decline.ts",
     "demo:reset": "tsx --conditions=source apps/api/src/cli/demo-reset.ts",
     "demo:refresh": "tsx --conditions=source apps/api/src/cli/demo-refresh.ts",
+    "demo:audit-check": "tsx --conditions=source apps/api/src/cli/demo-audit-check.ts",
     "smoke:deploy": "node scripts/smoke-deploy.mjs",
     "eval:agent": "tsx --conditions=source scripts/agent-eval.ts",
     "security:secrets": "bash scripts/secret-scan.sh",
