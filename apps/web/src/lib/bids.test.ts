@@ -558,15 +558,23 @@ describe('HF-038a live rounds on the bid page', () => {
     expect(roundsAction(nudged({ status: 'PENDING_APPROVAL' }))).toBeNull();
   });
 
-  it('a held bid on an OPEN listing is watched for rounds starting; others are not', () => {
-    expect(shouldWatchRounds([bid()])).toBe(true);
-    expect(shouldWatchRounds([bid({ status: 'PENDING_APPROVAL' })])).toBe(false);
-    expect(shouldWatchRounds([bid({ listing: { ...bid().listing, raisable: false } })])).toBe(
-      false,
-    );
-    expect(shouldWatchRounds([bid({ listing: { ...bid().listing, status: 'SETTLED' } })])).toBe(
-      false,
-    );
+  it('a held bid on an OPEN listing is watched until rounds can no longer start', () => {
+    const now = T0;
+    expect(shouldWatchRounds([bid()], now)).toBe(true);
+    expect(shouldWatchRounds([bid({ status: 'PENDING_APPROVAL' })], now)).toBe(false);
+    expect(
+      shouldWatchRounds([bid({ listing: { ...bid().listing, status: 'SETTLED' } })], now),
+    ).toBe(false);
+
+    // Window closed 1 h ago, rounds not started: still OPEN, not raisable, but rounds can start
+    // until window_closes_at + 6h, so keep watching.
+    const closed = bid({ listing: { ...bid().listing, windowClosesAt: at(-60), raisable: false } });
+    expect(shouldWatchRounds([closed], now)).toBe(true);
+    expect(shouldWatchRounds([closed], now + 5 * 3_600_000 - 1)).toBe(true);
+    expect(shouldWatchRounds([closed], now + 5 * 3_600_000)).toBe(false); // closes + 6h
+    expect(
+      shouldWatchRounds([bid({ listing: { ...bid().listing, windowClosesAt: null } })], now),
+    ).toBe(false);
   });
 
   it('frozen book: rounds ended → the frozen copy and no raise', () => {

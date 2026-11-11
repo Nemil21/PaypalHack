@@ -335,12 +335,20 @@ export function shouldPoll(bids: readonly MyBid[]): boolean {
   return bids.some((b) => b.listing.status === 'ROUNDS' && tabFor(b.status) === 'live');
 }
 
+/** D6: a brand can start rounds on an OPEN listing until `window_closes_at + 6h` (`startRounds`). */
+export const ROUNDS_START_GRACE_MS = 6 * 3_600_000;
+
 /**
  * HF-038a: a HELD bid on an OPEN listing is polled too (same 5 s), because the brand can start
- * rounds at any moment and round 1's nudge must show within 5 s; shoppers have no SSE (D18).
+ * rounds at any moment until `window_closes_at + 6h`, including after the window has closed, and
+ * round 1's nudge must show within 5 s; shoppers have no SSE (D18).
  */
-export function shouldWatchRounds(bids: readonly MyBid[]): boolean {
-  return bids.some((b) => b.status === 'HELD' && b.listing.status === 'OPEN' && b.listing.raisable);
+export function shouldWatchRounds(bids: readonly MyBid[], now: number = Date.now()): boolean {
+  return bids.some((b) => {
+    if (b.status !== 'HELD' || b.listing.status !== 'OPEN') return false;
+    const closes = b.listing.windowClosesAt ? Date.parse(b.listing.windowClosesAt) : NaN;
+    return Number.isFinite(closes) && now < closes + ROUNDS_START_GRACE_MS;
+  });
 }
 
 export function canCancel(status: BidStatus): boolean {
