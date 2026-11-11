@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+docs
+spikes
+skill
+scripts
+package-lock.json
+*.md

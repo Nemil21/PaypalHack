@@ -1,0 +1,39 @@
+{
+  "name": "holdfast",
+  "private": true,
+  "type": "module",
+  "description": "Holdfast: brands clear overstock into money that's already waiting.",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/core",
+    "apps/api",
+    "apps/workflows",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @holdfast/api",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start -w @holdfast/api",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "migrate": "tsx db/migrate.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^20.19.43",
+    "eslint": "^9.39.5",
+    "globals": "^16.5.0",
+    "prettier": "^3.10.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^3.2.7"
+  }
+}

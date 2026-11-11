@@ -1,0 +1,17 @@
+{
+  "name": "@holdfast/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React app (HF-007). Placeholder: proves @holdfast/shared bundles for the browser.",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@holdfast/shared": "0.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
+}
