@@ -531,18 +531,9 @@ async function finishCaptureFailed(
 
   let voided: VoidBidResult['outcome'] | null = null;
   if (failed) {
-    const moneyDeps: MoneyDeps = {
-      db: deps.db,
-      paypal: deps.paypal,
-      audit: auditHook,
-      voidBackoffMs: deps.backoffMs ?? DEFAULT_SETTLE_BACKOFF_MS,
-      ...(deps.sleep ? { sleep: deps.sleep } : {}),
-    };
-    // Left VOIDING on persistent failure: the sweeper (HF-034) finishes it.
-    const v = await voidBid(moneyDeps, bid.id, 'CAPTURE_FAILED', ctx.actor, {
-      from: ['CAPTURE_FAILED'],
-    });
-    voided = v.outcome;
+    // Left VOIDING on persistent failure: the sweeper (HF-034) finishes it. A crash here leaves
+    // no open settlement row, so `settleListing` re-runs this before it settles the listing.
+    voided = (await voidFailedCapture(deps, bid.id, ctx.actor)).outcome;
   }
   return {
     outcome: 'FAILED',
@@ -553,6 +544,27 @@ async function finishCaptureFailed(
     promotion,
     void: voided,
   };
+}
+
+/**
+ * Release a failed winner's authorization (`void-<bidId>`): CAPTURE_FAILED → VOIDING → VOIDED.
+ * With `resume`, a bid already VOIDING (its first attempt crashed or kept failing) is finished
+ * too; the shared request id makes a repeated PayPal call return the same void.
+ */
+export function voidFailedCapture(
+  deps: SettleBidDeps,
+  bidId: string,
+  actor: Actor,
+  { resume = false }: { resume?: boolean } = {},
+): Promise<VoidBidResult> {
+  const moneyDeps: MoneyDeps = {
+    db: deps.db,
+    paypal: deps.paypal,
+    audit: auditHook,
+    voidBackoffMs: deps.backoffMs ?? DEFAULT_SETTLE_BACKOFF_MS,
+    ...(deps.sleep ? { sleep: deps.sleep } : {}),
+  };
+  return voidBid(moneyDeps, bidId, 'CAPTURE_FAILED', actor, { from: ['CAPTURE_FAILED'], resume });
 }
 
 function requestIdOf(ctx: Ctx): string {

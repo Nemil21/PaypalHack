@@ -349,8 +349,9 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-030a settleListing', { timeout: 60_000 }
     };
     void settleListing(deps({ paypal: dying, signal: crash.signal }), s.listingId);
     await expect.poll(() => crash.signal.aborted, { timeout: 10_000 }).toBe(true);
-    // Let in-flight PayPal calls land on the fake (work done, responses lost).
-    await new Promise((r) => setTimeout(r, 200));
+    // Let in-flight PayPal calls land on the fake (work done, responses lost). Nothing new starts
+    // after the abort, so once nothing is in flight process A has made its last PayPal call.
+    await expect.poll(() => inFlight, { timeout: 10_000 }).toBe(0);
 
     const mid = await one<{ running: number; succeeded: number }>(
       `SELECT count(*) FILTER (WHERE status = 'RUNNING')::int AS running,
@@ -400,6 +401,71 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-030a settleListing', { timeout: 60_000 }
     expect(payouts).toHaveLength(1);
     expect(await runStatus(s.listingId)).toBe('DONE');
   });
+
+  // The flake behind the test above: a declined capture commits FAILED + CAPTURE_FAILED and then
+  // voids the authorization with no open settlement row. A crash in that window used to leave the
+  // bid VOIDING (and the hold live) after the resumed run had already SETTLED the listing.
+  it.each([
+    { when: 'before the void reaches PayPal', lands: false },
+    { when: 'after PayPal voided it (response lost)', lands: true },
+  ])(
+    'kill during a declined winner’s void ($when): the resumed run releases its hold',
+    async ({ lands }) => {
+      const s = await seed({ winners: 6, reserve: 3, belowFloor: 2, declineWinners: [3] });
+      const declined = s.winners[2]!;
+      const crash = new AbortController();
+      const base = logged(client);
+      const dying: Pick<PayPalClient, 'capture' | 'void'> = {
+        capture: async (input) => {
+          if (crash.signal.aborted) return never();
+          const r = await base.capture(input);
+          return crash.signal.aborted ? never() : r;
+        },
+        void: async (authId, requestId) => {
+          if (crash.signal.aborted) return never();
+          if (authId === declined.authorizationId) {
+            crash.abort();
+            if (lands) await base.void(authId, requestId);
+            return never();
+          }
+          const r = await base.void(authId, requestId);
+          return crash.signal.aborted ? never() : r;
+        },
+      };
+      void settleListing(deps({ paypal: dying, signal: crash.signal }), s.listingId);
+      await expect.poll(() => crash.signal.aborted, { timeout: 10_000 }).toBe(true);
+      await expect.poll(() => inFlight, { timeout: 10_000 }).toBe(0);
+
+      // The window: the capture row is terminal, the bid is VOIDING, nothing open points at it.
+      expect((await bidRow(declined.bidId)).status).toBe('VOIDING');
+      const capRow = await one<{ status: string }>(`SELECT status FROM settlements WHERE id = $1`, [
+        declined.settlementId,
+      ]);
+      expect(capRow.status).toBe('FAILED');
+      expect(fake.authorization(declined.authorizationId)!.status === 'VOIDED').toBe(lands);
+
+      await db.pool.query(
+        `UPDATE settlements SET lease_until = now() - interval '1 second'
+          WHERE listing_id = $1 AND status = 'RUNNING'`,
+        [s.listingId],
+      );
+      await db.pool.query(
+        `UPDATE settlement_runs SET lease_until = now() - interval '1 second' WHERE listing_id = $1`,
+        [s.listingId],
+      );
+      const results: unknown[] = [];
+      await kickSettlementOutbox(db, async ({ listingId }) => {
+        results.push(await settleListing(deps(), listingId));
+      });
+      expect(results).toContainEqual(expect.objectContaining({ outcome: 'SETTLED' }));
+
+      expect((await bidRow(declined.bidId)).status).toBe('VOIDED');
+      expect(fake.authorization(declined.authorizationId)!.status).toBe('VOIDED');
+      await expectMoneySettled(s);
+      expect(payouts).toHaveLength(1);
+      expect(await runStatus(s.listingId)).toBe('DONE');
+    },
+  );
 
   it('a PENDING run that was never kicked (crash after Clear COMMIT) finishes via the outbox', async () => {
     const s = await seed({ winners: 3, reserve: 2, belowFloor: 1 });
