@@ -215,6 +215,8 @@ export function toPayoutView(p: PayoutRow): PayoutView {
     paypalBatchId: p.paypal_batch_id,
     itemStatus: p.item_status,
     failureReason: payoutFailureReason(p.error_code),
+    createdAt: p.created_at.toISOString(),
+    completedAt: p.completed_at?.toISOString() ?? null,
   };
 }
 

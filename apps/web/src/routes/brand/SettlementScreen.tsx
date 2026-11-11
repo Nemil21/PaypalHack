@@ -6,6 +6,7 @@ import {
   type SettlementRow,
   type SettlementView,
 } from '@holdfast/shared';
+import { SettlementGanttPanel } from '../../components/bryntum/SettlementGanttPanel';
 import { Badge, Button, ErrorBanner, Skeleton, type BadgeTone } from '../../components/ui';
 import { cn } from '../../lib/cn';
 import type { ListingEventsStatus } from '../../lib/listing-events';
@@ -47,6 +48,8 @@ export interface SettlementScreenProps {
   loadBid?(bidId: string): Promise<BrandBidView>;
   /** Extra controls above the screen (fixture player). */
   toolbar?: ReactNode;
+  /** Pins the Gantt's clock (fixture replay); absent = wall clock. */
+  now?: Date;
 }
 
 /**
@@ -85,6 +88,8 @@ export function SettlementScreen(props: SettlementScreenProps) {
         <Progress view={view} />
         <Payout card={view ? payoutCard(view) : null} retry={props.retryPayout} />
       </div>
+
+      {view && <SettlementGanttPanel view={view} now={props.now} />}
 
       <section aria-label="Live log" className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -28,6 +28,7 @@ export function SettlementFixture() {
   return (
     <SettlementScreen
       view={view}
+      now={new Date(view.updatedAt)}
       title="Aurel A7 (fixture stream)"
       toolbar={
         <div className="mt-6 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-4 py-2 text-[13px] text-body">

@@ -188,7 +188,7 @@ export async function loadSettlementView(
     settlementCounts(q, listingId),
     q.query(
       `SELECT id, attempt, status, gross_cents, fee_cents, net_cents, paypal_batch_id, item_status,
-              error_code
+              error_code, created_at, completed_at
          FROM payouts WHERE listing_id = $1 ORDER BY attempt DESC LIMIT 1`,
       [listingId],
     ),
@@ -204,6 +204,8 @@ export async function loadSettlementView(
         paypal_batch_id: string | null;
         item_status: string | null;
         error_code: string | null;
+        created_at: Date;
+        completed_at: Date | null;
       }
     | undefined;
   const updated = [head.updated_at, head.settlements_updated_at].filter((d): d is Date => !!d);
@@ -229,6 +231,8 @@ export async function loadSettlementView(
           paypalBatchId: p.paypal_batch_id,
           itemStatus: p.item_status,
           failureReason: payoutFailureReason(p.error_code),
+          createdAt: p.created_at.toISOString(),
+          completedAt: p.completed_at?.toISOString() ?? null,
         }
       : null,
     updatedAt: new Date(Math.max(...updated.map((d) => d.getTime()))).toISOString(),

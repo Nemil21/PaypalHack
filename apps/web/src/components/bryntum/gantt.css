@@ -1,0 +1,119 @@
+/*
+ * Bryntum Gantt in Holdfast v3 (HF-060): Geist, square corners, the v3 palette. Loaded with the
+ * lazy BryntumGantt chunk, after the Bryntum theme, so these win. `hf-*` classes come from the
+ * task / dependency / time range `cls` set in lib/settlement/gantt.ts and lib/order-timeline.ts.
+ */
+.hf-gantt .b-gantt,
+.hf-gantt .b-widget {
+  font-family: var(--font-sans);
+}
+.hf-gantt .b-grid-header-text,
+.hf-gantt .b-sch-header-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.hf-gantt .b-gantt-task,
+.hf-gantt .b-gantt-task-percent {
+  border-radius: 1px;
+}
+.hf-gantt .b-grid-cell {
+  font-size: 13px;
+  color: var(--color-ink);
+}
+
+/*
+ * Bars by outcome. Bryntum paints a bar from --b-sch-event-background; the task `cls` lands on the
+ * bar's wrapper, so each class sets an inherited --hf-bar instead of targeting a DOM shape.
+ */
+.hf-gantt .b-gantt-task {
+  --b-sch-event-background: var(--hf-bar, var(--color-bar, #c9c9c6));
+  --b-sch-event-border-color: transparent;
+  border-style: var(--hf-border, solid);
+  border-width: var(--hf-border-width, 0);
+  border-color: var(--color-muted, #8a8a8a);
+}
+.hf-gantt .hf-charged,
+.hf-gantt .hf-done,
+.hf-gantt .hf-payout-succeeded {
+  --hf-bar: var(--color-success, #3f8f5b);
+}
+.hf-gantt .hf-charged-pending {
+  --hf-bar: repeating-linear-gradient(-45deg, #3f8f5b 0 6px, #79b08c 6px 12px);
+}
+.hf-gantt .hf-capture-failed,
+.hf-gantt .hf-release-failed,
+.hf-gantt .hf-failed,
+.hf-gantt .hf-payout-failed {
+  --hf-bar: var(--color-danger, #b3261e);
+}
+.hf-gantt .hf-released,
+.hf-gantt .hf-skipped {
+  --hf-bar: var(--color-charcoal, #2b2b2b);
+}
+.hf-gantt .hf-capturing,
+.hf-gantt .hf-releasing,
+.hf-gantt .hf-active,
+.hf-gantt .hf-promoted,
+.hf-gantt .hf-payout-pending {
+  --hf-bar: var(--color-orange, #f26b2c);
+}
+.hf-gantt .hf-promoted-out,
+.hf-gantt .hf-reserve,
+.hf-gantt .hf-payout-waiting,
+.hf-gantt .hf-payout-nothing {
+  --hf-bar: var(--color-planned, #cfcfcb);
+}
+.hf-gantt .hf-queued,
+.hf-gantt .hf-upcoming {
+  --hf-bar: transparent;
+  --hf-border: dashed;
+  --hf-border-width: 1px;
+}
+.hf-gantt .hf-group {
+  --hf-bar: var(--color-ink, #141414);
+}
+.hf-gantt .hf-running .b-gantt-task,
+.hf-gantt .hf-active .b-gantt-task {
+  animation: var(--animate-shimmer);
+}
+
+/* Dependencies: Bryntum strokes from --b-dependency-color / -stroke-width at 30 % opacity. */
+.hf-gantt .b-sch-dependency {
+  opacity: 1;
+}
+.hf-gantt .b-sch-dependency.hf-dep-promotion {
+  --b-dependency-color: var(--color-orange, #f26b2c);
+  --b-dependency-stroke-width: 2px;
+}
+.hf-gantt .b-sch-dependency.hf-dep-payout {
+  --b-dependency-color: var(--color-muted, #8a8a8a);
+  --b-dependency-stroke-width: 1px;
+  stroke-dasharray: 4 3;
+}
+
+/* Now marker. */
+.hf-gantt .b-sch-range.hf-now,
+.hf-gantt .b-sch-line.hf-now,
+.hf-gantt .hf-now.b-sch-timerange {
+  border-color: var(--color-orange);
+  border-inline-start: 2px solid var(--color-orange);
+}
+.hf-gantt .hf-now label,
+.hf-gantt .b-sch-timerange.hf-now label {
+  background: var(--color-orange);
+  color: var(--color-white);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.hf-gantt-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
