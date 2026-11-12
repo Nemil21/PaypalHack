@@ -193,19 +193,21 @@ export type AgentClient = 'claude' | 'codex' | 'opencode';
  */
 export function agentSnippets(
   origin: string,
+  token: string | null = null,
 ): Record<AgentClient, { label: string; comment: string; code: string }> {
   const url = `${origin.replace(/\/+$/, '')}/mcp`;
+  const t = token ?? 'hf_mcp_…';
   return {
     claude: {
       label: 'Claude Code',
       comment: '# one line, then ask your agent to bid',
       code: `claude mcp add --transport http holdfast \\
   ${url} \\
-  --header "Authorization: Bearer hf_mcp_…"`,
+  --header "Authorization: Bearer ${t}"`,
     },
     codex: {
       label: 'Codex',
-      comment: '# ~/.codex/config.toml; export HOLDFAST_MCP_TOKEN=hf_mcp_…',
+      comment: `# ~/.codex/config.toml; export HOLDFAST_MCP_TOKEN=${t}`,
       code: `[mcp_servers.holdfast]
 url = "${url}"
 bearer_token_env_var = "HOLDFAST_MCP_TOKEN"`,
@@ -218,7 +220,7 @@ bearer_token_env_var = "HOLDFAST_MCP_TOKEN"`,
     "holdfast": {
       "type": "remote",
       "url": "${url}",
-      "headers": { "Authorization": "Bearer hf_mcp_…" }
+      "headers": { "Authorization": "Bearer ${t}" }
     }
   }
 }`,
