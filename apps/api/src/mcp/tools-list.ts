@@ -34,10 +34,14 @@ export async function listMcpTools(): Promise<McpToolInfo[]> {
 }
 
 /** `GET /api/mcp/tools`: public and read-only; the list is fixed per deploy, so it is cached. */
-export function registerMcpToolsRoute(app: FastifyInstance): void {
+export function registerMcpToolsRoute(
+  app: FastifyInstance,
+  list: () => Promise<McpToolInfo[]> = listMcpTools,
+): void {
   let cached: Promise<McpToolInfo[]> | null = null;
   app.get('/api/mcp/tools', async (_req, reply) => {
-    cached ??= listMcpTools().catch((err: unknown) => {
+    // A failed listing is not cached: the next request tries again.
+    cached ??= list().catch((err: unknown) => {
       cached = null;
       throw err;
     });

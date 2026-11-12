@@ -32,6 +32,23 @@ describe('GET /api/mcp/tools (W19)', () => {
     await app.close();
   });
 
+  it('a failed listing is a 500 and is not cached: the next request lists again', async () => {
+    let calls = 0;
+    const app = Fastify();
+    registerMcpToolsRoute(app, async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('boom');
+      return [];
+    });
+    expect((await app.inject({ method: 'GET', url: '/api/mcp/tools' })).statusCode).toBe(500);
+    const ok = await app.inject({ method: 'GET', url: '/api/mcp/tools' });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ tools: [] });
+    await app.inject({ method: 'GET', url: '/api/mcp/tools' });
+    expect(calls).toBe(2);
+    await app.close();
+  });
+
   it('is repeatable (each call builds and closes its own in-memory server)', async () => {
     const [a, b] = await Promise.all([listMcpTools(), listMcpTools()]);
     expect(a).toEqual(b);
