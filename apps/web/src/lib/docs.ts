@@ -177,3 +177,26 @@ export function allDocsCopy(): string[] {
     ...docsReference.webhooks.paragraphs,
   ];
 }
+
+/** The bits of `document` / `window` `scrollToHash` touches, so it is testable without a DOM. */
+export interface ScrollHost {
+  getElementById(id: string): { scrollIntoView(opts?: ScrollIntoViewOptions): void } | null;
+  scrollTo(x: number, y: number): void;
+}
+
+/**
+ * Client-side navigation to `/docs#section` (React Router `<Link>`) never scrolls to the hash, so
+ * Docs does it: the section when the hash names one, else the top of the page.
+ */
+export function scrollToHash(hash: string, host: ScrollHost): void {
+  const id = hash.startsWith('#') ? hash.slice(1) : hash;
+  let decoded = id;
+  try {
+    decoded = decodeURIComponent(id);
+  } catch {
+    // A malformed escape is just an unknown id.
+  }
+  const el = decoded ? host.getElementById(decoded) : null;
+  if (el) el.scrollIntoView({ block: 'start' });
+  else host.scrollTo(0, 0);
+}

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { MCP_TOOL_DOCS } from '@holdfast/shared';
 import { describe, expect, it } from 'vitest';
-import { allDocsCopy, docsNav, docsReference, docsSections } from './docs';
+import { allDocsCopy, docsNav, docsReference, docsSections, scrollToHash } from './docs';
 
 /** Same uniform-price phrases the landing test bans (D14: pay-your-bid). */
 const UNIFORM_PRICE = [
@@ -42,5 +42,43 @@ describe('docs copy (v4 Docs, frame 107:137)', () => {
 
   it('lists every MCP tool', () => {
     expect(docsReference.mcp.tools.map((t) => t.name)).toEqual(MCP_TOOL_DOCS.map((t) => t.name));
+  });
+});
+
+describe('scrollToHash (Developer → /docs#section deep links)', () => {
+  function host(ids: string[]) {
+    const log: string[] = [];
+    return {
+      log,
+      getElementById: (id: string) =>
+        ids.includes(id) ? { scrollIntoView: () => void log.push(`into:${id}`) } : null,
+      scrollTo: (x: number, y: number) => void log.push(`top:${x},${y}`),
+    };
+  }
+
+  it('scrolls the named section into view', () => {
+    const h = host(['mcp-tools']);
+    scrollToHash('#mcp-tools', h);
+    expect(h.log).toEqual(['into:mcp-tools']);
+  });
+
+  it('goes to the top with no hash, an unknown id or a malformed escape', () => {
+    for (const hash of ['', '#nope', '#%E0%A4%A']) {
+      const h = host(['mcp-tools']);
+      scrollToHash(hash, h);
+      expect(h.log).toEqual(['top:0,0']);
+    }
+  });
+
+  it('every brand guide link targets a real Docs section', async () => {
+    const { brandGuides } = await import('./developer');
+    const ids = new Set([
+      'connect-an-agent',
+      ...docsSections.map((s) => s.id),
+      'mcp-tools',
+      'rest-api',
+      'webhooks',
+    ]);
+    for (const g of brandGuides) expect(ids).toContain(g.to.split('#')[1]);
   });
 });
