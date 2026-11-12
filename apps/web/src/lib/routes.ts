@@ -38,6 +38,9 @@ export const paths = {
   developer: '/developer',
   /** v4 buyer settings (frame 115:303): PayPal account, notifications, switch to brand, sign out. */
   settings: '/settings',
+  /** M11 notification boards (HF-054b), from the nav bell's "See all". */
+  notifications: '/notifications',
+  brandNotifications: '/brand/notifications',
   admin: '/admin',
   devComponents: '/dev/components',
 } as const;

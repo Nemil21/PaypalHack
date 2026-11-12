@@ -7,6 +7,7 @@ import {
   type NotificationTemplate,
 } from '@holdfast/shared';
 import { toView, type Audience, type NotificationView } from './notifications';
+import { paths } from './routes';
 
 /**
  * M11 push / email notification set (HF-054b; screens.md §M11). Each card shows one notification
@@ -53,5 +54,5 @@ export function sampleCards(audience: Audience, now: number, timeZone?: string):
 }
 
 export function boardPath(audience: Audience): string {
-  return audience === 'brand' ? '/brand/notifications' : '/notifications';
+  return audience === 'brand' ? paths.brandNotifications : paths.notifications;
 }
