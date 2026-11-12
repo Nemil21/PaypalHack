@@ -9,14 +9,18 @@ import { ApiError, sendError } from './errors.js';
  * Several instances would need a shared store (Postgres or Redis) behind the same interface.
  */
 
-export type RateBucket = 'mcp' | 'rest' | 'agent' | 'magicLink';
+export type RateBucket = 'mcp' | 'rest' | 'agent' | 'magicLink' | 'payoutRetry';
 
-/** Calls per minute: MCP 30/token, REST 60/user, buyer agent 20 turns/shopper, 3 magic links/email. */
+/**
+ * Calls per minute: MCP 30/token, REST 60/user, buyer agent 20 turns/shopper, 3 magic links/email,
+ * 3 brand payout retries/user (v4 §3.1).
+ */
 export const RATE_LIMITS: Record<RateBucket, number> = {
   mcp: 30,
   rest: 60,
   agent: 20,
   magicLink: 3,
+  payoutRetry: 3,
 };
 
 export const RATE_WINDOW_MS = 60_000;
@@ -34,11 +38,16 @@ export class RateLimiter {
   private readonly hits = new Map<string, number[]>();
   private lastSweep = 0;
 
+  private readonly limits: Record<RateBucket, number>;
+
+  /** Buckets missing from `limits` keep their `RATE_LIMITS` default. */
   constructor(
-    private readonly limits: Record<RateBucket, number> = RATE_LIMITS,
+    limits: Partial<Record<RateBucket, number>> = RATE_LIMITS,
     private readonly now: () => number = Date.now,
     private readonly windowMs = RATE_WINDOW_MS,
-  ) {}
+  ) {
+    this.limits = { ...RATE_LIMITS, ...limits };
+  }
 
   /**
    * Record one call for `key` in `bucket`; refused calls are not counted. `maxPerMin` (e.g. an

@@ -7,6 +7,7 @@ import {
   retrySettlement,
   type Actor,
   type Db,
+  type IdempotentResponse,
   type KickSettlement,
   type RetryPayoutOutcome,
 } from '@holdfast/core';
@@ -39,6 +40,8 @@ type ListingParams = { Params: { id: string } };
  * - `POST /api/admin/listings/:id/retry-payout` (HF-032): admin only, audited; a new payout
  *   attempt (attempt + 1, new `sender_batch_id`) for a PAYOUT_FAILED listing. 202 with the
  *   attempt; 409 when the listing isn't PAYOUT_FAILED or an attempt is still in flight.
+ * - `POST /api/listings/:id/retry-payout` (v4 §3.1): the same retry for the listing brand's OWNER,
+ *   rate-limited (`payoutRetry`) and audited as the brand user. Another brand's listing is 404.
  */
 export function registerSettlementRoutes(app: FastifyInstance, deps: SettlementRoutesDeps): void {
   const notFound = () => new ApiError('NOT_FOUND', 'Listing not found.');
@@ -96,38 +99,60 @@ export function registerSettlementRoutes(app: FastifyInstance, deps: SettlementR
     }),
   );
 
+  const retryPayoutAs = async (listingId: string, actor: Actor): Promise<IdempotentResponse> => {
+    if (!deps.retryPayout) {
+      return { status: 500, body: errorBody('INTERNAL_ERROR', 'Payouts are not configured.') };
+    }
+    const out = await deps.retryPayout({ listingId, actor });
+    if (out.ok) {
+      const { ok: _ok, ...body } = out;
+      return { status: 202, body };
+    }
+    if (out.code === 'NOT_FOUND') {
+      return { status: 404, body: errorBody('NOT_FOUND', 'Listing not found.') };
+    }
+    return {
+      status: 409,
+      body: errorBody(
+        'STATE_CONFLICT',
+        out.reason === 'PAYOUT_IN_FLIGHT'
+          ? 'A payout for this listing is still in flight or already paid.'
+          : out.reason === 'NOTHING_TO_PAY'
+            ? 'Nothing was captured, so there is nothing to pay.'
+            : 'Only a failed payout can be retried.',
+        { reason: out.reason, status: out.status },
+      ),
+    };
+  };
+
   app.post(
     '/api/admin/listings/:id/retry-payout',
     { onRequest: app.guards.requireAdmin },
     app.idempotent(async (req) => {
       const id = (req.params as { id?: string }).id ?? '';
       if (!isUuid(id)) return { status: 404, body: errorBody('NOT_FOUND', 'Listing not found.') };
-      if (!deps.retryPayout) {
-        return { status: 500, body: errorBody('INTERNAL_ERROR', 'Payouts are not configured.') };
-      }
-      const out = await deps.retryPayout({
-        listingId: id,
-        actor: { type: 'ADMIN', id: req.auth.principal?.id },
-      });
-      if (out.ok) {
-        const { ok: _ok, ...body } = out;
-        return { status: 202, body };
-      }
-      if (out.code === 'NOT_FOUND') {
-        return { status: 404, body: errorBody('NOT_FOUND', 'Listing not found.') };
-      }
-      return {
-        status: 409,
-        body: errorBody(
-          'STATE_CONFLICT',
-          out.reason === 'PAYOUT_IN_FLIGHT'
-            ? 'A payout for this listing is still in flight or already paid.'
-            : out.reason === 'NOTHING_TO_PAY'
-              ? 'Nothing was captured, so there is nothing to pay.'
-              : 'Only a failed payout can be retried.',
-          { reason: out.reason, status: out.status },
-        ),
-      };
+      return retryPayoutAs(id, { type: 'ADMIN', id: req.auth.principal?.id });
+    }),
+  );
+
+  app.post(
+    '/api/listings/:id/retry-payout',
+    {
+      onRequest: [app.guards.requireBrandUser('OWNER'), app.guards.rateLimit('payoutRetry')],
+    },
+    app.idempotent(async (req) => {
+      const id = (req.params as { id?: string }).id ?? '';
+      const user = req.auth.brandUser!;
+      const owned =
+        isUuid(id) &&
+        (
+          await deps.db.pool.query(`SELECT 1 FROM listings WHERE id = $1 AND brand_id = $2`, [
+            id,
+            user.brandId,
+          ])
+        ).rowCount === 1;
+      if (!owned) return { status: 404, body: errorBody('NOT_FOUND', 'Listing not found.') };
+      return retryPayoutAs(id, { type: 'BRAND_USER', id: user.id });
     }),
   );
 }

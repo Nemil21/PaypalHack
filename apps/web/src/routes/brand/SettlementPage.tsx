@@ -11,14 +11,21 @@ import { SettlementScreen } from './SettlementScreen';
 
 /**
  * W08 live route (HF-035): `/brand/listings/:listingId/settlement`. Reads the SettlementView and
- * re-reads it on SSE notices; the drawer reads the brand-scoped bid view; admins
- * (`ADMIN_EMAILS`) get the payout retry on a failed payout.
+ * re-reads it on SSE notices; the drawer reads the brand-scoped bid view. A failed payout can be
+ * retried by the brand's OWNER (v4 §3.1, `POST /api/listings/:id/retry-payout`) or an admin
+ * (`ADMIN_EMAILS`, the HF-032 admin route).
  */
 export function SettlementPage() {
   const { listingId = '' } = useParams();
   const { me, listings } = useBrand();
   const live = useSettlementView(listingId);
   const retry = useApiAction<unknown>();
+  // Admins first: they can open any brand's settlement, and the brand route is scoped to their own.
+  const retryPath = me.isAdmin
+    ? `/api/admin/listings/${encodeURIComponent(listingId)}/retry-payout`
+    : me.role === 'OWNER'
+      ? `/api/listings/${encodeURIComponent(listingId)}/retry-payout`
+      : null;
 
   const title =
     listings.find((l) => l.listingId === listingId)?.product.title ??
@@ -56,14 +63,14 @@ export function SettlementPage() {
       onRefresh={live.refresh}
       loadBid={loadBid}
       retryPayout={
-        me.isAdmin
+        retryPath
           ? {
               pending: retry.status === 'pending',
               error: retry.status === 'error' ? retry.error.message : null,
               run: async () => {
                 const ok = await retry.run({
                   method: 'POST',
-                  path: `/api/admin/listings/${encodeURIComponent(listingId)}/retry-payout`,
+                  path: retryPath,
                 });
                 if (ok !== undefined) {
                   retry.reset();

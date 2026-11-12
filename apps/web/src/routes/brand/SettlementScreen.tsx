@@ -7,9 +7,17 @@ import {
   type SettlementView,
 } from '@holdfast/shared';
 import { SettlementGanttPanel } from '../../components/bryntum/SettlementGanttPanel';
-import { Badge, Button, ErrorBanner, Skeleton, type BadgeTone } from '../../components/ui';
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  ErrorBanner,
+  Skeleton,
+  type BadgeTone,
+} from '../../components/ui';
 import { cn } from '../../lib/cn';
 import type { ListingEventsStatus } from '../../lib/listing-events';
+import { paths } from '../../lib/routes';
 import {
   doneFraction,
   LOG_FILTERS,
@@ -27,9 +35,6 @@ import {
 
 const SettlementLogGrid = lazy(() => import('../../components/ag/SettlementLogGrid'));
 
-/** "Download statement" links to HF-059b's statement; hidden until that ships. */
-const STATEMENT_URL: ((listingId: string) => string) | null = null;
-
 export interface SettlementScreenProps {
   view: SettlementView | null;
   title: string | null;
@@ -38,7 +43,7 @@ export interface SettlementScreenProps {
   stream?: ListingEventsStatus;
   stale?: boolean;
   onRefresh?(): void;
-  /** Admin payout retry (HF-032). Absent: no button. */
+  /** Payout retry: the brand OWNER (v4 §3.1) or an admin (HF-032). Absent: no button. */
   retryPayout?: {
     run(): Promise<void>;
     pending: boolean;
@@ -86,8 +91,10 @@ export function SettlementScreen(props: SettlementScreenProps) {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Progress view={view} />
-        <Payout card={view ? payoutCard(view) : null} retry={props.retryPayout} />
+        <Payout card={view ? payoutCard(view) : null} />
       </div>
+
+      {view && <PayoutFailedBanner card={payoutCard(view)} retry={props.retryPayout} />}
 
       {view && <SettlementGanttPanel view={view} now={props.now} />}
 
@@ -183,16 +190,17 @@ function Header({
           </div>
         )}
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-4">
         {backHref && (
           <Link className="label text-[13px] text-body underline" to={backHref}>
             Back to console
           </Link>
         )}
-        {view && STATEMENT_URL && (
-          <a className="label text-[13px] text-body underline" href={STATEMENT_URL(view.listingId)}>
-            Download statement
-          </a>
+        {/* v4 §2.2: statements live on W09 Payouts & reports. */}
+        {view && (
+          <ButtonLink variant="outline" to={paths.brandPayouts}>
+            Download statement ↓
+          </ButtonLink>
         )}
       </div>
     </header>
@@ -293,13 +301,7 @@ const PAYOUT_TONE: Record<PayoutCard['state'], BadgeTone> = {
   failed: 'danger',
 };
 
-function Payout({
-  card,
-  retry,
-}: {
-  card: PayoutCard | null;
-  retry?: SettlementScreenProps['retryPayout'];
-}) {
+function Payout({ card }: { card: PayoutCard | null }) {
   if (!card) return <Skeleton className="h-[220px] w-full" />;
   return (
     <section aria-label="Payout" className="flex flex-col gap-4 rounded-md border border-line p-5">
@@ -331,13 +333,39 @@ function Payout({
           {card.attempt && card.attempt > 1 ? ` · attempt ${card.attempt}` : ''}
         </p>
       )}
+    </section>
+  );
+}
+
+/** Brand-facing failed payout (v4 frame 118:480): what PayPal said, and Retry for an owner. */
+function PayoutFailedBanner({
+  card,
+  retry,
+}: {
+  card: PayoutCard;
+  retry?: SettlementScreenProps['retryPayout'];
+}) {
+  if (card.state !== 'failed') return null;
+  return (
+    <section
+      role="alert"
+      aria-label="Payout failed"
+      className="flex flex-col gap-3 rounded-md bg-danger-tint px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-[15px] font-medium text-ink">
+          Payout of {formatUsd(card.netCents)} didn&apos;t go through
+        </p>
+        <p className="text-[14px] text-body">
+          {card.detail}
+          {card.retryable && !retry && ' Ask a brand owner to retry it.'}
+        </p>
+        {retry?.error && <p className="text-[13px] text-danger">{retry.error}</p>}
+      </div>
       {card.retryable && retry && (
-        <div className="flex flex-col gap-2">
-          <Button variant="secondary" onClick={() => void retry.run()} disabled={retry.pending}>
-            {retry.pending ? 'Retrying…' : 'Retry payout'}
-          </Button>
-          {retry.error && <p className="text-[13px] text-danger">{retry.error}</p>}
-        </div>
+        <Button variant="secondary" onClick={() => void retry.run()} disabled={retry.pending}>
+          {retry.pending ? 'Retrying…' : 'Retry payout now'}
+        </Button>
       )}
     </section>
   );
