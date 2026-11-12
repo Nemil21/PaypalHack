@@ -133,6 +133,31 @@ export function sliderRange(offer: OfferView, amount: number): { min: number; ma
 }
 
 /**
+ * W12 (v4 §4.1): where the likely-clearing band sits on the slider, in percent of the track.
+ * Null when there is no band or it falls outside the range.
+ */
+export function bandPosition(
+  range: { min: number; max: number },
+  band: OfferView['likelyBand'],
+): { left: number; width: number } | null {
+  if (!band || range.max <= range.min) return null;
+  const span = range.max - range.min;
+  const from = Math.max(range.min, Math.min(band.fromCents, band.toCents));
+  const to = Math.min(range.max, Math.max(band.fromCents, band.toCents));
+  if (to <= from) return null;
+  return { left: ((from - range.min) / span) * 100, width: ((to - from) / span) * 100 };
+}
+
+/** W12 hold failed: the other way to pay, for "Try another method". */
+export function otherMethod(
+  method: 'PAYPAL' | 'CARD',
+  cardAvailable: boolean,
+): 'PAYPAL' | 'CARD' | null {
+  if (method === 'CARD') return 'PAYPAL';
+  return cardAvailable ? 'CARD' : null;
+}
+
+/**
  * Over the public price: the shopper may still bid (features/03 edge cases), after this warning.
  * Confirming it sends `releaseIfCheaper=false`.
  */
