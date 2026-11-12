@@ -20,12 +20,12 @@ export function SettlementPage() {
   const { me, listings } = useBrand();
   const live = useSettlementView(listingId);
   const retry = useApiAction<unknown>();
-  const retryPath =
-    me.role === 'OWNER'
+  // Admins first: they can open any brand's settlement, and the brand route is scoped to their own.
+  const retryPath = me.isAdmin
+    ? `/api/admin/listings/${encodeURIComponent(listingId)}/retry-payout`
+    : me.role === 'OWNER'
       ? `/api/listings/${encodeURIComponent(listingId)}/retry-payout`
-      : me.isAdmin
-        ? `/api/admin/listings/${encodeURIComponent(listingId)}/retry-payout`
-        : null;
+      : null;
 
   const title =
     listings.find((l) => l.listingId === listingId)?.product.title ??
