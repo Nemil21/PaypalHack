@@ -492,11 +492,6 @@ function Connect({
   const [created, setCreated] = useState<McpClientCreatedBody | null>(null);
   const origin = window.location.origin;
   const hasTokens = clients.state.status === 'ready' && clients.state.data.clients.length > 0;
-  // "+ Create token" while a one-time reveal is open swaps it for the form (the old token stays
-  // listed under Your tokens).
-  useEffect(() => {
-    if (creating) setCreated(null);
-  }, [creating]);
   const showCreate = creating || (clients.state.status === 'ready' && !hasTokens);
 
   const onCreated = (body: McpClientCreatedBody) => {
@@ -529,7 +524,8 @@ function Connect({
           token={created?.token ?? null}
           footer={buyerDeveloper.tryLine}
         />
-        {showCreate && !created && <CreateForm onCreated={onCreated} />}
+        {/* Below an open reveal, never instead of it: the reveal is the only copy of that token. */}
+        {showCreate && <CreateForm onCreated={onCreated} />}
         <TokenList
           state={clients.state}
           email={email}
