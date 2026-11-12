@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { mcpToolScope } from '@holdfast/shared';
+import { mcpToolScope, type McpToolInfo } from '@holdfast/shared';
 import { ApiError } from '../http/errors.js';
 
 /**
@@ -52,6 +52,20 @@ export function forbiddenToolCall(
     if (!scopes.includes(needs)) return { message: m, tool, needs };
   }
   return null;
+}
+
+/**
+ * `GET /api/mcp/tools` (W19, v4 plan §4.1): the live `tools/list`, public like the docs it
+ * replaces. No token needed: it names the tools and their inputs, never a shopper's data.
+ */
+export function registerMcpToolsRoute(
+  app: FastifyInstance,
+  list: () => Promise<McpToolInfo[]>,
+): void {
+  app.get('/api/mcp/tools', async (_req, reply) => {
+    reply.header('Cache-Control', 'public, max-age=300');
+    return { tools: await list() };
+  });
 }
 
 export function registerMcpRoute(app: FastifyInstance, deps: McpRouteDeps = {}): void {

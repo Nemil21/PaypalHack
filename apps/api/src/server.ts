@@ -59,8 +59,8 @@ import { registerProductRoutes } from './routes/products.js';
 import { registerAgentRoutes, type AgentRoutesDeps } from './routes/agent.js';
 import { registerBrandAgentRoutes, type BrandAgentRouteDeps } from './routes/brand-agent.js';
 import { registerMcpClientRoutes } from './routes/mcp-clients.js';
-import { registerMcpRoute, type McpRouteDeps } from './mcp/route.js';
-import { createMcpHandler } from './mcp/server.js';
+import { registerMcpRoute, registerMcpToolsRoute, type McpRouteDeps } from './mcp/route.js';
+import { createMcpHandler, listMcpTools } from './mcp/server.js';
 import { DEFAULT_WEB_DIST, registerWebApp } from './web.js';
 
 export interface ServerDeps {
@@ -236,6 +236,8 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) registerShareRoutes(app, { db: deps.sql });
   // W19 tokens and `/mcp` (HF-043): bearer token only, scopes checked per tool.
   if (deps.sql) registerMcpClientRoutes(app, { db: deps.sql });
+  // W19 (v4): the live MCP tool list for the Developer page.
+  registerMcpToolsRoute(app, listMcpTools);
   // HF-044a: the MCP server runs on the bid service's deps; without them, the placeholder.
   registerMcpRoute(
     app,

@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
-  MCP_TOOL_DOCS,
   type MandateListBody,
   type McpClientCreatedBody,
   type McpClientListBody,
   type McpClientRevokedBody,
   type McpClientView,
   type McpScope,
+  type McpToolInfo,
 } from '@holdfast/shared';
-import { PageHeader } from '../components/layout/AppShell';
 import {
   Badge,
   Button,
   ButtonLink,
+  buttonClass,
   EmptyState,
   ErrorBanner,
   Skeleton,
@@ -24,19 +24,24 @@ import { clientConfig } from '../lib/client-config';
 import { cn } from '../lib/cn';
 import {
   claudeDesktopConfig,
+  mandateSummary,
   mcpEndpoint,
   readiness,
   relativeTime,
+  toolSignature,
   type Readiness,
 } from '../lib/mcp-connect';
 import { paths } from '../lib/routes';
 import { useApiAction } from '../lib/use-api-action';
+import { AccentHeading } from './auth/SignInLayout';
 
 /**
  * W19 Developer / MCP connect (HF-043; screens.md §W19, features/07 §Logic 1). A signed-in
  * shopper creates a scoped token, copies it once, pastes the Claude Desktop config and sees
  * whether instant holds will work (readiness panel, M23). States: no tokens; token created
  * (one-time reveal); revoked. Sign-in on Render is the DEMO_MODE "Sign in as demo shopper" (D13).
+ * v4 (Figma 115:184): setup and tokens on the left, mandates and the live tool list (the server's
+ * own `tools/list` via `GET /api/mcp/tools`, plan §4.1 W19) on the right.
  */
 
 interface Me {
@@ -92,16 +97,22 @@ function Section({
   title,
   children,
   className,
+  id,
 }: {
   title: string;
   children: ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <section
-      className={cn('flex flex-col gap-4 rounded-md border border-line p-4 lg:p-6', className)}
+      id={id}
+      className={cn(
+        'flex min-w-0 flex-col gap-4 rounded-sm border border-line bg-white p-4 sm:p-5',
+        className,
+      )}
     >
-      <h2 className="label text-[12px] text-muted">{title}</h2>
+      <h2 className="label text-[11px] text-muted">{title}</h2>
       {children}
     </section>
   );
@@ -116,11 +127,24 @@ export function DeveloperPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Developer · MCP"
-        title="Let your AI agent bid for you."
-        lede="Connect Claude Desktop, or any MCP client, with a token scoped to your account. Bids it places use your own PayPal, under the limits you set."
-      />
+      <header className="flex flex-col gap-5 pt-8 pb-8 sm:flex-row sm:items-end sm:justify-between lg:pt-14 lg:pb-10">
+        <div className="flex max-w-[760px] flex-col gap-3">
+          <span className="label text-[13px] text-orange">Developer · MCP</span>
+          <AccentHeading
+            heading={{ lead: 'Let your AI agent ', accent: 'bid for you.' }}
+            className="text-[34px] leading-[1.08] font-medium tracking-headline text-ink sm:text-[44px] lg:text-[52px]"
+          />
+          <p className="text-[16px] leading-[25px] text-body">
+            Connect Claude, or any MCP client, with a token scoped to your account. Bids it places
+            use your own PayPal, under the limits you set.
+          </p>
+        </div>
+        {signedIn && (
+          <a href="#create-token" className={cn(buttonClass({}), 'self-start sm:self-auto')}>
+            + Create token
+          </a>
+        )}
+      </header>
       {me.state.status === 'loading' && <Skeleton className="h-40" />}
       {me.state.status === 'error' && (
         <ErrorBanner message={me.state.error.message} onRetry={me.reload} />
@@ -225,21 +249,21 @@ function Connect({ email }: { email: string | null }) {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-8 pb-16 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
-      <div className="flex min-w-0 flex-col gap-6">
-        <Explainer email={email} />
+    <div className="grid grid-cols-1 gap-5 pb-16 lg:grid-cols-2">
+      <div className="flex min-w-0 flex-col gap-5">
+        <ConfigSnippet origin={origin} token={created?.token ?? null} />
         {created ? (
           <Reveal created={created} onDone={() => setCreated(null)} />
         ) : (
           <CreateForm onCreated={onCreated} />
         )}
-        <ConfigSnippet origin={origin} token={created?.token ?? null} />
         <TokenTable state={clients.state} onRetry={clients.reload} onRevoked={onRevoked} />
+        <Explainer email={email} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-5">
+        <MandatesCard state={mandates.state} onRetry={mandates.reload} />
         <ToolList />
       </div>
-      <aside className="flex flex-col gap-6">
-        <ReadinessPanel state={mandates.state} onRetry={mandates.reload} />
-      </aside>
     </div>
   );
 }
@@ -289,7 +313,7 @@ function CreateForm({ onCreated }: { onCreated(body: McpClientCreatedBody): void
   };
 
   return (
-    <Section title="Create a token">
+    <Section title="Create a token" className="scroll-mt-24" id="create-token">
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
           <label htmlFor={nameId} className="text-[13px] text-body">
@@ -383,9 +407,15 @@ function ConfigSnippet({ origin, token }: { origin: string; token: string | null
           ? ' Your new token is already filled in.'
           : ' Replace the token placeholder with yours.'}
       </p>
-      <pre className="overflow-x-auto rounded-sm bg-charcoal p-4 font-mono text-[12px] leading-[18px] text-white">
+      <pre className="overflow-x-auto rounded-sm bg-surface p-4 font-mono text-[12px] leading-[19px] text-ink">
         {snippet}
       </pre>
+      <p className="text-[13px] text-body">
+        Then try:{' '}
+        <span className="text-ink">
+          “Bid $229 on the Aurel A7, release it if a store goes under $249.”
+        </span>
+      </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" onClick={() => void copy(snippet, 'Config')}>
           Copy MCP setup
@@ -504,25 +534,40 @@ function TokenRow({
 }
 
 function ToolList() {
+  const tools = useGet<{ tools: McpToolInfo[] }>('/api/mcp/tools', true);
   return (
-    <Section title="Tools">
-      <ul className="flex flex-col divide-y divide-line">
-        {MCP_TOOL_DOCS.map((t) => (
-          <li key={t.name} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="font-mono text-[14px] text-ink">{t.name}</code>
-              <code className="font-mono text-[12px] text-body">{t.input}</code>
-              <Badge tone={t.scope === 'bid' ? 'held' : 'neutral'}>
-                {t.scope === 'bid' ? 'Bid' : 'Read'}
-              </Badge>
-            </div>
-            <p className="text-[14px] text-body">{t.description}</p>
-          </li>
-        ))}
-      </ul>
+    <Section title="Tools your agent gets">
+      {tools.state.status === 'loading' && <Skeleton className="h-40" />}
+      {tools.state.status === 'error' && (
+        <ErrorBanner message={tools.state.error.message} onRetry={tools.reload} />
+      )}
+      {tools.state.status === 'ready' && (
+        <ul className="flex flex-col divide-y divide-line border-t border-line">
+          {tools.state.data.tools.map((t) => (
+            <li key={t.name} className="flex flex-col gap-1.5 py-3.5 last:pb-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="font-mono text-[14px] text-ink">{t.name}</code>
+                <Badge tone={t.scope === 'bid' ? 'held' : 'neutral'}>
+                  {t.scope === 'bid' ? 'Bid' : 'Read'}
+                </Badge>
+              </div>
+              <code className="font-mono text-[12px] break-words text-body">
+                {toolSignature(t.params)}
+              </code>
+              {t.title && <p className="text-[14px] text-ink">{t.title}</p>}
+              <details className="group text-[13px] leading-[20px] text-body">
+                <summary className="label w-fit cursor-pointer text-[11px] text-muted hover:text-ink">
+                  What the agent reads
+                </summary>
+                <p className="mt-1.5">{t.description}</p>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
       <p className="text-[13px] text-muted">
-        Amounts are integer US cents (21500 = $215.00). A Read-only token gets FORBIDDEN on bid
-        tools; 30 calls a minute per token.
+        Live from the server’s tools/list. Amounts are integer US cents (21500 = $215.00). A
+        Read-only token gets FORBIDDEN on bid tools; 30 calls a minute per token.
       </p>
     </Section>
   );
@@ -548,14 +593,36 @@ function Check({ ok, children }: { ok: boolean; children: ReactNode }) {
   );
 }
 
-function ReadinessPanel({ state, onRetry }: { state: Load<MandateListBody>; onRetry(): void }) {
+function MandatesCard({ state, onRetry }: { state: Load<MandateListBody>; onRetry(): void }) {
   if (state.status === 'loading') return <Skeleton className="h-48" />;
   if (state.status === 'error')
     return <ErrorBanner message={state.error.message} onRetry={onRetry} />;
   const r: Readiness = readiness(state.data);
+  const live = state.data.mandates.filter((m) => m.state === 'active' || m.state === 'paused');
   return (
-    <Section title="Ready for instant holds?">
-      <ul className="flex flex-col gap-3">
+    <Section title="Mandates">
+      <p className="text-[14px] leading-[21px] text-body">
+        The limits your agent bids inside. The server enforces them, not the prompt.
+      </p>
+      {live.length > 0 && (
+        <ul className="flex flex-col divide-y divide-line border-t border-line">
+          {live.map((m) => {
+            const sum = mandateSummary(m);
+            return (
+              <li key={m.mandateId} className="flex items-center justify-between gap-3 py-3">
+                <Link to={paths.mandate(m.mandateId)} className="group min-w-0">
+                  <span className="block text-[15px] text-ink group-hover:underline">
+                    {sum.title}
+                  </span>
+                  <span className="block text-[13px] text-body">{sum.detail}</span>
+                </Link>
+                <Badge tone={m.state === 'active' ? 'success' : 'neutral'}>{m.state}</Badge>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <ul className="flex flex-col gap-3 border-t border-line pt-4">
         <Check ok={r.savedCard}>Saved card</Check>
         <Check ok={r.mandate !== null}>
           {r.mandate ? `Active mandate covering ${r.mandate.label}` : 'Active mandate'}
@@ -566,22 +633,13 @@ function ReadinessPanel({ state, onRetry }: { state: Load<MandateListBody>; onRe
           ? `Your agent's bids up to ${r.mandate!.label} are held at once.`
           : "Until both are ticked, your agent's bids come back as a link for you to approve the PayPal hold."}
       </p>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        <ButtonLink to={paths.newMandate()} variant="outline">
+          + New mandate
+        </ButtonLink>
         {!r.savedCard && (
           <ButtonLink to={paths.offer(r.offerSlug)} variant="outline">
             Save a card on an offer
-          </ButtonLink>
-        )}
-        {r.mandate ? (
-          <Link
-            to={paths.mandate(r.mandate.mandateId)}
-            className="label text-[12px] text-body hover:text-ink"
-          >
-            Edit mandate
-          </Link>
-        ) : (
-          <ButtonLink to={paths.newMandate()} variant="outline">
-            Set a mandate
           </ButtonLink>
         )}
       </div>

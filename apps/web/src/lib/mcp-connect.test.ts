@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { MandateListBody, MandateView } from '@holdfast/shared';
 import {
   claudeDesktopConfig,
+  mandateSummary,
   mcpEndpoint,
   readiness,
   relativeTime,
   TOKEN_PLACEHOLDER,
+  toolSignature,
 } from './mcp-connect.js';
 import { DEMO_OFFER_SLUG } from './routes.js';
 
@@ -127,5 +129,32 @@ describe('relativeTime', () => {
     expect(relativeTime('2026-11-11T11:57:00Z', now)).toBe('3 min ago');
     expect(relativeTime('2026-11-11T09:00:00Z', now)).toBe('3 h ago');
     expect(relativeTime('2026-11-09T12:00:00Z', now)).toBe('2 d ago');
+  });
+});
+
+describe('W19 v4 rows', () => {
+  it('writes a tool signature from the live params', () => {
+    expect(toolSignature([])).toBe('{}');
+    expect(
+      toolSignature([
+        { name: 'listingSlug', required: true, description: null },
+        { name: 'note', required: false, description: null },
+      ]),
+    ).toBe('{ listingSlug, note? }');
+  });
+
+  it('summarises a mandate', () => {
+    expect(mandateSummary(view())).toEqual({
+      title: 'Up to $230',
+      detail: 'Cap $500 · Any product',
+    });
+    expect(
+      mandateSummary(
+        view({
+          products: [{ productId: 'p', title: 'Aurel A7', imageUrl: null, listingSlug: null }],
+          expiresAt: '2026-12-01T12:00:00Z',
+        }),
+      ).detail,
+    ).toBe('Cap $500 · Aurel A7 · expires Dec 1');
   });
 });

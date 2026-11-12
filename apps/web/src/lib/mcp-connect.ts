@@ -1,4 +1,10 @@
-import { formatUsd, MCP_TOKEN_PREFIX, type MandateListBody } from '@holdfast/shared';
+import {
+  formatUsd,
+  MCP_TOKEN_PREFIX,
+  type MandateListBody,
+  type MandateView,
+  type McpToolParam,
+} from '@holdfast/shared';
 import { DEMO_OFFER_SLUG } from './routes';
 
 /**
@@ -78,4 +84,28 @@ export function relativeTime(iso: string | null, now: Date = new Date()): string
   const h = Math.round(min / 60);
   if (h < 24) return `${h} h ago`;
   return `${Math.round(h / 24)} d ago`;
+}
+
+/** W19 tool row input, from the live `tools/list` params: `{ listingSlug, amountCents? }`. */
+export function toolSignature(params: readonly McpToolParam[]): string {
+  if (params.length === 0) return '{}';
+  return `{ ${params.map((p) => (p.required ? p.name : `${p.name}?`)).join(', ')} }`;
+}
+
+/** W19 mandates card row (Figma 115:184): "Up to $250" · "Cap $600 · Aurel A7 · expires Dec 1". */
+export function mandateSummary(m: MandateView): { title: string; detail: string } {
+  const products =
+    m.products.length === 0
+      ? 'Any product'
+      : m.products.length === 1
+        ? (m.products[0]!.title ?? '1 product')
+        : `${m.products.length} products`;
+  const parts = [`Cap ${formatUsd(m.totalHoldCapCents)}`, products];
+  if (m.expiresAt) {
+    const d = new Date(m.expiresAt);
+    parts.push(
+      `expires ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`,
+    );
+  }
+  return { title: `Up to ${formatUsd(m.maxPriceCents)}`, detail: parts.join(' · ') };
 }

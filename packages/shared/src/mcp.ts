@@ -31,7 +31,25 @@ export function mcpToolScope(tool: string): McpScope {
   return Object.hasOwn(MCP_TOOL_SCOPES, tool) ? MCP_TOOL_SCOPES[tool as McpToolName] : 'bid';
 }
 
-/** W19 tool list, static until HF-044a exports the live schemas (api.md §MCP server). */
+/**
+ * W19 `GET /api/mcp/tools` (v4 plan §4.1): the MCP server's own `tools/list`, flattened for the
+ * Developer page, with the scope each tool needs.
+ */
+export interface McpToolParam {
+  name: string;
+  required: boolean;
+  description: string | null;
+}
+export interface McpToolInfo {
+  name: string;
+  title: string | null;
+  description: string;
+  scope: McpScope;
+  readOnly: boolean;
+  params: McpToolParam[];
+}
+
+/** Static tool summary for the Docs page. W19 reads the live list from `/api/mcp/tools`. */
 export const MCP_TOOL_DOCS: readonly {
   name: McpToolName;
   scope: McpScope;

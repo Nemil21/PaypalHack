@@ -1,3 +1,5 @@
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -11,7 +13,12 @@ import {
   type McpToolOutcome,
   type PlaceBidDeps,
 } from '@holdfast/core';
-import { MAX_AMOUNT_CENTS, MIN_AMOUNT_CENTS } from '@holdfast/shared';
+import {
+  MAX_AMOUNT_CENTS,
+  MIN_AMOUNT_CENTS,
+  mcpToolScope,
+  type McpToolInfo,
+} from '@holdfast/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { z } from 'zod';
 import { placeholderMcpHandler, type McpHandler } from './route.js';
@@ -209,6 +216,52 @@ export function createMcpServer(
     (args) => run('raise_bid', () => mcpRaiseBid(placeDeps, caller, args))(),
   );
   return server;
+}
+
+let toolList: Promise<McpToolInfo[]> | null = null;
+
+/**
+ * W19 (v4 plan §4.1): the server's own `tools/list`, run once through the SDK over an in-memory
+ * transport, so the Developer page shows exactly what an agent sees. No tool handler runs, so the
+ * server gets no database and no caller; the scope comes from the same table `route.ts` enforces.
+ */
+export function listMcpTools(): Promise<McpToolInfo[]> {
+  toolList ??= (async () => {
+    const server = createMcpServer({ money: { db: {} } } as unknown as McpServerDeps, {
+      clientId: '',
+      shopperId: '',
+    });
+    const client = new Client({ name: 'holdfast-w19', version: SERVER_INFO.version });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(serverSide);
+      await client.connect(clientSide);
+      const { tools } = await client.listTools();
+      return tools.map((t) => {
+        const props = (t.inputSchema.properties ?? {}) as Record<string, { description?: string }>;
+        const required = new Set(t.inputSchema.required ?? []);
+        return {
+          name: t.name,
+          title: t.title ?? t.annotations?.title ?? null,
+          description: t.description ?? '',
+          scope: mcpToolScope(t.name),
+          readOnly: t.annotations?.readOnlyHint === true,
+          params: Object.entries(props).map(([name, p]) => ({
+            name,
+            required: required.has(name),
+            description: p.description ?? null,
+          })),
+        };
+      });
+    } finally {
+      await client.close();
+      await server.close();
+    }
+  })().catch((err: unknown) => {
+    toolList = null;
+    throw err;
+  });
+  return toolList;
 }
 
 /** The `/mcp` handler `route.ts` calls after auth and the scope gate. */
