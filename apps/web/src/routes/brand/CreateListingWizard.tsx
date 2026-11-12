@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatUsd, type CreateListingRequest } from '@holdfast/shared';
 import { PageHeader } from '../../components/layout/AppShell';
-import { Badge, Button, ErrorBanner, Skeleton, useToast } from '../../components/ui';
+import { Badge, Button, ErrorBanner, Skeleton, StepBar, useToast } from '../../components/ui';
 import { ApiError, api } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import {
@@ -144,7 +144,10 @@ export function CreateListingWizard() {
           ← Brand console
         </Link>
       </div>
-      <PageHeader eyebrow={me.brand.name} title="New listing." />
+      <PageHeader
+        eyebrow={`New listing · Step ${step + 1} of ${WIZARD_STEPS.length}`}
+        title={WIZARD_TITLES[step]}
+      />
 
       {notVerified && (
         <div
@@ -158,7 +161,7 @@ export function CreateListingWizard() {
         </div>
       )}
 
-      <Stepper step={step} onStep={goTo} />
+      <StepBar steps={WIZARD_STEPS} step={step} onStep={(i) => goTo(i as WizardStep)} />
 
       <div className="mt-8 flex max-w-[760px] flex-col gap-6">
         {step === 0 && (
@@ -185,18 +188,18 @@ export function CreateListingWizard() {
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           {step > 0 ? (
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => goTo((step - 1) as WizardStep)}
               disabled={!!busy}
             >
-              Back
+              ← Back
             </Button>
           ) : (
             <span />
           )}
           {step < 3 ? (
-            <Button variant="secondary" onClick={() => goTo((step + 1) as WizardStep)}>
-              Next
+            <Button onClick={() => goTo((step + 1) as WizardStep)}>
+              Next: {WIZARD_STEPS[step + 1]} →
             </Button>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -218,34 +221,13 @@ export function CreateListingWizard() {
   );
 }
 
-// --- Stepper -------------------------------------------------------------------------------------
-
-function Stepper({ step, onStep }: { step: WizardStep; onStep(s: WizardStep): void }) {
-  return (
-    <ol className="flex flex-wrap gap-2" aria-label="Steps">
-      {WIZARD_STEPS.map((label, i) => (
-        <li key={label}>
-          <button
-            type="button"
-            onClick={() => onStep(i as WizardStep)}
-            aria-current={i === step ? 'step' : undefined}
-            className={cn(
-              'label flex items-center gap-2 rounded-sm border px-3 py-2 text-[12px]',
-              i === step
-                ? 'border-charcoal bg-charcoal text-white'
-                : i < step
-                  ? 'border-border bg-white text-ink hover:bg-surface'
-                  : 'border-line bg-white text-muted hover:bg-surface',
-            )}
-          >
-            <span className="font-mono">{i + 1}</span>
-            {label}
-          </button>
-        </li>
-      ))}
-    </ol>
-  );
-}
+/** v4 W05 (frame 117:606): each step's page title. */
+const WIZARD_TITLES: Record<WizardStep, string> = {
+  0: 'Pick the product.',
+  1: 'Quantity and floor.',
+  2: 'Set the window.',
+  3: 'Review and publish.',
+};
 
 // --- Step 1: product -----------------------------------------------------------------------------
 

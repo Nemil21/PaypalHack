@@ -100,7 +100,7 @@ export function PayoutsPage() {
             <DateField id={fromId} label="Cleared from" value={from} onChange={setFrom} />
             <DateField id={toId} label="to" value={to} onChange={setTo} />
             <Button variant="outline" onClick={() => void exportCsv()} disabled={!loaded}>
-              Export CSV
+              Download CSV
             </Button>
           </div>
         </div>

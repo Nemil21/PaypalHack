@@ -66,8 +66,8 @@ export function EmbedPage() {
     <div className="flex flex-col lg:flex-row lg:gap-8">
       <div className="min-w-0 flex-1">
         <PageHeader
-          eyebrow={me.brand.name}
-          title="Embed & share"
+          eyebrow={`Embed & share · ${me.brand.name}`}
+          title="Bring bidders in."
           lede="Bring your own shoppers: a tracked link for campaigns, or a “Make an offer” button for your product page."
         />
         {loadError ? (
@@ -325,7 +325,7 @@ function StatsSection({ stats }: { stats: StatsState }) {
   const { data, error, retry } = stats;
   return (
     <Section
-      title="By source"
+      title="Bids by source"
       hint="Clicks are visits from a tracked link or the button. Bids reached a hold; held is what is held right now."
     >
       {error && !data ? (
