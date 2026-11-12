@@ -8,6 +8,8 @@ export const paths = {
   /** v4 role chooser (Figma 109:63): brand → brandSignIn, buyer → buyerSignIn. */
   signIn: '/sign-in',
   buyerSignIn: '/sign-in/buyer',
+  /** v4 static Docs page (frame 107:137). */
+  docs: '/docs',
   brandSignIn: '/brand/sign-in',
   brandOnboarding: '/brand/onboarding',
   brand: '/brand',

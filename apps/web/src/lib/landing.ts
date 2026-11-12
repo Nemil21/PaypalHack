@@ -7,8 +7,19 @@ import { paths } from './routes';
  * or anything that says every winner pays the same.
  */
 
-/** Primary CTA → W02 brand sign-in (HF-010; it also carries the DEMO_MODE sign-ins). */
-export const PRIMARY_CTA = { label: 'Open a private window', to: paths.brandSignIn } as const;
+/** v4 nav (frame 101:5): section links, Docs, Sign in → the role chooser, and Contact us. */
+export const nav = {
+  sections: [
+    { id: 'how-it-works', label: 'How it works' },
+    { id: 'for-brands', label: 'For brands' },
+    { id: 'for-agents', label: 'For agents' },
+    { id: 'pricing', label: 'Pricing' },
+  ],
+  docs: { label: 'Docs', to: paths.docs },
+  signIn: { label: 'Sign in', to: paths.signIn },
+  /** Smooth-scrolls to the footer contact card (`#contact`). */
+  contact: { label: 'Contact us', href: '#contact' },
+} as const;
 
 /**
  * Public demo video (HF-050b). Null until the YouTube link exists: the second hero CTA then opens
@@ -37,9 +48,28 @@ export function youtubeEmbedUrl(url: string): string | null {
 export const hero = {
   headline: 'Clear overstock into money that’s already waiting.',
   sub: 'Shoppers’ AI agents place bids backed by PayPal holds. You see committed demand and sell privately; no public markdown.',
+  /** Before / after the accent marker ("already waiting"). */
+  headlineLead: 'Clear overstock into money that’s ',
+  headlineAccent: 'already waiting',
+  copyCta: 'Copy MCP prompt',
+  copied: 'Copied',
+  copiedBody: 'Paste it into Claude Code, Codex or OpenCode.',
   videoCta: 'Watch the 2-min demo',
   demoCta: 'Try the live demo',
 } as const;
+
+/**
+ * Hero "Copy MCP prompt": one prompt any coding agent (Claude Code, Codex, OpenCode) can follow to
+ * connect Holdfast's Streamable HTTP MCP server. The token comes from W19 (/developer).
+ */
+export function mcpPrompt(origin: string): string {
+  const base = origin.replace(/\/+$/, '');
+  return [
+    `Connect the Holdfast MCP server to this agent: Streamable HTTP at ${base}/mcp,`,
+    `with the header "Authorization: Bearer <token>". I'll create the hf_mcp_ token at ${base}${paths.developer}.`,
+    'Then list my Holdfast tools and help me place a held bid on the Aurel A7.',
+  ].join(' ');
+}
 
 /** The demo book (HOLDFAST-SPEC §4): 240 units clear at a $219 cutoff, each at the winner's own bid. */
 export const DEMO_BOOK = {
@@ -129,48 +159,55 @@ export const agents = {
   prompt: '“Bid $229 on the Aurel A7, release it if any store goes under $249.”',
 } as const;
 
-export const trust = [
-  { title: 'Verified brands only', body: 'A brand proves its domain before it can open a window.' },
-  {
-    title: 'Exact-product matching',
-    body: 'Bids attach to one product, matched against live retailer offers.',
-  },
-  {
-    title: 'Held, not charged',
-    body: 'Money moves only for winners. Everyone else’s hold is released.',
-  },
-  {
-    title: 'Agents can’t exceed limits',
-    body: 'The server enforces each mandate’s price, cap and expiry, not the prompt.',
-  },
-  { title: 'Built on PayPal', body: 'Real PayPal authorizations, captures and payouts.' },
-] as const;
-
+/** "9% of what clears." with a solid orange bar under the accent. */
 export const pricing = {
-  headline: '9% of what clears.',
-  sub: 'Nothing if nothing clears. No listing fees, no setup, no monthly plan.',
+  lead: '9% of ',
+  accent: 'what clears.',
+  sub: 'Nothing if nothing clears.',
+  pills: ['No listing fees', 'No setup', 'No monthly plan'],
+  cta: 'Watch the demo',
 } as const;
 
 export const GITHUB_URL = 'https://github.com/Nemil21/PaypalHack';
 
 /**
- * Footer credits: only tools the product actually uses (README "Sponsor tools", HF-049). APIMatic
- * and Bryntum are listed there as unclaimed, so they are not credited here.
+ * Footer credits: only tools the product actually uses (README "Sponsor tools", HF-049). Bryntum
+ * Gantt is in use (HF-060: console, Settlement, Payouts, Bid detail; v4 decision 1). APIMatic is
+ * listed there as unclaimed, so it is not credited here.
  */
-export const sponsors = ['PayPal', 'AG Grid', 'Channel3', 'Render'] as const;
+export const sponsors = ['PayPal', 'AG Grid', 'Channel3', 'Render', 'Bryntum'] as const;
+
+/** v4 footer (frame 104:75, `id="contact"`). */
+export const footer = {
+  tagline: 'Shoppers’ agents hold real money for your overstock; you clear it privately.',
+  contactTitle: 'Contact us',
+  contact: {
+    name: 'Nemil Shah',
+    url: 'https://www.linkedin.com/in/nemil-shah21/',
+    display: 'linkedin.com/in/nemil-shah21',
+  },
+  builtWith: 'Built with',
+} as const;
 
 /** Every user-visible string above, for the copy-rule test. */
 export function allCopy(): string[] {
   return [
-    PRIMARY_CTA.label,
+    ...nav.sections.map((s) => s.label),
+    nav.docs.label,
+    nav.signIn.label,
+    nav.contact.label,
     ...Object.values(hero),
     ...steps.flatMap((s) => [s.title, s.body]),
     agents.title,
     agents.body,
     agents.prompt,
-    ...trust.flatMap((t) => [t.title, t.body]),
-    pricing.headline,
+    pricing.lead + pricing.accent,
     pricing.sub,
+    ...pricing.pills,
+    pricing.cta,
+    footer.tagline,
+    footer.contactTitle,
+    footer.builtWith,
     ...comparison().flatMap((r) => [r.label, r.detail]),
   ];
 }

@@ -6,8 +6,10 @@ import {
   type ComparisonRow,
   compactUsd,
   DEMO_BOOK,
+  footer,
+  mcpPrompt,
+  nav,
   netAfterFee,
-  PRIMARY_CTA,
   sponsors,
   steps,
   youtubeEmbedUrl,
@@ -37,9 +39,32 @@ describe('landing copy (HF-057)', () => {
     expect(steps[2].body).toContain('Every winner pays their own bid, never more than their hold.');
   });
 
-  it('the primary CTA leads to W02 brand sign-in', () => {
-    expect(PRIMARY_CTA).toEqual({ label: 'Open a private window', to: paths.brandSignIn });
-    expect(paths.brandSignIn).toBe('/brand/sign-in');
+  it('v4 nav: Sign in goes to the role chooser, Docs to /docs, Contact us to the footer', () => {
+    expect(nav.signIn.to).toBe('/sign-in');
+    expect(nav.docs.to).toBe('/docs');
+    expect(nav.contact.href).toBe('#contact');
+    expect(nav.sections.map((s) => s.label)).toEqual([
+      'How it works',
+      'For brands',
+      'For agents',
+      'Pricing',
+    ]);
+  });
+
+  it('drops the v3 "Open a private window" CTA and the hackathon line everywhere', () => {
+    const page = readFileSync(new URL('../routes/Landing.tsx', import.meta.url), 'utf8');
+    for (const text of [...allCopy(), page]) {
+      expect(text).not.toMatch(/open a private window/i);
+      expect(text).not.toMatch(/Built for the PayPal AI Hackathon/i);
+    }
+    expect(footer.contact.url).toBe('https://www.linkedin.com/in/nemil-shah21/');
+  });
+
+  it('the MCP prompt points any agent at the Streamable HTTP endpoint and W19 for the token', () => {
+    const p = mcpPrompt('https://holdfast.example/');
+    expect(p).toContain('https://holdfast.example/mcp');
+    expect(p).toContain(`https://holdfast.example${paths.developer}`);
+    expect(p).toContain('Authorization: Bearer');
   });
 
   it('comparison bar: $11.4k liquidator vs $49.4k net after 9%', () => {
@@ -51,8 +76,9 @@ describe('landing copy (HF-057)', () => {
     expect(liq.share).toBeCloseTo(0.231, 3);
   });
 
-  it('credits only sponsors the product uses (README "Sponsor tools")', () => {
-    expect([...sponsors]).toEqual(['PayPal', 'AG Grid', 'Channel3', 'Render']);
+  it('credits only sponsors the product uses (README "Sponsor tools"; Bryntum per decision 1)', () => {
+    expect([...sponsors]).toEqual(['PayPal', 'AG Grid', 'Channel3', 'Render', 'Bryntum']);
+    expect(sponsors).not.toContain('APIMatic');
   });
 });
 

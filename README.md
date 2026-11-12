@@ -116,8 +116,8 @@ We list a sponsor only when the product uses it and we can show where.
 | **Render Workflows** for settlement | Settlement fan-out, one task per bid | HF-030b, `apps/workflows` | Adapter merged (HF-030b). Settlement runs in-process (`SETTLEMENT_RUNNER=inprocess`) unless HF-030b's smoke on Render is green. TODO: say here which path settled the demo. |
 | **AG Grid** (Enterprise grid, AG Charts, AG Studio KPI row) | Brand console: bids grid, demand curve, KPI row | `ag-grid-enterprise`, `ag-charts-enterprise`, `ag-studio` in `apps/web` (HF-007, HF-023–HF-025) | Merged |
 | **Channel3** | Product search, exact-match gate, live offers, price-change webhooks | `packages/core` Channel3 client (HF-009), price watcher (HF-042a/b) | Merged; S5 on Render pending |
+| **Bryntum Gantt** | Settlement fan-out (W08), order-status timeline on the console, Payouts and bid detail | `@bryntum/gantt` (trial) in `apps/web`, `components/bryntum/BryntumGantt.tsx` (HF-060) | Merged |
 | APIMatic PayPal Context Plugin | Build aid for the PayPal client | No plugin evidence on `main` | Not claimed |
-| Bryntum Gantt | Settlement fan-out and order timeline | HF-060 not merged | Not claimed |
 
 We don't use the other sponsor tools (Elastic, KERNEL, Postman, Astropods, Zapier).
 
@@ -281,8 +281,8 @@ Status at the freeze (Nov 12, 2026). **Merged** = on `main`. **In review** = PR 
 | Ops | Ops / audit screen, health, nightly capture reconcile | HF-058 | P1 | **Merged** |
 | Shopper | Won page | HF-059a | P1 | **Merged** |
 | Brand | Payouts and reports; shipment tracking | HF-059b | P1 | **Merged** |
-| Brand console | Bryntum Gantt: settlement fan-out, then order timeline | HF-060 | P1 | Not started |
-| Brand | Brand mobile alert and clear approval | HF-061 | P1 | Not started |
+| Brand console | Bryntum Gantt: settlement fan-out, then order timeline | HF-060 | P1 | **Merged** |
+| Brand | Brand mobile alert and clear approval | HF-061 | P1 | **Merged** |
 
 **Production path (described, not built):** disputes and refunds, brand API keys, PayPal multiparty `platform_fees` with delayed disbursement.
 
