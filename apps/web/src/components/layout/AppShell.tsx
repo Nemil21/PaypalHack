@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/cn';
@@ -107,7 +107,7 @@ export function AppShell() {
                       variant="nav"
                       audience={viewer.role === 'brand' ? 'brand' : 'shopper'}
                     />
-                    <Avatar viewer={viewer} />
+                    <AccountMenu viewer={viewer} />
                   </div>
                 </nav>
                 <div className="flex items-center gap-1 lg:hidden">
@@ -144,6 +144,12 @@ export function AppShell() {
                 </Link>
               </li>
             ))}
+            <li>
+              <SignOutButton
+                viewer={viewer}
+                className="label block w-full py-3 text-left text-[13px] text-ink"
+              />
+            </li>
           </ul>
         </nav>
       )}
@@ -207,17 +213,97 @@ function RoleChip({ viewer }: { viewer: Viewer }) {
   );
 }
 
-function Avatar({ viewer }: { viewer: Viewer }) {
+/** Avatar button that opens the account menu: who you are, Settings, Sign out. */
+function AccountMenu({ viewer }: { viewer: Viewer }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const brand = viewer.role === 'brand';
   return (
-    <span
-      aria-hidden
-      className={cn(
-        'ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-[12px] text-white uppercase',
-        viewer.role === 'brand' ? 'bg-charcoal' : 'bg-orange',
+    <div ref={ref} className="relative ml-1">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account menu for ${viewer.name ?? (brand ? 'brand' : 'buyer')}`}
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-[12px] text-white uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink',
+          brand ? 'bg-charcoal' : 'bg-orange',
+        )}
+      >
+        {viewer.name?.trim().charAt(0) ?? ''}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-30 mt-2 w-60 rounded-sm border border-line bg-white py-1 shadow-[0_8px_24px_rgba(20,20,20,0.08)]"
+        >
+          <div className="border-b border-line px-4 py-3">
+            <p className="label text-[11px] text-muted">{brand ? 'Brand' : 'Buyer'}</p>
+            <p className="mt-1 truncate text-[15px] text-ink">{viewer.name}</p>
+          </div>
+          <Link
+            role="menuitem"
+            to={brand ? paths.brandSettings : paths.settings}
+            className="label block px-4 py-3 text-[13px] text-ink hover:bg-surface"
+          >
+            Settings
+          </Link>
+          <SignOutButton
+            viewer={viewer}
+            role="menuitem"
+            className="label block w-full px-4 py-3 text-left text-[13px] text-ink hover:bg-surface"
+          />
+        </div>
       )}
-    >
-      {viewer.name?.trim().charAt(0) ?? ''}
-    </span>
+    </div>
+  );
+}
+
+/** Ends this role's session (`POST /api/auth/logout`) and goes back to the landing page. */
+function SignOutButton({
+  viewer,
+  className,
+  role,
+}: {
+  viewer: Viewer;
+  className: string;
+  role?: 'menuitem';
+}) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    setBusy(true);
+    try {
+      await api.request({
+        method: 'POST',
+        path: '/api/auth/logout',
+        body: { who: viewer.role === 'brand' ? 'brand' : 'shopper' },
+      });
+      navigate(paths.home);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <button type="button" role={role} disabled={busy} onClick={onClick} className={className}>
+      {busy ? 'Signing out…' : 'Sign out'}
+    </button>
   );
 }
 
