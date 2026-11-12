@@ -1,5 +1,6 @@
 import { DEMAND_MILESTONES_CENTS, netCents } from '@holdfast/shared';
 import type { Queryable } from '../db.js';
+import { SHIPPED_OR_LATER } from '../shipments/shipments.js';
 import type { NotificationDraft } from './notify.js';
 
 /**
@@ -359,9 +360,9 @@ async function shipped(q: Queryable, e: AuditEventLike): Promise<NotificationDra
   const res = await q.query(
     `SELECT sh.bid_id, sh.carrier, sh.tracking_number
        FROM shipments sh
-      WHERE (sh.id::text = $1 OR sh.bid_id::text = $2) AND sh.status IN ('SHIPPED', 'DELIVERED')
+      WHERE (sh.id::text = $1 OR sh.bid_id::text = $2) AND sh.status = ANY($3::text[])
       LIMIT 1`,
-    [e.entity === 'shipment' ? e.entity_id : null, bidIdOf(e) ?? null],
+    [e.entity === 'shipment' ? e.entity_id : null, bidIdOf(e) ?? null, [...SHIPPED_OR_LATER]],
   );
   const s = res.rows[0] as
     { bid_id: string; carrier: string | null; tracking_number: string | null } | undefined;

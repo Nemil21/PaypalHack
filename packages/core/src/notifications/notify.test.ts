@@ -328,6 +328,30 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-054a notify subscriber', { timeout: 60_0
     expect(await rowsFor(sim.shopperId)).toEqual([]);
   });
 
+  it('shipped: "On its way" still fires when the demo Mark delivered ran first (v4 §3.6)', async () => {
+    const h = await heldBid();
+    await drain();
+    await db.pool.query(`UPDATE bids SET status = 'SHIPPED' WHERE id = $1`, [h.bidId]);
+    // The admin advanced the parcel before the subscriber saw the tracking event.
+    const [sh] = await q<{ id: string }>(
+      `INSERT INTO shipments (bid_id, listing_id, carrier, tracking_number, status, shipped_at)
+       VALUES ($1, $2, 'UPS', '1Z999', 'OUT_FOR_DELIVERY', now()) RETURNING id`,
+      [h.bidId, h.listingId],
+    );
+    await audit(db.pool, {
+      actorType: 'BRAND_USER',
+      listingId: h.listingId,
+      entity: 'bid',
+      entityId: h.bidId,
+      action: 'BID_SHIPPED',
+      data: { shipmentId: sh!.id },
+    });
+    await drain();
+    const shipped = (await rowsFor(h.shopperId)).filter((r) => r.template === 'shipped');
+    expect(shipped).toHaveLength(1);
+    expect(shipped[0]!.payload).toMatchObject({ bidId: h.bidId, trackingNumber: '1Z999' });
+  });
+
   it('brand demand milestones fire once per threshold', async () => {
     const listing = await fx.listing({ closesInHours: 24 });
     const [{ brand_id: brandId }] = await q<{ brand_id: string }>(
