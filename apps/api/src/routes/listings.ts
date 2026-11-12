@@ -31,7 +31,8 @@ import { ApiError, parse } from '../http/errors.js';
  *   GET  /api/listings               any brand user; the session brand's listings (`forBrand`)
  *   POST /api/listings/:id/cancel    OWNER/MANAGER, Idempotency-Key → 202 CANCELLED; voids run in
  *                                    the background (HF-012b; mounted when `money` is set)
- *   PATCH /api/listings/:id          OWNER/MANAGER, Idempotency-Key → 200; quantity up, while OPEN
+ *   PATCH /api/listings/:id          OWNER/MANAGER, Idempotency-Key → 200; quantity up while OPEN,
+ *                                    either way while DRAFT (v4 draft Edit)
  *
  * The brand id always comes from the session. Another brand's listing answers 404.
  */
@@ -75,10 +76,14 @@ export function raiseQuantityErrorResponse(error: RaiseQuantityError): Idempoten
     case 'STATE_CONFLICT':
       return {
         status: 409,
-        body: errorBody('STATE_CONFLICT', 'Quantity can only change while the listing is open.', {
-          reason: error.reason,
-          status: error.status,
-        }),
+        body: errorBody(
+          'STATE_CONFLICT',
+          'Quantity can only change while the listing is a draft or open.',
+          {
+            reason: error.reason,
+            status: error.status,
+          },
+        ),
       };
   }
 }

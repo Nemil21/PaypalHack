@@ -418,7 +418,28 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-012b listing cancel + quantity raise', (
       });
     });
 
-    it.each(['ROUNDS', 'CLEARING', 'DRAFT'] as const)('on %s → STATE_CONFLICT', async (s) => {
+    it('on DRAFT the quantity can go either way; audited, no event', async () => {
+      const l = await listing('DRAFT');
+      const r = await raiseListingQuantity(db, {
+        listingId: l.id,
+        brandId: l.brandId,
+        quantity: 4,
+        actor: ACTOR,
+      });
+      expect(r).toEqual({
+        ok: true,
+        value: { listingId: l.id, status: 'DRAFT', previousQuantity: 10, quantity: 4 },
+      });
+      const row = await db.pool.query(
+        `SELECT l.quantity, a.data FROM listings l
+           JOIN audit_events a ON a.listing_id = l.id AND a.action = 'LISTING_DRAFT_UPDATED'
+          WHERE l.id = $1`,
+        [l.id],
+      );
+      expect(row.rows).toEqual([{ quantity: 4, data: { from: 10, to: 4 } }]);
+    });
+
+    it.each(['ROUNDS', 'CLEARING'] as const)('on %s → STATE_CONFLICT', async (s) => {
       const l = await listing(s);
       const r = await raiseListingQuantity(db, {
         listingId: l.id,

@@ -76,7 +76,7 @@ HF-012a: the body also has `listingId`, `slug`, `offerPath` (`/o/:slug`), `windo
 
 ### `GET /listings[?status=OPEN,ROUNDS]` → `{ "listings": [ … ] }` (HF-012a): the session brand's listings, newest first, with product, deadlines, `offerPath` and `priceWatch`.
 
-### `PATCH /listings/:id` `{ "quantity": 320 }` (later wave) → raise quantity only, while OPEN. Floor and window are locked (02).
+### `PATCH /listings/:id` `{ "quantity": 320 }` (later wave) → raise quantity only, while OPEN. Floor and window are locked (02). On a DRAFT the quantity can be set either way (no bids yet).
 HF-012b: OWNER/MANAGER, Idempotency-Key → `200 { listingId, status: "OPEN", previousQuantity, quantity }`; audit `LISTING_QUANTITY_RAISED`; SSE `listing.updated`. Errors: `400 VALIDATION_ERROR { field: "quantity", reason: QUANTITY_NOT_INCREASED, currentQuantity }` (equal or lower), `400 VALIDATION_ERROR` for any other field (floor, window), `409 STATE_CONFLICT { reason: NOT_OPEN, status }`, `404` for another brand's listing.
 
 ### `GET /listings/:id/book` (brand only)

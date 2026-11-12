@@ -13,6 +13,8 @@ export const paths = {
   brandSignIn: '/brand/sign-in',
   brandOnboarding: '/brand/onboarding',
   brand: '/brand',
+  /** v4 My listings (frame 111:194): filter tabs + table; replaces the `/brand#listings` anchor. */
+  brandListings: '/brand/listings',
   newListing: '/brand/listings/new',
   /** W04 left nav (HF-026): W09 payouts (HF-059b), W10 embed (HF-055), W11 settings (HF-056). */
   brandPayouts: '/brand/payouts',

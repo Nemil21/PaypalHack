@@ -36,6 +36,7 @@ const DeveloperPage = screen(() => import('./routes/Developer'), 'DeveloperPage'
 const DevComponents = screen(() => import('./routes/DevComponents'), 'DevComponents');
 const BrandGate = screen(() => import('./routes/brand/BrandGate'), 'BrandGate');
 const BrandJoin = screen(() => import('./routes/brand/BrandJoin'), 'BrandJoin');
+const BrandListings = screen(() => import('./routes/brand/BrandListings'), 'BrandListings');
 const BrandSettings = screen(() => import('./routes/brand/BrandSettings'), 'BrandSettings');
 const BrandOverview = screen(() => import('./routes/brand/BrandOverview'), 'BrandOverview');
 const BrandOnboarding = screen(() => import('./routes/brand/BrandOnboarding'), 'BrandOnboarding');
@@ -111,6 +112,8 @@ const router = createBrowserRouter([
             element: <BrandSectionLayout />,
             children: [
               { path: 'brand', element: <BrandOverview /> },
+              // v4 My listings (frame 111:194).
+              { path: 'brand/listings', element: <BrandListings /> },
               // W09 payouts, statements and tracking upload (HF-059b).
               { path: 'brand/payouts', element: <PayoutsPage /> },
               // W10 embed widget & share links (HF-055).
