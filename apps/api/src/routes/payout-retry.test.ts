@@ -1,7 +1,8 @@
 /**
  * HF-032 route test: `POST /api/admin/listings/:id/retry-payout` over HTTP on a real Postgres with
  * `FakePayPal` (admin only, 202 with attempt 2 after a DENIED payout, 409 while one is in flight,
- * 404 unknown) and the payout card in `GET /api/listings/:id/settlement`. The payout logic itself
+ * 404 unknown) and the payout card in `GET /api/listings/:id/settlement`. v4 §3.1: the brand-side
+ * `POST /api/listings/:id/retry-payout` (OWNER of that brand only, rate-limited). The payout logic itself
  * is covered in packages/core/src/payouts/payout-brand.test.ts. Needs TEST_DATABASE_URL.
  *   TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres \
  *     npx vitest run --maxWorkers=2 apps/api/src/routes/payout-retry
@@ -52,6 +53,7 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-032 retry-payout route', { timeout: 60_0
   let payouts: PayoutDeps;
   let seeded: ClearedListing;
   let ownerUser: string;
+  let managerUser: string;
   let adminUser: string;
 
   const one = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) =>
@@ -62,6 +64,12 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-032 retry-payout route', { timeout: 60_0
     app.inject({
       method: 'POST',
       url: `/api/admin/listings/${id}/retry-payout`,
+      headers: { cookie: cookie(userId), 'idempotency-key': randomUUID() },
+    });
+  const brandRetry = (userId: string, id = seeded.listingId) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/listings/${id}/retry-payout`,
       headers: { cookie: cookie(userId), 'idempotency-key': randomUUID() },
     });
   const view = async (userId: string) => {
@@ -100,6 +108,12 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-032 retry-payout route', { timeout: 60_0
     ownerUser = (
       await one<{ id: string }>(
         `INSERT INTO brand_users (brand_id, email, role) VALUES ($1, $2, 'OWNER') RETURNING id`,
+        [brand_id, `${randomUUID()}@aurel.example`],
+      )
+    ).id;
+    managerUser = (
+      await one<{ id: string }>(
+        `INSERT INTO brand_users (brand_id, email, role) VALUES ($1, $2, 'MANAGER') RETURNING id`,
         [brand_id, `${randomUUID()}@aurel.example`],
       )
     ).id;
@@ -172,5 +186,39 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-032 retry-payout route', { timeout: 60_0
   it('404 for an unknown or malformed listing id', async () => {
     expect((await retry(adminUser, randomUUID())).statusCode).toBe(404);
     expect((await retry(adminUser, 'nope')).statusCode).toBe(404);
+  });
+
+  it('brand route: the OWNER retries a failed payout; others get 403/404; rate-limited', async () => {
+    const latest = await one<{ paypal_batch_id: string }>(
+      `SELECT paypal_batch_id FROM payouts WHERE listing_id = $1 ORDER BY attempt DESC LIMIT 1`,
+      [seeded.listingId],
+    );
+    // Back to PAYOUT_FAILED: fail attempt 2's batch by hand (the fake already paid it).
+    await tdb.db.pool.query(`UPDATE payouts SET status = 'FAILED' WHERE paypal_batch_id = $1`, [
+      latest.paypal_batch_id,
+    ]);
+    await tdb.db.pool.query(`UPDATE listings SET status = 'PAYOUT_FAILED' WHERE id = $1`, [
+      seeded.listingId,
+    ]);
+
+    expect((await brandRetry(managerUser)).statusCode).toBe(403);
+    // Admin's own brand isn't the listing's: the brand route is scoped to the session brand.
+    expect((await brandRetry(adminUser)).statusCode).toBe(404);
+    expect((await brandRetry(ownerUser, randomUUID())).statusCode).toBe(404);
+    expect((await brandRetry(ownerUser, 'nope')).statusCode).toBe(404);
+
+    const res = await brandRetry(ownerUser);
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toMatchObject({ listingId: seeded.listingId, attempt: 3 });
+    const audit = await one<{ actor_type: string; actor_id: string }>(
+      `SELECT actor_type, actor_id FROM audit_events
+        WHERE listing_id = $1 AND action = 'PAYOUT_RETRY'
+        ORDER BY id DESC LIMIT 1`,
+      [seeded.listingId],
+    );
+    expect(audit).toEqual({ actor_type: 'BRAND_USER', actor_id: ownerUser });
+
+    // 3 per minute per user, counted before the handler: two 404s and the 202 used them up.
+    expect((await brandRetry(ownerUser)).statusCode).toBe(429);
   });
 });

@@ -238,5 +238,6 @@ Verify with `pp.verifyWebhook`, then dedupe. Map events by authorization id; con
 - `GET /admin/audit?brandId&entity&from&to`
 - `POST /admin/brands/:id/verify`
 - `POST /admin/listings/:id/retry-settlement` (refused once SETTLED)
+- `POST /admin/listings/:id/retry-payout` (PAYOUT_FAILED only). The listing brand's OWNER has the same retry at `POST /listings/:id/retry-payout` (3/min per user; another brand's listing → 404).
 - `POST /admin/replay-price-event` (demo, labelled)
 - `GET /admin/health` (PayPal token ok, Channel3 ok, queue depth)
