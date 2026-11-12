@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bandPosition,
+  otherMethod,
   anchorText,
   attributionOf,
   claimClick,
@@ -189,5 +191,33 @@ describe('share-link attribution (HF-055)', () => {
       setItem: () => {},
     };
     expect(claimClick(broken, 'aurel-a7', 'email')).toBe(true);
+  });
+});
+
+describe('v4 W12 slider band and other method', () => {
+  it('places the likely-clearing band on the slider track', () => {
+    expect(
+      bandPosition({ min: 10_000, max: 30_000 }, { fromCents: 20_000, toCents: 25_000 }),
+    ).toEqual({
+      left: 50,
+      width: 25,
+    });
+    // Clipped to the track; nothing when outside or missing.
+    expect(
+      bandPosition({ min: 10_000, max: 20_000 }, { fromCents: 18_000, toCents: 25_000 }),
+    ).toEqual({
+      left: 80,
+      width: 20,
+    });
+    expect(
+      bandPosition({ min: 10_000, max: 20_000 }, { fromCents: 25_000, toCents: 30_000 }),
+    ).toBeNull();
+    expect(bandPosition({ min: 10_000, max: 20_000 }, null)).toBeNull();
+  });
+
+  it('offers the other payment method after a declined hold', () => {
+    expect(otherMethod('PAYPAL', true)).toBe('CARD');
+    expect(otherMethod('PAYPAL', false)).toBeNull();
+    expect(otherMethod('CARD', true)).toBe('PAYPAL');
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { formatUsd } from '@holdfast/shared';
 import { Badge, Button, ErrorBanner, MoneySkeleton, Skeleton } from '../../components/ui';
 import { ApiAction, ApiError, api } from '../../lib/api';
@@ -8,6 +8,7 @@ import { clientConfig } from '../../lib/client-config';
 import {
   anchorText,
   attributionOf,
+  bandPosition,
   claimClick,
   countdownText,
   holdFailure,
@@ -15,6 +16,7 @@ import {
   initialAmount,
   NO_RELEASE_COPY,
   offerMode,
+  otherMethod,
   overPublicWarning,
   parseAmountParam,
   priceHint,
@@ -25,7 +27,8 @@ import {
 import { CardHold } from '../../lib/card-hold';
 import type { CardFieldsSession } from '../../lib/paypal-sdk';
 import { PriceWatchPausedBanner } from '../../components/PriceWatchPausedBanner';
-import { NotFound } from '../ScreenPlaceholder';
+import { paths } from '../../lib/routes';
+import { ErrorState } from '../bids/ErrorState';
 import { CardFields } from './CardFields';
 import { MyBidPanel } from './MyBidPanel';
 import { Faq, HowItWorks, TrustRow } from './OfferInfo';
@@ -70,7 +73,12 @@ export function OfferPage() {
   const [overConfirmed, setOverConfirmed] = useState(false);
   const [warningFor, setWarningFor] = useState<OfferPaymentMethod | null>(null);
   const [busy, setBusy] = useState<OfferPaymentMethod | null>(null);
-  const [failure, setFailure] = useState<{ text: string; retry?: OfferPaymentMethod } | null>(null);
+  const [failure, setFailure] = useState<{
+    text: string;
+    retry?: OfferPaymentMethod;
+    /** W12 hold failed: offer the other way to pay. */
+    switchTo?: 'PAYPAL' | 'CARD' | null;
+  } | null>(null);
   const [cardSession, setCardSession] = useState<CardFieldsSession | null>(null);
   /** The half-done card bid, if any: retries continue it (see lib/card-hold.ts). */
   const cardHold = useRef(new CardHold());
@@ -125,7 +133,13 @@ export function OfferPage() {
       : null;
   const msLeft = useCountdown(deadline, () => void fetchOffer());
 
-  if (load.state === 'missing') return <NotFound />;
+  if (load.state === 'missing') {
+    return (
+      <div className="mx-auto max-w-[640px] py-8">
+        <ErrorState code="NOT_FOUND" />
+      </div>
+    );
+  }
   if (load.state === 'error') {
     return (
       <div className="py-12">
@@ -229,6 +243,11 @@ export function OfferPage() {
         bidAction.current.reset();
         await fetchOffer(); // re-binds an anonymous shopper cookie
         setFailure({ text: f.text, retry: pay });
+      } else if (f.kind === 'declined') {
+        setFailure({
+          text: f.text,
+          switchTo: pay === 'TEST_CARD' ? null : otherMethod(pay, cardAvailable),
+        });
       } else {
         setFailure({ text: f.text, retry: f.kind === 'retry' ? pay : undefined });
       }
@@ -247,17 +266,28 @@ export function OfferPage() {
   const showForm = mode === 'bid';
 
   return (
-    <div className={cn('flex flex-col gap-10 pt-6 lg:pt-12', showForm && 'pb-24 lg:pb-0')}>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-12">
+    <div className={cn('flex flex-col gap-6 pt-6 lg:pt-10', showForm && 'pb-24 lg:pb-0')}>
+      <Link to={paths.bids} className="font-mono text-[13px] text-body hover:text-ink">
+        <span aria-hidden>← </span>My bids
+      </Link>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
         {/* Product */}
         <div className="flex flex-col gap-6">
           <ProductHero offer={offer} />
+          <div className="hidden lg:flex lg:flex-col lg:gap-10">
+            <HowItWorks />
+            <Faq />
+          </div>
+        </div>
+
+        {/* Bid card */}
+        <div className="flex flex-col gap-4 self-start lg:sticky lg:top-6">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[15px] text-body">{offer.brand.name}</span>
+              <span className="label text-[12px] text-orange">{offer.brand.name}</span>
               {offer.brand.verified && <Badge tone="success">Verified brand</Badge>}
             </div>
-            <h1 className="text-[28px] leading-[1.1] font-medium tracking-headline text-ink sm:text-[40px]">
+            <h1 className="text-[28px] leading-[1.1] font-medium tracking-headline text-ink sm:text-[36px]">
               {offer.product.title ?? 'Untitled product'}
             </h1>
             {anchorText(offer) && (
@@ -278,161 +308,174 @@ export function OfferPage() {
             )}
             {offer.priceWatchPaused && <PriceWatchPausedBanner />}
           </div>
-          <div className="hidden lg:flex lg:flex-col lg:gap-10">
-            <HowItWorks />
-            <Faq />
-          </div>
-        </div>
+          <aside className="flex flex-col gap-6 rounded-sm border border-ink bg-white p-5 sm:p-6">
+            <Countdown mode={mode} msLeft={msLeft} />
 
-        {/* Bid card */}
-        <aside className="flex flex-col gap-6 self-start rounded-md border border-line bg-white p-5 shadow-card sm:p-6 lg:sticky lg:top-6">
-          <Countdown mode={mode} msLeft={msLeft} />
-
-          {mode === 'already_bid' && (
-            <MyBidPanel
-              offer={offer}
-              canRaise={offer.biddable || offer.status === 'ROUNDS'}
-              onChanged={() => void fetchOffer()}
-              onLower={() => {
-                setAmount(Math.max(100, offer.myBid!.amountCents - 500));
-                void fetchOffer();
-              }}
-            />
-          )}
-          {mode === 'rounds' && (
-            <p className="text-[15px] text-body">
-              Live rounds are on: new bids are closed and only existing bidders can raise.
-            </p>
-          )}
-          {mode === 'closed' && (
-            <p className="text-[15px] text-body">This window has closed. No new bids are taken.</p>
-          )}
-
-          {showForm && (
-            <>
-              <PriceInput
-                amount={amount}
-                onChange={changeAmount}
-                range={sliderRange(offer, amount)}
-                hint={priceHint(offer)}
-                disabled={!!busy}
+            {mode === 'already_bid' && (
+              <MyBidPanel
+                offer={offer}
+                canRaise={offer.biddable || offer.status === 'ROUNDS'}
+                onChanged={() => void fetchOffer()}
+                onLower={() => {
+                  setAmount(Math.max(100, offer.myBid!.amountCents - 500));
+                  void fetchOffer();
+                }}
               />
+            )}
+            {mode === 'rounds' && (
+              <p className="text-[15px] text-body">
+                Live rounds are on: new bids are closed and only existing bidders can raise.
+              </p>
+            )}
+            {mode === 'closed' && <ErrorState code="WINDOW_CLOSED" className="shadow-none" />}
 
-              {warningFor && warning && (
-                <div
-                  role="alertdialog"
-                  aria-labelledby="over-q"
-                  className="flex flex-col gap-3 rounded-md bg-orange-tint p-4"
-                >
-                  <p id="over-q" className="text-[15px] text-ink">
-                    {warning}
-                  </p>
-                  <p className="text-[13px] text-body">{NO_RELEASE_COPY}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => {
-                        setOverConfirmed(true);
-                        void hold(warningFor, true);
-                      }}
-                    >
-                      Still bid {formatUsd(amount)}
-                    </Button>
-                    <Button variant="ghost" onClick={() => setWarningFor(null)}>
-                      Change my price
-                    </Button>
+            {showForm && (
+              <>
+                <PriceInput
+                  amount={amount}
+                  onChange={changeAmount}
+                  range={sliderRange(offer, amount)}
+                  band={bandPosition(sliderRange(offer, amount), offer.likelyBand)}
+                  hint={priceHint(offer)}
+                  disabled={!!busy}
+                />
+
+                {warningFor && warning && (
+                  <div
+                    role="alertdialog"
+                    aria-labelledby="over-q"
+                    className="flex flex-col gap-3 rounded-md bg-orange-tint p-4"
+                  >
+                    <p id="over-q" className="text-[15px] text-ink">
+                      {warning}
+                    </p>
+                    <p className="text-[13px] text-body">{NO_RELEASE_COPY}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        onClick={() => {
+                          setOverConfirmed(true);
+                          void hold(warningFor, true);
+                        }}
+                      >
+                        Still bid {formatUsd(amount)}
+                      </Button>
+                      <Button variant="ghost" onClick={() => setWarningFor(null)}>
+                        Change my price
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              <fieldset className="flex flex-col gap-3" disabled={!!busy}>
-                <legend className="label mb-3 text-[12px] text-muted">Pay with</legend>
-                <div role="radiogroup" className="grid grid-cols-2 gap-2">
-                  {(['PAYPAL', 'CARD'] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      role="radio"
-                      aria-checked={method === m}
-                      disabled={m === 'CARD' && !cardAvailable}
-                      onClick={() => {
-                        setMethod(m);
-                        setFailure(null);
-                      }}
-                      className={cn(
-                        'h-11 rounded-sm border text-[14px] font-medium disabled:cursor-not-allowed disabled:opacity-50',
-                        method === m
-                          ? 'border-orange bg-orange-tint text-ink'
-                          : 'border-border bg-white text-body',
-                      )}
-                    >
-                      {m === 'PAYPAL' ? 'PayPal' : 'Card'}
-                    </button>
-                  ))}
-                </div>
-                {!cardAvailable && (
-                  <p className="text-[12px] text-muted">
-                    Card fields need the PayPal sandbox (not the local stub).
-                  </p>
                 )}
-                {method === 'CARD' && cardAvailable && (
-                  <CardFields
-                    clientId={cfg.paypalClientId!}
-                    sandbox={cfg.paypalSandbox}
-                    onSession={setCardSession}
-                  />
-                )}
-              </fieldset>
 
-              {overConfirmed && warning && (
-                <p className="text-[13px] text-body">{NO_RELEASE_COPY}</p>
-              )}
-              {failure && (
-                <div
-                  role="alert"
-                  className="flex flex-col gap-2 rounded-md border border-danger/30 bg-danger-tint p-3"
-                >
-                  <p className="text-[14px] text-ink">{failure.text}</p>
-                  {failure.retry && (
+                <fieldset className="flex flex-col gap-3" disabled={!!busy}>
+                  <legend className="label mb-3 text-[12px] text-muted">Pay with</legend>
+                  <div role="radiogroup" className="grid grid-cols-2 gap-2">
+                    {(['PAYPAL', 'CARD'] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        role="radio"
+                        aria-checked={method === m}
+                        disabled={m === 'CARD' && !cardAvailable}
+                        onClick={() => {
+                          setMethod(m);
+                          setFailure(null);
+                        }}
+                        className={cn(
+                          'h-11 rounded-sm border text-[14px] font-medium disabled:cursor-not-allowed disabled:opacity-50',
+                          method === m
+                            ? 'border-orange bg-orange-tint text-ink'
+                            : 'border-border bg-white text-body',
+                        )}
+                      >
+                        {m === 'PAYPAL' ? 'PayPal' : 'Card'}
+                      </button>
+                    ))}
+                  </div>
+                  {!cardAvailable && (
+                    <p className="text-[12px] text-muted">
+                      Card fields need the PayPal sandbox (not the local stub).
+                    </p>
+                  )}
+                  {method === 'CARD' && cardAvailable && (
+                    <CardFields
+                      clientId={cfg.paypalClientId!}
+                      sandbox={cfg.paypalSandbox}
+                      onSession={setCardSession}
+                    />
+                  )}
+                </fieldset>
+
+                {overConfirmed && warning && (
+                  <p className="text-[13px] text-body">{NO_RELEASE_COPY}</p>
+                )}
+                {failure && (
+                  <div
+                    role="alert"
+                    className="flex flex-col gap-2 rounded-md border border-danger/30 bg-danger-tint p-3"
+                  >
+                    <p className="text-[14px] text-ink">{failure.text}</p>
+                    {failure.retry && (
+                      <Button
+                        variant="outline"
+                        onClick={() => void hold(failure.retry!)}
+                        disabled={!!busy}
+                      >
+                        Try again
+                      </Button>
+                    )}
+                    {failure.switchTo && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setMethod(failure.switchTo!);
+                          setFailure(null);
+                        }}
+                        disabled={!!busy}
+                      >
+                        Try another method
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* Desktop only; on phones the sticky bottom bar carries the primary action. */}
+                <div className="hidden lg:block">
+                  <Button size="lg" block onClick={() => void hold(method)} disabled={!!busy}>
+                    {primaryLabel}
+                  </Button>
+                </div>
+
+                {cfg.testCardEnabled && (
+                  <div className="flex flex-col gap-2 rounded-md border border-dashed border-planned p-3">
                     <Button
                       variant="outline"
-                      onClick={() => void hold(failure.retry!)}
+                      block
+                      onClick={() => void hold('TEST_CARD')}
                       disabled={!!busy}
                     >
-                      Try again
+                      {busy === 'TEST_CARD' ? 'Placing your hold…' : 'Use sandbox test card'}
                     </Button>
-                  )}
-                </div>
-              )}
+                    <p className="text-[12px] text-muted">
+                      Demo only: places a real PayPal sandbox hold for {formatUsd(amount)} with
+                      PayPal's public test Visa. No real card is used.
+                    </p>
+                  </div>
+                )}
 
-              {/* Desktop only; on phones the sticky bottom bar carries the primary action. */}
-              <div className="hidden lg:block">
-                <Button size="lg" block onClick={() => void hold(method)} disabled={!!busy}>
-                  {primaryLabel}
-                </Button>
-              </div>
-
-              {cfg.testCardEnabled && (
-                <div className="flex flex-col gap-2 rounded-md border border-dashed border-planned p-3">
-                  <Button
-                    variant="outline"
-                    block
-                    onClick={() => void hold('TEST_CARD')}
-                    disabled={!!busy}
-                  >
-                    {busy === 'TEST_CARD' ? 'Placing your hold…' : 'Use sandbox test card'}
-                  </Button>
-                  <p className="text-[12px] text-muted">
-                    Demo only: places a real PayPal sandbox hold for {formatUsd(amount)} with
-                    PayPal's public test Visa. No real card is used.
-                  </p>
-                </div>
-              )}
-
-              <ShopperIdentity onSignedIn={() => void fetchOffer()} />
-            </>
+                <ShopperIdentity onSignedIn={() => void fetchOffer()} />
+              </>
+            )}
+            <TrustRow />
+          </aside>
+          {showForm && (
+            <Link
+              to={paths.newMandate({ maxPriceCents: amount })}
+              className="font-mono text-[13px] text-ink hover:text-orange"
+            >
+              Or let your agent manage this <span aria-hidden>→</span>
+            </Link>
           )}
-          <TrustRow />
-        </aside>
+        </div>
       </div>
 
       <div className="flex flex-col gap-10 lg:hidden">
