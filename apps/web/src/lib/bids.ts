@@ -399,6 +399,24 @@ export function canCancel(status: BidStatus): boolean {
   return status === 'HELD' || status === 'PENDING_APPROVAL';
 }
 
+/** W15 safety poll while the bid's SSE stream is open (events drive the refresh). */
+export const STREAM_SAFETY_POLL_MS = 30_000;
+
+/**
+ * W15 (v4 §4.1) bid page refresh: a hold settling (releasing, charging, waiting for PayPal) keeps
+ * the 5 s poll, because the PayPal leg finishes outside the event stream; otherwise the stream
+ * drives updates and a slow poll is only a safety net. Null = no polling.
+ */
+export function detailPollMs(
+  watch: boolean,
+  settling: boolean,
+  streamOpen: boolean,
+): number | null {
+  if (settling) return ROUNDS_POLL_MS;
+  if (!watch) return null;
+  return streamOpen ? STREAM_SAFETY_POLL_MS : ROUNDS_POLL_MS;
+}
+
 export function canRaise(bid: MyBid): boolean {
   return bid.status === 'HELD' && bid.listing.raisable;
 }

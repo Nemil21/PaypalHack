@@ -22,6 +22,7 @@ import {
   moneyCopy,
   offerHref,
   releaseReason,
+  detailPollMs,
   ROUNDS_POLL_MS,
   roundsAction,
   shouldPoll,
@@ -41,7 +42,7 @@ import { hasWonPage } from '../../lib/won';
 import { ErrorState } from './ErrorState';
 import { formatWhen } from './format';
 import { HoldConfirmation } from './HoldConfirmation';
-import { useNow, usePolling } from './hooks';
+import { useBidStream, useNow, usePolling } from './hooks';
 import { PriceDropSheet } from './PriceDropSheet';
 import { PushRaiseSheet } from './PushRaiseSheet';
 import { ReleaseToggle } from './ReleaseToggle';
@@ -109,13 +110,13 @@ export function BidDetailPage() {
     !!detail &&
     (detail.chain.some((c) => c.status === 'VOIDING' || c.status === 'WON') ||
       (detail.bid.status === 'PENDING_APPROVAL' && justHeld));
-  usePolling(
-    !!detail && (shouldPoll([detail.bid]) || shouldWatchRounds([detail.bid]) || settling),
-    ROUNDS_POLL_MS,
-    () => {
-      void fetchDetail();
-    },
-  );
+  // W15: the bid's SSE stream drives updates; polling is the fallback (and covers settling).
+  const watch = !!detail && (shouldPoll([detail.bid]) || shouldWatchRounds([detail.bid]));
+  const streamOpen = useBidStream(bidId, load.state === 'ready', () => void fetchDetail());
+  const pollMs = detailPollMs(watch, settling, streamOpen);
+  usePolling(pollMs !== null, pollMs ?? ROUNDS_POLL_MS, () => {
+    void fetchDetail();
+  });
 
   if (load.state === 'loading') return <DetailSkeleton />;
   if (load.state === 'failed') {
