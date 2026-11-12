@@ -5,6 +5,10 @@ export const paths = {
   home: '/',
   /** HF-007 demo hub: three ways in for judges; the W01 landing (HF-057) took over `/`. */
   demo: '/demo',
+  /** v4 role chooser (frame 109:63): brand or buyer sign-in. */
+  signIn: '/sign-in',
+  /** v4 static Docs page (frame 107:137). */
+  docs: '/docs',
   brandSignIn: '/brand/sign-in',
   brandOnboarding: '/brand/onboarding',
   brand: '/brand',
