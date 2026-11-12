@@ -33,7 +33,9 @@ import {
 } from '../lib/mcp-connect';
 import { paths } from '../lib/routes';
 import { useApiAction } from '../lib/use-api-action';
+import { viewerFor, type MeResponse } from '../lib/viewer';
 import { AccentHeading } from './auth/SignInLayout';
+import { BrandDeveloper } from './brand/BrandDeveloper';
 
 /**
  * W19 Developer / MCP connect (HF-043; screens.md §W19, features/07 §Logic 1). A signed-in
@@ -41,7 +43,8 @@ import { AccentHeading } from './auth/SignInLayout';
  * whether instant holds will work (readiness panel, M23). States: no tokens; token created
  * (one-time reveal); revoked. Sign-in on Render is the DEMO_MODE "Sign in as demo shopper" (D13).
  * v4 (Figma 115:184): setup and tokens on the left, mandates and the live tool list (the server's
- * own `tools/list` via `GET /api/mcp/tools`, plan §4.1 W19) on the right.
+ * own `tools/list` via `GET /api/mcp/tools`, plan §4.1 W19) on the right. A brand session sees
+ * `BrandDeveloper` instead (Figma 113:235).
  */
 
 interface Me {
@@ -121,9 +124,14 @@ function Section({
 // ---------------------------------------------------------------------------------------------
 
 export function DeveloperPage() {
-  const me = useGet<Me>('/api/me', true);
+  const me = useGet<MeResponse>('/api/me', true);
   const signedIn =
     me.state.status === 'ready' && !!me.state.data.shopper && !me.state.data.shopper.provisional;
+
+  // Both navs link here; a brand session gets the docs-only brand view (plan §3.4, decision 4).
+  if (me.state.status === 'ready' && viewerFor(me.state.data, paths.developer).role === 'brand') {
+    return <BrandDeveloper />;
+  }
 
   return (
     <>
