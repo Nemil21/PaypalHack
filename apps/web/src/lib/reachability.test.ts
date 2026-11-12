@@ -20,6 +20,8 @@ type Entry =
 const MAP: Partial<Record<keyof typeof paths, Entry>> = {
   home: { from: ['components/layout/AppShell.tsx'] },
   demo: { from: ['routes/Landing.tsx'] },
+  signIn: { pending: 'Landing nav "Sign in" (v4 §1, landing stream)' },
+  buyerSignIn: { from: ['lib/sign-in.ts'] },
   brandSignIn: { from: ['routes/brand/BrandGate.tsx'] },
   brandOnboarding: { from: ['routes/brand/BrandGate.tsx', 'routes/brand/BrandSignIn.tsx'] },
   brand: { from: ['lib/viewer.ts', 'lib/brand-overview.ts'] },
