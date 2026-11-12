@@ -1,0 +1,217 @@
+/*
+ * v4 landing motion (Figma `105:186`): CSS transitions and keyframes only. Elements that animate
+ * on enter start in their final state and only animate once `.hf-in` lands on an ancestor (set by
+ * an IntersectionObserver in Landing.tsx); under prefers-reduced-motion everything renders final.
+ */
+
+/* Nav links: a 1.5 px ink underline wipes in left → right, 180 ms ease-out. */
+.hf-wipe {
+  position: relative;
+}
+.hf-wipe::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1.5px;
+  background: var(--color-ink, #141414);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 180ms ease-out;
+}
+.hf-wipe:hover::after,
+.hf-wipe[aria-current='true']::after {
+  transform: scaleX(1);
+}
+
+/* Orange-tint marker behind words ("already waiting", "real, held bid."): draws in, 600 ms. */
+.hf-marker {
+  background-image: linear-gradient(
+    var(--color-orange-key, #ffd9c7),
+    var(--color-orange-key, #ffd9c7)
+  );
+  background-repeat: no-repeat;
+  background-position: 0 88%;
+  background-size: 100% 0.42em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  padding: 0 0.04em;
+  animation: hf-marker 600ms 200ms ease-out both;
+}
+.hf-reveal .hf-marker {
+  animation-play-state: paused;
+}
+.hf-reveal.hf-in .hf-marker {
+  animation-play-state: running;
+}
+@keyframes hf-marker {
+  from {
+    background-size: 0% 0.42em;
+  }
+}
+
+/* Solid orange underline bar ("what clears."): grows left → right on enter. */
+.hf-underline {
+  position: relative;
+  display: inline-block;
+}
+.hf-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.08em;
+  height: 0.08em;
+  min-height: 4px;
+  background: var(--color-orange, #f26b2c);
+  transform-origin: left;
+}
+.hf-in .hf-underline::after {
+  animation: hf-grow 700ms ease-out both;
+}
+@keyframes hf-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* Pricing pills: the checks pop in order (inline animation-delay). */
+.hf-in .hf-check {
+  animation: hf-pop 360ms ease-out both;
+}
+@keyframes hf-pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Copy icon ↔ check morph. */
+.hf-swap {
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+/* Contact card pulses once when "Contact us" lands on #contact. */
+.hf-pulse {
+  animation: hf-pulse 900ms 450ms ease-out 1;
+}
+@keyframes hf-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(242, 107, 44, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(242, 107, 44, 0);
+  }
+}
+
+/* Hero chat: blinking caret while the prompt types; RESERVE presses once when it's done. */
+.hf-caret {
+  animation: hf-blink 1s steps(1) infinite;
+}
+@keyframes hf-blink {
+  50% {
+    opacity: 0;
+  }
+}
+.hf-press {
+  animation: hf-press 260ms 250ms ease-out 1;
+}
+@keyframes hf-press {
+  50% {
+    transform: scale(0.92);
+    filter: brightness(0.9);
+  }
+}
+
+/* How it works: rules draw in, serif words fade up (staggered), then each arrow slides 6 px. */
+.hf-rule {
+  transform-origin: left;
+}
+.hf-in .hf-rule {
+  animation: hf-grow 700ms ease-out both;
+}
+.hf-in .hf-rise {
+  animation: hf-rise 500ms 300ms ease-out both;
+}
+@keyframes hf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.hf-in .hf-nudge {
+  animation: hf-nudge 600ms ease-in-out both;
+}
+@keyframes hf-nudge {
+  50% {
+    transform: translateX(6px);
+  }
+}
+
+/* For brands: held chips float in one by one, then bob 2 px; the 4.3x tag wiggles once. */
+.hf-in .hf-float {
+  animation:
+    hf-float-in 450ms ease-out both,
+    hf-bob 3s 1.2s ease-in-out infinite;
+}
+@keyframes hf-float-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes hf-bob {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.hf-in .hf-wiggle {
+  animation: hf-wiggle 600ms 900ms ease-in-out 1;
+}
+@keyframes hf-wiggle {
+  25% {
+    rotate: -4deg;
+  }
+  75% {
+    rotate: 4deg;
+  }
+}
+
+/* For agents: client tabs crossfade the snippet. */
+.hf-fade {
+  animation: hf-fade 120ms ease-out;
+}
+@keyframes hf-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hf-wipe::after,
+  .hf-swap {
+    transition: none;
+  }
+  .hf-marker,
+  .hf-in .hf-underline::after,
+  .hf-in .hf-check,
+  .hf-pulse,
+  .hf-caret,
+  .hf-press,
+  .hf-in .hf-rule,
+  .hf-in .hf-rise,
+  .hf-in .hf-nudge,
+  .hf-in .hf-float,
+  .hf-in .hf-wiggle,
+  .hf-fade {
+    animation: none;
+  }
+}

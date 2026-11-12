@@ -71,6 +71,8 @@ export const radius = { sm: 2, md: 4 } as const;
 export const font = {
   sans: '"Geist Variable", Geist, ui-sans-serif, system-ui, sans-serif',
   mono: '"Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
+  /** v4: italic only, orange accent words on the landing and Docs. */
+  serif: '"Instrument Serif", ui-serif, Georgia, serif',
 } as const;
 
 /** Card shadow on the held card and receipt. */
