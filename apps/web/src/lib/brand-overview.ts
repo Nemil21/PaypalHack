@@ -16,7 +16,7 @@ import { paths } from './routes';
 /** Left nav. Payouts lands with HF-059b (placeholder now); Embed is HF-055, Settings HF-056. */
 export const BRAND_NAV: ReadonlyArray<{ label: string; to: string; soon?: string }> = [
   { label: 'Overview', to: paths.brand },
-  { label: 'Listings', to: `${paths.brand}#listings` },
+  { label: 'Listings', to: paths.brandListings },
   { label: 'Payouts', to: paths.brandPayouts },
   { label: 'Embed', to: paths.brandEmbed },
   { label: 'Settings', to: paths.brandSettings },

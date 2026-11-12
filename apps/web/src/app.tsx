@@ -34,6 +34,7 @@ const DeveloperPage = screen(() => import('./routes/Developer'), 'DeveloperPage'
 const DevComponents = screen(() => import('./routes/DevComponents'), 'DevComponents');
 const BrandGate = screen(() => import('./routes/brand/BrandGate'), 'BrandGate');
 const BrandJoin = screen(() => import('./routes/brand/BrandJoin'), 'BrandJoin');
+const BrandListings = screen(() => import('./routes/brand/BrandListings'), 'BrandListings');
 const BrandSettings = screen(() => import('./routes/brand/BrandSettings'), 'BrandSettings');
 const BrandOverview = screen(() => import('./routes/brand/BrandOverview'), 'BrandOverview');
 const BrandOnboarding = screen(() => import('./routes/brand/BrandOnboarding'), 'BrandOnboarding');
@@ -99,6 +100,8 @@ const router = createBrowserRouter([
         element: <BrandGate />,
         children: [
           { path: 'brand', element: <BrandOverview /> },
+          // v4 My listings (frame 111:194).
+          { path: 'brand/listings', element: <BrandListings /> },
           // W05 create listing wizard (HF-013); before `:listingId` so "new" is not an id.
           { path: 'brand/listings/new', element: <CreateListingWizard /> },
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },

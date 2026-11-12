@@ -42,6 +42,7 @@ import { useRoundsActivity } from '../../lib/console/use-rounds-activity';
 import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
 import { ConsoleHeader, ShareButton } from './ConsoleHeader';
+import { DraftActions } from './DraftActions';
 import { MobileListing, useConsoleLayout } from './MobileListing';
 
 const ConsoleKpiStudio = lazy(() => import('../../components/ag/ConsoleKpiStudio'));
@@ -157,6 +158,32 @@ export function ListingConsole() {
   }, [phase, listingId, navigate, mobile]);
 
   const { refresh: refreshBook } = live;
+  // A saved draft is not a dead end (UI-GAPS #7): Publish · Edit units, for OWNER / MANAGER.
+  const draftPanel =
+    listing?.status === 'DRAFT' && !viewer ? (
+      <section
+        aria-label="Draft"
+        className="flex flex-col gap-3 rounded-md border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="flex flex-col gap-1">
+          <p className="text-[15px] font-medium text-ink">
+            This listing is a draft · {listing.quantity} units
+          </p>
+          <p className="text-[14px] text-body">
+            Publish to open the window and get your offer link.
+          </p>
+        </div>
+        <DraftActions
+          listingId={listingId}
+          quantity={listing.quantity}
+          verified={me.brand.verificationStatus === 'VERIFIED'}
+          onChanged={() => {
+            refreshBook();
+            reloadListings();
+          }}
+        />
+      </section>
+    ) : null;
   const onMobileCleared = useCallback(() => {
     setClearedHere(listingId);
     refreshBook();
@@ -192,16 +219,19 @@ export function ListingConsole() {
           clearedHere={clearedHere === listingId}
           onCleared={onMobileCleared}
           banners={
-            <StatusBanners
-              live={live}
-              // M10 shows clearing progress and the cleared state itself.
-              phase={settling ? null : (phase?.phase ?? null)}
-              viewer={false}
-              listingId={listingId}
-              roundsEnded={
-                phase?.phase === 'ROUNDS_ENDED' && listing ? roundsEndedCopy(listing) : null
-              }
-            />
+            <>
+              {draftPanel}
+              <StatusBanners
+                live={live}
+                // M10 shows clearing progress and the cleared state itself.
+                phase={settling ? null : (phase?.phase ?? null)}
+                viewer={false}
+                listingId={listingId}
+                roundsEnded={
+                  phase?.phase === 'ROUNDS_ENDED' && listing ? roundsEndedCopy(listing) : null
+                }
+              />
+            </>
           }
         />
       </SliderContext.Provider>
@@ -223,6 +253,7 @@ export function ListingConsole() {
       />
 
       <div className="flex flex-col gap-4 py-6">
+        {draftPanel}
         <StatusBanners
           live={live}
           phase={phase?.phase ?? null}
