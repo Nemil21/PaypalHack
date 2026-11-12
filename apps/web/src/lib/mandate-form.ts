@@ -239,8 +239,23 @@ export function paymentMethodRow(
     null;
   return {
     detail: saved
-      ? 'PayPal · saved for agent holds'
+      ? 'Saved for agent holds'
       : 'None saved. Your agent asks before each hold until your next PayPal or card hold saves one.',
     action: slug ? { label: saved ? 'Update' : 'Add one', slug } : null,
   };
+}
+
+/**
+ * Which mandate the editor shows. `/mandates/:id` → that one; `/mandates/new` → none. On bare
+ * `/mandates` the editor keeps the mandate it last acted on (`pinnedId`), so pausing or revoking
+ * the default pick doesn't jump to another; otherwise the first active one, else the first.
+ */
+export function pickMandate<M extends Pick<MandateView, 'mandateId' | 'state'>>(
+  mandates: readonly M[],
+  route: { creating: boolean; mandateId?: string | undefined; pinnedId?: string | null },
+): M | undefined {
+  if (route.creating) return undefined;
+  if (route.mandateId) return mandates.find((m) => m.mandateId === route.mandateId);
+  const pinned = route.pinnedId && mandates.find((m) => m.mandateId === route.pinnedId);
+  return pinned || (mandates.find((m) => m.state === 'active') ?? mandates[0]);
 }

@@ -13,6 +13,7 @@ import {
   newMandateForm,
   parseDollars,
   paymentMethodRow,
+  pickMandate,
   readPrefill,
   stepDollars,
   updateRequest,
@@ -199,7 +200,7 @@ describe('v4 mandate list (frame 120:784)', () => {
 
   it('W17: the payment-method action opens a live offer, preferring the mandate’s own product', () => {
     expect(paymentMethodRow(true, [p('A', 'mine')], [p('B', 'other')])).toEqual({
-      detail: 'PayPal · saved for agent holds',
+      detail: 'Saved for agent holds',
       action: { label: 'Update', slug: 'mine' },
     });
     expect(paymentMethodRow(false, [p('A')], [p('B', 'other')]).action).toEqual({
@@ -207,5 +208,24 @@ describe('v4 mandate list (frame 120:784)', () => {
       slug: 'other',
     });
     expect(paymentMethodRow(false, [], []).action).toBeNull();
+  });
+});
+
+describe('editor selection on /mandates', () => {
+  const a = { mandateId: 'a', state: 'paused' as const };
+  const b = { mandateId: 'b', state: 'active' as const };
+  const c = { mandateId: 'c', state: 'active' as const };
+
+  it('routes win; bare /mandates opens the first active one', () => {
+    expect(pickMandate([a, b, c], { creating: true })).toBeUndefined();
+    expect(pickMandate([a, b, c], { creating: false, mandateId: 'c' })).toBe(c);
+    expect(pickMandate([a, b, c], { creating: false, mandateId: 'x' })).toBeUndefined();
+    expect(pickMandate([a, b, c], { creating: false })).toBe(b);
+    expect(pickMandate([a], { creating: false })).toBe(a);
+  });
+
+  it('pausing the default pick keeps the editor on it', () => {
+    const pausedB = { ...b, state: 'paused' as const };
+    expect(pickMandate([a, pausedB, c], { creating: false, pinnedId: 'b' })).toBe(pausedB);
   });
 });

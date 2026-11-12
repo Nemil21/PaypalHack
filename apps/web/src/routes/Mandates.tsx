@@ -30,6 +30,7 @@ import {
   mandateName,
   newMandateForm,
   paymentMethodRow,
+  pickMandate,
   readPrefill,
   stepDollars,
   updateRequest,
@@ -126,11 +127,14 @@ function MandatesScreen({ creating = false }: { creating?: boolean }) {
   const { mandateId } = useParams();
   const [params] = useSearchParams();
   const { state, reload, setState } = useMandates();
+  // The mandate the editor last acted on stays selected on bare /mandates (see pickMandate).
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
   // An editor route makes the editor the page on phones; /mandates shows the list there.
   const focused = creating || !!mandateId;
 
   const upsert = useCallback(
-    (m: MandateView) =>
+    (m: MandateView) => {
+      setPinnedId(m.mandateId);
       setState((s) => {
         if (s.status !== 'ready') return s;
         const known = s.data.mandates.some((x) => x.mandateId === m.mandateId);
@@ -138,7 +142,8 @@ function MandatesScreen({ creating = false }: { creating?: boolean }) {
           ? s.data.mandates.map((x) => (x.mandateId === m.mandateId ? m : x))
           : [m, ...s.data.mandates];
         return { status: 'ready', data: { ...s.data, mandates } };
-      }),
+      });
+    },
     [setState],
   );
 
@@ -147,11 +152,7 @@ function MandatesScreen({ creating = false }: { creating?: boolean }) {
   else if (state.status === 'error') body = <LoadError error={state.error} onRetry={reload} />;
   else {
     const { mandates } = state.data;
-    const selected = creating
-      ? undefined
-      : mandateId
-        ? mandates.find((m) => m.mandateId === mandateId)
-        : (mandates.find((m) => m.state === 'active') ?? mandates[0]);
+    const selected = pickMandate(mandates, { creating, mandateId, pinnedId });
     if (!creating && mandates.length === 0) {
       body = (
         <EmptyState
