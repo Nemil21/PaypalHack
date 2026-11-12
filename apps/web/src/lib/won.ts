@@ -67,6 +67,20 @@ export function trackerSteps(shipment: WonShipment | null): TrackerStep[] {
   return TRACKER_STEPS.map((s, i) => ({ ...s, done: i <= at, current: i === at }));
 }
 
+/** v4 tracker (frame 119:788): the line under each step. */
+export function trackerDetail(stage: ShippingStage, brandName: string | null | undefined): string {
+  switch (stage) {
+    case 'ORDERED':
+      return `${brandName ?? 'The brand'} adds tracking after clearing`;
+    case 'SHIPPED':
+      return 'Tracking accepted by PayPal';
+    case 'OUT_FOR_DELIVERY':
+      return 'Shown once the carrier reports it';
+    case 'DELIVERED':
+      return 'Signed for at your address';
+  }
+}
+
 /** W18 states: awaiting shipment, in transit, delivered. */
 export function shippingSummary(shipment: WonShipment | null): string {
   switch (shipment?.stage ?? 'ORDERED') {

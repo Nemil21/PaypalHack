@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { formatUsd } from '@holdfast/shared';
-import { ButtonLink, ErrorBanner, MoneySkeleton, Skeleton } from '../../components/ui';
+import { Badge, ButtonLink, ErrorBanner, MoneySkeleton, Skeleton } from '../../components/ui';
 import { ApiError, api } from '../../lib/api';
 import { ROUNDS_POLL_MS, offerHref } from '../../lib/bids';
+import { clientConfig } from '../../lib/client-config';
 import { cn } from '../../lib/cn';
 import {
   CHARGING_COPY,
   receiptLines,
   shippingSummary,
+  trackerDetail,
   trackerSteps,
   type WonView,
 } from '../../lib/won';
@@ -87,23 +89,23 @@ export function WonPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-[760px] flex-col gap-8 pt-6 pb-10">
+    <div className="mx-auto flex max-w-[600px] flex-col gap-5 pt-6 pb-10 lg:pt-10">
       <Hero view={load.view} />
       {load.view.receipt ? (
         <Receipt view={load.view} />
       ) : (
-        <p role="status" className="rounded-md bg-surface p-5 text-[15px] text-body">
+        <p role="status" className="rounded-sm bg-surface p-5 text-[15px] text-body">
           {CHARGING_COPY}
         </p>
       )}
       <Tracker view={load.view} />
       <div className="flex flex-col gap-3 sm:flex-row">
-        <ButtonLink to="/" size="lg" className="flex-1 sm:flex-none">
+        <ButtonLink to="/" variant="outline" size="lg" className="flex-1 sm:flex-none">
           Bid on something else
         </ButtonLink>
         <ButtonLink
           to={`/bids/${encodeURIComponent(load.view.bidId)}`}
-          variant="secondary"
+          variant="ghost"
           size="lg"
           className="flex-1 sm:flex-none"
         >
@@ -117,46 +119,31 @@ export function WonPage() {
 function Hero({ view }: { view: WonView }) {
   const href = offerHref(view.listing.slug);
   return (
-    <section
-      aria-labelledby="won-title"
-      className="flex flex-col items-start gap-4 sm:rounded-md sm:border sm:border-line sm:bg-white sm:p-8 sm:shadow-card"
-    >
-      <span
-        aria-hidden
-        className="flex h-14 w-14 animate-pop items-center justify-center rounded-full bg-success text-white"
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-7 w-7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-        >
-          <path d="M5 12.5l4.5 4.5L19 7.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-      {view.promotedNote && <p className="label text-[12px] text-orange">{view.promotedNote}</p>}
-      <h1
-        id="won-title"
-        data-testid="won-headline"
-        className="text-[32px] leading-[1.05] font-medium tracking-headline text-ink sm:text-[40px]"
-      >
-        {view.headline}
-      </h1>
-      <div className="flex items-center gap-4">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface">
-          {view.listing.imageUrl ? (
-            <img src={view.listing.imageUrl} alt="" className="h-full w-full object-contain" />
-          ) : null}
-        </div>
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[17px] text-ink">{view.listing.title ?? 'Your item'}</span>
-          {href && (
-            <Link to={href} className="text-[13px] text-body underline">
-              View offer
-            </Link>
+    <section aria-labelledby="won-title" className="flex items-center gap-4">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-surface sm:h-[60px] sm:w-[60px]">
+        {view.listing.imageUrl ? (
+          <img src={view.listing.imageUrl} alt="" className="h-full w-full object-contain" />
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-col items-start gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="success">Won</Badge>
+          {view.promotedNote && (
+            <span className="label text-[11px] text-orange">{view.promotedNote}</span>
           )}
         </div>
+        <h1
+          id="won-title"
+          data-testid="won-headline"
+          className="text-[24px] leading-[1.1] font-medium tracking-headline text-ink sm:text-[30px]"
+        >
+          {view.headline}
+        </h1>
+        {href && (
+          <Link to={href} className="text-[13px] text-body underline hover:text-ink">
+            {view.listing.title ?? 'View offer'}
+          </Link>
+        )}
       </div>
     </section>
   );
@@ -164,25 +151,38 @@ function Hero({ view }: { view: WonView }) {
 
 function Receipt({ view }: { view: WonView }) {
   const lines = receiptLines(view, formatWhen);
+  const brand = view.listing.brandName;
   return (
-    <section aria-labelledby="receipt" className="flex flex-col gap-3 rounded-md bg-surface p-5">
-      <h2 id="receipt" className="label text-[12px] text-muted">
+    <section
+      aria-labelledby="receipt"
+      className="flex flex-col rounded-sm border border-line bg-white px-5 pt-5 pb-3"
+    >
+      <h2 id="receipt" className="label border-b border-line pb-2 text-[11px] text-muted">
         Receipt
       </h2>
-      <dl className="flex flex-col gap-2">
-        {lines.map((l) => (
-          <div key={l.label} className="flex flex-wrap items-baseline justify-between gap-x-4">
-            <dt className="text-[14px] text-body">{l.label}</dt>
-            <dd
-              className={cn('text-[15px] text-ink', l.mono && 'font-mono tabular-nums break-all')}
+      <dl className="flex flex-col divide-y divide-line">
+        {[...lines, ...(brand ? [{ label: 'Sold by', value: brand, mono: false }] : [])].map(
+          (l) => (
+            <div
+              key={l.label}
+              className="flex flex-wrap items-baseline justify-between gap-x-4 py-2.5"
             >
-              {l.value}
-            </dd>
-          </div>
-        ))}
+              <dt className="text-[14px] text-body">{l.label}</dt>
+              <dd
+                className={cn(
+                  'text-[14px] text-ink',
+                  l.mono && 'tabular-nums break-all',
+                  l.label === 'Charged' && 'text-[17px] font-medium',
+                )}
+              >
+                {l.value}
+              </dd>
+            </div>
+          ),
+        )}
       </dl>
       {view.released.length > 0 && (
-        <ul className="flex flex-col gap-1 border-t border-line pt-3">
+        <ul className="flex flex-col gap-1 border-t border-line py-3">
           {view.released.map((r) => (
             <li key={r.bidId} className="font-mono text-[13px] text-body tabular-nums">
               {r.text}
@@ -190,7 +190,7 @@ function Receipt({ view }: { view: WonView }) {
           ))}
         </ul>
       )}
-      <p className="text-[13px] text-body">
+      <p className="border-t border-line pt-3 text-[13px] text-body">
         Pay-your-bid: you paid your own bid of {formatUsd(view.amountCents)}, nothing more.
       </p>
     </section>
@@ -200,53 +200,91 @@ function Receipt({ view }: { view: WonView }) {
 function Tracker({ view }: { view: WonView }) {
   const steps = trackerSteps(view.shipment);
   const s = view.shipment;
+  const { demoMode } = clientConfig();
   return (
-    <section aria-labelledby="shipping" className="flex flex-col gap-4">
-      <h2 id="shipping" className="label text-[12px] text-muted">
-        Shipping
-      </h2>
-      <ol className="grid grid-cols-4 gap-2" aria-label="Shipping progress">
-        {steps.map((step) => (
-          <li
-            key={step.stage}
-            aria-current={step.current ? 'step' : undefined}
-            className="flex flex-col gap-2"
-          >
-            <span
-              aria-hidden
-              className={cn('h-1.5 rounded-full', step.done ? 'bg-success' : 'bg-line')}
-            />
-            <span
-              className={cn('text-[12px] sm:text-[13px]', step.done ? 'text-ink' : 'text-muted')}
-            >
-              {step.label}
-              <span className="sr-only">{step.done ? ' (done)' : ''}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p data-testid="shipping-summary" className="text-[15px] text-ink">
-        {shippingSummary(s)}
-      </p>
-      {s?.trackingNumber && (
-        <div className="flex flex-col gap-1 rounded-md border border-line bg-white p-4">
-          <span className="text-[14px] text-body">
-            {s.carrier ?? 'Carrier'}
-            {s.shippedAt ? ` · shipped ${formatWhen(s.shippedAt)}` : ''}
-          </span>
-          {s.trackingUrl ? (
+    <section
+      aria-labelledby="shipping"
+      className="flex flex-col gap-4 rounded-sm border border-line bg-white p-5"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="shipping" className="label text-[11px] text-muted">
+          Shipping
+        </h2>
+        {s?.trackingNumber &&
+          (s.trackingUrl ? (
             <a
               href={s.trackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-[15px] break-all text-ink underline"
+              className="font-mono text-[12px] break-all text-ink hover:text-orange"
             >
-              {s.trackingNumber}
+              {[s.carrier, s.trackingNumber].filter(Boolean).join(' ')} <span aria-hidden>↗</span>
             </a>
           ) : (
-            <span className="font-mono text-[15px] break-all text-ink">{s.trackingNumber}</span>
-          )}
-        </div>
+            <span className="font-mono text-[12px] break-all text-ink">
+              {[s.carrier, s.trackingNumber].filter(Boolean).join(' ')}
+            </span>
+          ))}
+      </div>
+      <p data-testid="shipping-summary" className="text-[15px] text-ink">
+        {shippingSummary(s)}
+      </p>
+      <ol aria-label="Shipping progress" className="flex flex-col">
+        {steps.map((step, i) => {
+          const last = i === steps.length - 1;
+          return (
+            <li
+              key={step.stage}
+              aria-current={step.current ? 'step' : undefined}
+              className="relative flex gap-4 pb-5 last:pb-0"
+            >
+              {!last && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    'absolute top-3 left-[5px] h-full w-0.5',
+                    steps[i + 1]!.done ? 'bg-ink' : 'bg-line',
+                  )}
+                />
+              )}
+              <span
+                aria-hidden
+                className={cn(
+                  'relative mt-1.5 h-3 w-3 shrink-0 rounded-full border-2',
+                  step.current
+                    ? 'border-orange bg-orange'
+                    : step.done
+                      ? 'border-ink bg-ink'
+                      : 'border-line bg-white',
+                )}
+              />
+              <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className={cn('text-[15px]', step.done ? 'text-ink' : 'text-muted')}>
+                    {step.label}
+                    <span className="sr-only">{step.done ? ' (done)' : ''}</span>
+                  </span>
+                  <span className="text-[13px] text-body">
+                    {trackerDetail(step.stage, view.listing.brandName)}
+                  </span>
+                </div>
+                <span className="shrink-0 font-mono text-[12px] text-muted">
+                  {step.stage === 'SHIPPED' && step.done && s?.shippedAt
+                    ? formatWhen(s.shippedAt)
+                    : step.done
+                      ? ''
+                      : '–'}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {demoMode && (
+        <p className="border-t border-line pt-3 text-[12px] text-muted">
+          Demo: “Out for delivery” and “Delivered” are set from Ops › Mark delivered (demo only). No
+          carrier feed yet.
+        </p>
       )}
     </section>
   );
