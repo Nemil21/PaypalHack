@@ -945,7 +945,10 @@ function useParallax<T extends HTMLElement>(speed: number) {
       raf = 0;
       const r = host.getBoundingClientRect();
       if (r.bottom < 0 || r.top > window.innerHeight) return;
-      const offset = (r.top + r.height / 2 - window.innerHeight / 2) * speed;
+      // Clamp to the image's 15% overscan (`-top-[15%] h-[130%]`) so no edge ever shows.
+      const max = r.height * 0.15;
+      const raw = (r.top + r.height / 2 - window.innerHeight / 2) * speed;
+      const offset = Math.max(-max, Math.min(max, raw));
       el.style.transform = `translate3d(0, ${offset.toFixed(1)}px, 0)`;
     };
     const onScroll = () => {
