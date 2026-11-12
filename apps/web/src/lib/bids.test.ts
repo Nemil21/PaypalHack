@@ -8,6 +8,8 @@ import {
   type NudgeAgentDecision,
 } from '@holdfast/shared';
 import {
+  bidLowerLabel,
+  canRaiseOpen,
   belowHint,
   bidsInTab,
   canRaise,
@@ -722,5 +724,23 @@ describe('HF-038b auto-raise and the M07 raise sheet', () => {
     expect(raiseToastBody({ ...res, warnPendingHolds: null })).toBe(
       `${BANK_PENDING_NOTE} ${SEVERAL_HOLDS_WARNING}`,
     );
+  });
+});
+
+describe('v4 raise on OPEN and brand name', () => {
+  it('canRaiseOpen: HELD on a raisable OPEN listing only', () => {
+    const open = bid({
+      status: 'HELD',
+      listing: { ...bid().listing, status: 'OPEN', raisable: true },
+    });
+    expect(canRaiseOpen(open)).toBe(true);
+    expect(canRaiseOpen({ ...open, listing: { ...open.listing, status: 'ROUNDS' } })).toBe(false);
+    expect(canRaiseOpen({ ...open, listing: { ...open.listing, raisable: false } })).toBe(false);
+    expect(canRaiseOpen({ ...open, status: 'PENDING_APPROVAL' })).toBe(false);
+  });
+
+  it('bidLowerLabel names the brand when known', () => {
+    expect(bidLowerLabel('Aurel Audio')).toBe("Bid lower in Aurel Audio's book");
+    expect(bidLowerLabel(null)).toBe('Bid lower');
   });
 });

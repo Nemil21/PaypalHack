@@ -18,18 +18,6 @@ import { useApiAction } from '../../lib/use-api-action';
 import { RaiseSheet } from './RaiseSheet';
 
 /**
- * Live rounds on the bid page (HF-038a; W14 card, W15 summary). A nudged bid shows the round's
- * nudge ("You're out at $219. The cutoff is $240. Raise to $241?") and raises in one tap to the
- * nudge's suggested amount through `POST /api/bids/:id/raise` (HF-018 swap). Each tap is one user
- * action with its own Idempotency-Key; a network retry of that tap reuses it. Wallet-only bids
- * go to PayPal (`approveUrl`). After `rounds_end_at` the raise is hidden: "Rounds ended. Waiting
- * for the brand to clear."
- *
- * HF-038b: when the buyer agent asked instead of raising (no mandate, over its max or the public
- * price, out of raises), the M07 raise sheet opens by itself once per nudge, with the agent's
- * reason. "Choose amount" opens it any time.
- */
-/**
  * One raise through `POST /api/bids/:id/raise` (HF-018 swap), shared by the rounds block and the
  * v4 "Raise" on OPEN bids. Each call is one user action with its own Idempotency-Key; wallet-only
  * bids go to PayPal (`approveUrl`).
@@ -117,6 +105,18 @@ export function OpenRaise({
   );
 }
 
+/**
+ * Live rounds on the bid page (HF-038a; W14 card, W15 summary). A nudged bid shows the round's
+ * nudge ("You're out at $219. The cutoff is $240. Raise to $241?") and raises in one tap to the
+ * nudge's suggested amount through `POST /api/bids/:id/raise` (HF-018 swap). Each tap is one user
+ * action with its own Idempotency-Key; a network retry of that tap reuses it. Wallet-only bids
+ * go to PayPal (`approveUrl`). After `rounds_end_at` the raise is hidden: "Rounds ended. Waiting
+ * for the brand to clear."
+ *
+ * HF-038b: when the buyer agent asked instead of raising (no mandate, over its max or the public
+ * price, out of raises), the M07 raise sheet opens by itself once per nudge, with the agent's
+ * reason. "Choose amount" opens it any time.
+ */
 export function RoundsRaise({
   bid,
   onRaised,

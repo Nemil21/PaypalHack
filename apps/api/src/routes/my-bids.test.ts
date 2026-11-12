@@ -184,12 +184,19 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-016 shopper bid routes', () => {
       moneyKey: 'held',
       belowCutoff: null,
     });
+    // v4: the selling brand, for "Bid lower in <Brand>'s book".
+    const brand = await tdb.db.pool.query(
+      `SELECT b.name FROM brands b JOIN listings l ON l.brand_id = b.id WHERE l.id = $1`,
+      [l.id],
+    );
+    expect(mine.json().bids[0].listing.brandName).toBe((brand.rows[0] as { name: string }).name);
 
     await cancel(s.id, bidId);
     const detail = await get(s.id, `/api/bids/${bidId}`);
     expect(detail.statusCode).toBe(200);
     const body = detail.json();
     expect(body.bid).toMatchObject({ bidId, status: 'VOIDED', moneyKey: 'released' });
+    expect(body.bid.listing.brandName).toBe(mine.json().bids[0].listing.brandName);
     expect(body.timeline.map((e: { step: string }) => e.step)).toEqual([
       'PLACED',
       'HELD',
