@@ -48,10 +48,41 @@ export function ConfirmCard({
   const now = useNow(15_000);
   const action = useRef<ApiAction | null>(null);
   action.current ??= new ApiAction(api);
+  const declineAction = useRef<ApiAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const expiry = state.status === 'pending' ? expiryText(card.expiresAt, now) : null;
   const expired = expiry === 'Expired';
+
+  // v4 W16: Decline is stored (PENDING → REJECTED), so the card stays declined after a reload.
+  const decline = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!fixture) {
+        declineAction.current ??= new ApiAction(api);
+        await declineAction.current.run({
+          method: 'POST',
+          path: `/api/agent/actions/${encodeURIComponent(card.actionId)}/decline`,
+        });
+      }
+      dispatch({ type: 'declined', actionId: card.actionId });
+    } catch (err) {
+      const e =
+        err instanceof ApiError ? err : new ApiError(0, 'CLIENT_ERROR', 'Something went wrong.');
+      if (e.code === 'NOT_FOUND' || e.details.reason === 'ACTION_EXPIRED') {
+        dispatch({
+          type: 'expired',
+          actionId: card.actionId,
+          message: 'This proposal expired. Ask the agent again.',
+        });
+      } else {
+        setError(e);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const approve = async () => {
     setBusy(true);
@@ -189,14 +220,14 @@ export function ConfirmCard({
               </Button>
             )}
             <Button
-              variant="ghost"
+              variant="outline"
               size="lg"
               block
               className="sm:w-auto"
               disabled={busy}
-              onClick={() => dispatch({ type: 'declined', actionId: card.actionId })}
+              onClick={() => void decline()}
             >
-              Not now
+              Decline
             </Button>
           </div>
           {expiry && !expired && (
@@ -272,7 +303,7 @@ function StatusBadge({ item, expired }: { item: ConfirmItem; expired: boolean })
     case 'failed':
       return <Badge tone="danger">Didn’t go through</Badge>;
     case 'declined':
-      return <Badge tone="sim">Not now</Badge>;
+      return <Badge tone="sim">Declined</Badge>;
   }
 }
 
