@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { formatUsd, type BookResponse } from '@holdfast/shared';
-import { Badge, Button, ErrorBanner, Skeleton, useToast } from '../../components/ui';
+import { Badge, Button, ButtonLink, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { PriceWatchPausedBanner } from '../../components/PriceWatchPausedBanner';
+import { api } from '../../lib/api';
 import type { PhaseView } from '../../lib/console/phase';
+import { shareSummary, type ShareStats } from '../../lib/embed';
 import { paths } from '../../lib/routes';
 import { useApiAction } from '../../lib/use-api-action';
 
@@ -55,7 +57,12 @@ export function ConsoleHeader({
       </div>
       {listing && (
         <div className="flex shrink-0 flex-wrap gap-2">
-          {!phase?.locked && <ShareButton slug={listing.slug} />}
+          {!phase?.locked && <ShareButton listingId={listing.id} slug={listing.slug} />}
+          {!phase?.locked && listing.slug && (
+            <ButtonLink variant="outline" to={paths.brandEmbed}>
+              Embed
+            </ButtonLink>
+          )}
           {!readOnly && phase && (
             <CancelWindow
               listingId={listing.id}
@@ -116,20 +123,37 @@ export function offerUrl(slug: string): string {
   return `${window.location.origin}${paths.offer(slug)}`;
 }
 
+/**
+ * Share offer link (W06): reads `GET /api/listings/:id/share` for the live slug and how shared links
+ * are doing, copies the link and says so. The share read failing never blocks the copy.
+ */
 export function ShareButton({
+  listingId,
   slug,
   variant = 'outline',
 }: {
+  listingId: string;
   slug: string | null;
   variant?: 'outline' | 'primary';
 }) {
   const toast = useToast();
   if (!slug) return null;
   const copy = async () => {
-    const url = offerUrl(slug);
+    const stats = await api
+      .request<ShareStats>({
+        method: 'GET',
+        path: `/api/listings/${encodeURIComponent(listingId)}/share`,
+      })
+      .catch(() => null);
+    const url = offerUrl(stats?.slug ?? slug);
+    const summary = stats ? shareSummary(stats) : null;
     try {
       await navigator.clipboard.writeText(url);
-      toast.show({ title: 'Offer link copied', body: url, tone: 'success' });
+      toast.show({
+        title: 'Offer link copied',
+        body: summary ? `${url} · ${summary}` : url,
+        tone: 'success',
+      });
     } catch {
       toast.show({ title: 'Copy this offer link', body: url, duration: 0 });
     }

@@ -111,3 +111,26 @@ export function onboardingError(err: ApiError): { field?: keyof CompanyValues; m
 
 /** Re-check cadence while PENDING (features/01 §Edge cases: "allow re-check every 30 s"). */
 export const RECHECK_MS = 30_000;
+
+/**
+ * W03 failed-verification card (UI-GAPS W03): what was rejected and what to do next, from the
+ * brand row. A rejection is an admin decision (the DNS check refuses REJECTED brands), so the card
+ * names the brand and domain checked instead of a generic line.
+ */
+export function rejectedCopy(brand: Pick<OnboardingBrand, 'name' | 'domain'>): {
+  title: string;
+  body: string;
+  steps: string[];
+} {
+  const where = brand.domain ? ` on ${brand.domain}` : '';
+  return {
+    title: `We couldn’t verify ${brand.name}${where}.`,
+    body: 'A Holdfast admin reviewed this brand and declined it, so publishing stays off. Your drafts are kept.',
+    steps: [
+      brand.domain
+        ? `Check that ${brand.domain} is your brand’s own site and the TXT record is still published.`
+        : 'Add the website domain your brand sells from.',
+      'Email support@holdfast.example from your PayPal business email and we’ll review it again.',
+    ],
+  };
+}

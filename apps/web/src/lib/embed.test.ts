@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { encode } from 'uqr';
 import type { BrandListingView } from '@holdfast/shared';
 import {
+  shareSummary,
   conversion,
   previewPath,
   qrPath,
@@ -75,5 +76,17 @@ describe('W10 embed & share (HF-055)', () => {
     });
     expect(trackedConversion([row('email', 4, 1), row('direct', 0, 3)])).toBe('25%');
     expect(trackedConversion([row('direct', 0, 3)])).toBeNull();
+  });
+});
+
+describe('W06 share summary (UI-GAPS W06)', () => {
+  const totals = { clicks: 12, bids: 1, heldCents: 22_900 };
+  it('counts clicks and bids', () => {
+    expect(shareSummary({ biddable: true, totals })).toBe(
+      '12 clicks · 1 bid from shared links so far.',
+    );
+  });
+  it('warns when the window is not taking bids', () => {
+    expect(shareSummary({ biddable: false, totals })).toMatch(/not taking new bids/);
   });
 });

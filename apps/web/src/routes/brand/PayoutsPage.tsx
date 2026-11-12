@@ -25,6 +25,8 @@ import { cn } from '../../lib/cn';
 import {
   canEnterTracking,
   downloadCsv,
+  saveTextFile,
+  statementDownload,
   PAYOUTS_PATH,
   payoutBadge,
   REPORTS_PATH,
@@ -309,9 +311,20 @@ function StatementCard(props: {
               />
             )}
           </dl>
-          <p className="mt-3 text-[13px] text-muted">
-            Each winner paid their own bid. Gross is the sum of completed PayPal captures.
-          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-muted">
+              Each winner paid their own bid. Gross is the sum of completed PayPal captures.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const d = statementDownload(s);
+                saveTextFile(d.csv, d.fileName);
+              }}
+            >
+              Download statement ↓
+            </Button>
+          </div>
           <OrderTimeline
             path={`/api/listings/${encodeURIComponent(s.listingId)}/timeline`}
             className="mt-6"

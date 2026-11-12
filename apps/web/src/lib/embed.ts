@@ -98,3 +98,14 @@ export function trackedConversion(sources: SourceStats[]): string | null {
     bids: tracked.reduce((n, s) => n + s.bids, 0),
   });
 }
+
+/**
+ * W06 "Share offer link" toast line from `GET /api/listings/:id/share` (UI-GAPS W06): how the
+ * link is doing so far, or a warning when the window is not taking bids.
+ */
+export function shareSummary(stats: Pick<ShareStats, 'biddable' | 'totals'>): string {
+  if (!stats.biddable) return 'This window is not taking new bids right now.';
+  const { clicks, bids } = stats.totals;
+  const plural = (n: number, w: string) => `${n.toLocaleString('en-US')} ${w}${n === 1 ? '' : 's'}`;
+  return `${plural(clicks, 'click')} · ${plural(bids, 'bid')} from shared links so far.`;
+}

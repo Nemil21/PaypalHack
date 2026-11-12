@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from './api';
 import {
+  rejectedCopy,
   companyChanged,
   companyValues,
   initialStep,
@@ -74,5 +75,20 @@ describe('W03 onboarding helpers (HF-011b)', () => {
     ).toEqual({ message: expect.stringMatching(/PayPal account/) });
     expect(onboardingError(new ApiError(401, 'UNAUTHENTICATED', 'x')).message).toMatch(/PayPal/);
     expect(onboardingError(new ApiError(500, 'INTERNAL', 'Boom.'))).toEqual({ message: 'Boom.' });
+  });
+});
+
+describe('W03 failed verification (UI-GAPS W03)', () => {
+  it('names the brand and domain and gives next steps', () => {
+    const c = rejectedCopy({ name: 'Aurel Audio', domain: 'aurelaudio.com' });
+    expect(c.title).toBe('We couldn’t verify Aurel Audio on aurelaudio.com.');
+    expect(c.steps[0]).toMatch(/aurelaudio\.com/);
+    expect(c.steps).toHaveLength(2);
+  });
+
+  it('without a domain, asks for one', () => {
+    const c = rejectedCopy({ name: 'Aurel Audio', domain: null });
+    expect(c.title).toBe('We couldn’t verify Aurel Audio.');
+    expect(c.steps[0]).toMatch(/domain/);
   });
 });
