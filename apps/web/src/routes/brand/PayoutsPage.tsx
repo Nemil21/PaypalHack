@@ -39,7 +39,6 @@ import {
 import { paths } from '../../lib/routes';
 import { formatWhen } from '../bids/format';
 import { useBrand } from './BrandGate';
-import { BrandNav } from './BrandOverview';
 
 /**
  * W09 Payouts & reports (HF-059b; screens.md §W09, features/12 §Logic 3–4): totals, the payouts
@@ -92,7 +91,6 @@ export function PayoutsPage() {
 
   return (
     <div className="flex flex-col lg:flex-row lg:gap-8">
-      <BrandNav />
       <div className="min-w-0 flex-1">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <PageHeader eyebrow={me.brand.name} title="Payouts & reports" />

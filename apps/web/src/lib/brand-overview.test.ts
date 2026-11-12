@@ -59,14 +59,8 @@ describe('W04 states and gating', () => {
     expect(canCreateListing('VIEWER')).toBe(false);
   });
 
-  it('left nav has the five W04 entries', () => {
-    expect(BRAND_NAV.map((n) => n.label)).toEqual([
-      'Overview',
-      'Listings',
-      'Payouts',
-      'Embed',
-      'Settings',
-    ]);
+  it('left nav keeps Overview, Listings, Embed; Payouts and Settings moved to the top nav (v4)', () => {
+    expect(BRAND_NAV.map((n) => n.label)).toEqual(['Overview', 'Listings', 'Embed']);
   });
 });
 

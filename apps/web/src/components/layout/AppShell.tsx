@@ -1,18 +1,23 @@
 import { Suspense, useEffect, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { api } from '../../lib/api';
 import { cn } from '../../lib/cn';
-import { DEMO_OFFER_SLUG, paths } from '../../lib/routes';
-import { setShortcutsEnabled, shortcutFor, shortcutsEnabled } from '../../lib/shortcuts';
+import { paths } from '../../lib/routes';
+import {
+  setShortcutsEnabled,
+  shortcutFor,
+  shortcutsEnabled,
+  shortcutsHint,
+} from '../../lib/shortcuts';
+import { isLinkActive, shellNav, viewerFor, type MeResponse, type Viewer } from '../../lib/viewer';
+import { NotificationBell } from '../NotificationBell';
 import { ButtonLink } from '../ui';
 
-const links = [
-  { to: paths.brand, label: 'For brands' },
-  { to: paths.agent, label: 'For agents' },
-  { to: paths.bids, label: 'My bids' },
-  { to: paths.developer, label: 'Developer' },
-];
-
-/** Page frame: v3 nav, thin vertical guide lines (desktop), centred 1440 px content column. */
+/**
+ * Page frame: the v4 role-specific nav (frames 109:21 brand, 109:40 buyer, 109:59 public), thin
+ * vertical guide lines (desktop), centred 1440 px content column. The role comes from
+ * `GET /api/me` (lib/viewer.ts), re-read on every navigation so a sign-in or sign-out shows.
+ */
 export function AppShell() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -21,86 +26,119 @@ export function AppShell() {
   // `/o/:slug?embed=1` (HF-055): no header, nav or footer, for W10 previews. The widget itself
   // opens a normal tab (PayPal approval can't be framed), so this is never the shopper's path.
   const embed = isEmbed(location.pathname, location.search);
+  const me = useMe(location.pathname, !embed);
+  const viewer = me === undefined ? null : viewerFor(me, location.pathname);
+  const role = viewer?.role ?? 'public';
+  const nav = shellNav(role);
 
-  // B → brand console, P → place a bid; guarded in lib/shortcuts.ts, can be turned off.
+  // Role-specific S / P (lib/shortcuts.ts); guarded against fields, can be turned off.
   const [shortcuts, setShortcuts] = useState(() => shortcutsEnabled(safeStorage()));
   useEffect(() => {
-    if (!shortcuts) return;
+    if (!shortcuts || role === 'public') return;
     const onKey = (e: KeyboardEvent) => {
-      const hit = shortcutFor(e, document);
-      if (hit === 'brand') navigate(paths.brand);
-      if (hit === 'bid') navigate(paths.offer(DEMO_OFFER_SLUG));
+      const hit = shortcutFor(e, document, role);
+      if (hit) navigate(hit.to);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate, shortcuts]);
+  }, [navigate, shortcuts, role]);
   const toggleShortcuts = () => {
     setShortcutsEnabled(safeStorage(), !shortcuts);
     setShortcuts(!shortcuts);
   };
+  const hint = shortcutsHint(role);
 
   return (
     <div className="relative min-h-dvh">
       {!embed && <Guides />}
       {!embed && (
-        <header className="relative z-10 mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-8 lg:h-[88px] lg:px-18">
-          <Link to={paths.home} className="text-[23px] font-semibold tracking-headline text-ink">
-            Holdfast
-          </Link>
-          <nav aria-label="Main" className="hidden items-center gap-8 lg:flex">
-            <ul className="flex items-center gap-[30px]">
-              {links.map((l) => (
-                <li key={l.to}>
-                  <NavLink
-                    to={l.to}
-                    className={({ isActive }) =>
-                      cn(
-                        'font-mono text-[13px] tracking-[0.02em] hover:text-ink',
-                        isActive ? 'text-ink' : 'text-body',
-                      )
-                    }
-                  >
-                    {l.label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
-            <div className="flex items-center gap-2">
-              <ButtonLink
-                to={paths.brand}
-                variant="secondary"
-                shortcut={shortcuts ? 'B' : undefined}
+        <header className="relative z-20 border-b border-line bg-white">
+          <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-8 lg:h-[82px] lg:px-18">
+            <div className="flex min-w-0 items-center gap-3 lg:gap-4">
+              <Link
+                to={nav.home}
+                className="shrink-0 text-[23px] font-semibold tracking-headline text-ink"
               >
-                For brands
-              </ButtonLink>
-              <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)} shortcut={shortcuts ? 'P' : undefined}>
-                Place a bid
-              </ButtonLink>
+                Holdfast
+              </Link>
+              {viewer && viewer.role !== 'public' && <RoleChip viewer={viewer} />}
             </div>
-          </nav>
-          <div className="flex items-center gap-2 lg:hidden">
-            <ButtonLink to={paths.offer(DEMO_OFFER_SLUG)}>Place a bid</ButtonLink>
-            <button
-              type="button"
-              className="label h-9 rounded-sm border border-border px-3 text-[13px] text-charcoal"
-              aria-expanded={open}
-              aria-controls="mobile-nav"
-              onClick={() => setOpen((o) => !o)}
-            >
-              {open ? 'Close' : 'Menu'}
-            </button>
+
+            {viewer === null ? null : viewer.role === 'public' ? (
+              <Link to={paths.home} className="font-mono text-[13px] text-body hover:text-ink">
+                <span aria-hidden>← </span>Back to site
+              </Link>
+            ) : (
+              <>
+                <nav aria-label="Main" className="hidden items-center gap-10 lg:flex">
+                  <ul className="flex items-center gap-7">
+                    {nav.links.map((l) => (
+                      <li key={l.label}>
+                        <Link
+                          to={l.to}
+                          aria-current={
+                            isLinkActive(location.pathname, l.activePrefix) ? 'page' : undefined
+                          }
+                          className={cn(
+                            'border-b-[1.5px] py-1.5 font-mono text-[13px] tracking-[0.02em] transition-colors hover:text-ink',
+                            isLinkActive(location.pathname, l.activePrefix)
+                              ? 'border-ink text-ink'
+                              : 'border-transparent text-body',
+                          )}
+                        >
+                          {l.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center gap-2">
+                    {nav.actions.map((a) => (
+                      <ButtonLink
+                        key={a.label}
+                        to={a.to}
+                        variant={a.variant}
+                        shortcut={shortcuts ? a.shortcut : undefined}
+                        aria-keyshortcuts={shortcuts ? a.shortcut : undefined}
+                      >
+                        {a.label}
+                      </ButtonLink>
+                    ))}
+                    <NotificationBell
+                      variant="nav"
+                      audience={viewer.role === 'brand' ? 'brand' : 'shopper'}
+                    />
+                    <Avatar viewer={viewer} />
+                  </div>
+                </nav>
+                <div className="flex items-center gap-1 lg:hidden">
+                  <NotificationBell
+                    variant="nav"
+                    audience={viewer.role === 'brand' ? 'brand' : 'shopper'}
+                  />
+                  <button
+                    type="button"
+                    className="label ml-1 h-9 rounded-sm border border-border px-3 text-[13px] text-charcoal"
+                    aria-expanded={open}
+                    aria-controls="mobile-nav"
+                    onClick={() => setOpen((o) => !o)}
+                  >
+                    {open ? 'Close' : 'Menu'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
       )}
-      {!embed && open && (
+      {!embed && open && viewer && viewer.role !== 'public' && (
         <nav
           id="mobile-nav"
           aria-label="Main"
-          className="relative z-10 border-y border-line bg-white px-4 py-2 sm:px-8 lg:hidden"
+          className="relative z-10 border-b border-line bg-white px-4 py-2 sm:px-8 lg:hidden"
         >
           <ul className="flex flex-col">
-            {[{ to: paths.demo, label: 'Demo hub' }, ...links].map((l) => (
-              <li key={l.to}>
+            {[...nav.links, ...nav.actions].map((l) => (
+              <li key={l.label}>
                 <Link to={l.to} className="label block py-3 text-[13px] text-ink">
                   {l.label}
                 </Link>
@@ -117,7 +155,7 @@ export function AppShell() {
       </main>
       {/* Shown at every width: the listener is active everywhere (hardware keyboards on tablets,
           narrow or zoomed windows), so the opt-out and the key names must be too (WCAG 2.1.4). */}
-      {!embed && (
+      {!embed && hint && (
         <footer className="relative z-10 mx-auto w-full max-w-[1440px] px-4 pb-8 sm:px-8 lg:px-18">
           <button
             type="button"
@@ -125,12 +163,61 @@ export function AppShell() {
             aria-pressed={shortcuts}
             className="label text-[11px] text-muted hover:text-ink"
           >
-            Keyboard shortcuts (B brands, P place a bid) {shortcuts ? 'on' : 'off'} · turn{' '}
-            {shortcuts ? 'off' : 'on'}
+            Keyboard shortcuts ({hint}) {shortcuts ? 'on' : 'off'} · turn {shortcuts ? 'off' : 'on'}
           </button>
         </footer>
       )}
     </div>
+  );
+}
+
+/**
+ * `GET /api/me`, re-read on each navigation (sign-in and sign-out pages navigate afterwards).
+ * `undefined` until the first answer, so the nav does not flash the public variant; a failed
+ * read keeps the last answer (or falls back to public on the first one).
+ */
+function useMe(pathname: string, enabled: boolean): MeResponse | null | undefined {
+  const [me, setMe] = useState<MeResponse | null | undefined>(undefined);
+  useEffect(() => {
+    if (!enabled) return;
+    let live = true;
+    api
+      .request<MeResponse>({ method: 'GET', path: '/api/me' })
+      .then((m) => live && setMe(m))
+      .catch(() => live && setMe((prev) => (prev === undefined ? null : prev)));
+    return () => {
+      live = false;
+    };
+  }, [pathname, enabled]);
+  return me;
+}
+
+/** `BRAND · Aurel Audio` (ink) / `BUYER · Maya R.` (tint) next to the logo. */
+function RoleChip({ viewer }: { viewer: Viewer }) {
+  const brand = viewer.role === 'brand';
+  return (
+    <span
+      className={cn(
+        'min-w-0 truncate rounded-sm px-2 py-1 font-mono text-[11px] leading-none',
+        brand ? 'bg-ink text-white' : 'bg-orange-key text-ink',
+      )}
+    >
+      {brand ? 'BRAND' : 'BUYER'} · {viewer.name}
+    </span>
+  );
+}
+
+function Avatar({ viewer }: { viewer: Viewer }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'ml-1 inline-flex h-8 w-8 items-center justify-center rounded-full font-mono text-[12px] text-white uppercase',
+        viewer.role === 'brand' ? 'bg-charcoal' : 'bg-orange',
+      )}
+    >
+      {viewer.name?.trim().charAt(0) ?? ''}
+    </span>
   );
 }
 

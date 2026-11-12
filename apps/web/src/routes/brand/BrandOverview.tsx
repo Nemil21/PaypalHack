@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, NavLink } from 'react-router';
+import { Link } from 'react-router';
 import type { BrandOverview as Overview } from '@holdfast/shared';
 import { PageHeader } from '../../components/layout/AppShell';
 import {
@@ -13,7 +13,6 @@ import {
 import { ApiError, api } from '../../lib/api';
 import {
   activityText,
-  BRAND_NAV,
   canCreateListing,
   cardView,
   OVERVIEW_POLL_MS,
@@ -28,7 +27,6 @@ import { formatUsdCompact } from '../../lib/console/kpis';
 import { createCoalescedRefetch } from '../../lib/console/refetch';
 import { subscribeListingEvents } from '../../lib/listing-events';
 import { paths } from '../../lib/routes';
-import { NotificationBell } from '../../components/NotificationBell';
 import { formatWhen } from '../bids/format';
 import { useBrand } from './BrandGate';
 
@@ -49,14 +47,11 @@ export function BrandOverview() {
 
   return (
     <div className="flex flex-col lg:flex-row lg:gap-8">
-      <BrandNav />
       <div className="min-w-0 flex-1">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <PageHeader eyebrow={me.brand.name} title="Overview" />
-          <div className="flex items-center gap-3 pb-8 lg:pb-12">
-            <NotificationBell audience="brand" />
-            {cta}
-          </div>
+          {/* The notification bell lives in the app nav (v4 §2.1). */}
+          <div className="flex items-center gap-3 pb-8 lg:pb-12">{cta}</div>
         </div>
 
         {banner && (
@@ -167,42 +162,6 @@ function useOverview() {
   }, [streamKey, refetch]);
 
   return { overview, error, retry: () => refetch.now() };
-}
-
-/** W04 left nav, shared by the brand screens that have landed (W10 Embed, HF-055). */
-export function BrandNav() {
-  return (
-    <nav
-      aria-label="Brand"
-      className="-mx-4 overflow-x-auto border-b border-line px-4 pt-4 sm:-mx-8 sm:px-8 lg:mx-0 lg:w-56 lg:shrink-0 lg:overflow-visible lg:border-r lg:border-b-0 lg:px-0 lg:pt-8 lg:pr-4"
-    >
-      <ul className="flex gap-1 pb-3 lg:flex-col lg:pb-0">
-        {BRAND_NAV.map((n) => (
-          <li key={n.label} className="shrink-0">
-            <NavLink
-              to={n.to}
-              end
-              title={n.soon ? `Arrives with ${n.soon}` : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2 rounded-sm px-3 py-2 text-[14px] hover:bg-surface',
-                  // "Listings" is a hash link to /brand: only Overview owns that path.
-                  isActive && n.label !== 'Listings' ? 'bg-surface text-ink' : 'text-body',
-                )
-              }
-            >
-              {n.label}
-              {n.soon && (
-                <Badge tone="sim" className="text-[10px]">
-                  Soon
-                </Badge>
-              )}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
 }
 
 function KpiRow({ overview }: { overview: Overview }) {

@@ -20,14 +20,17 @@ import { usePolling } from '../routes/bids/hooks';
 /**
  * The in-app bell (HF-054a; W14 / M03 header for shoppers, W04 for brands): unread count, a list
  * of the latest notifications, mark one read (opening it does too) or mark all read. Signed out →
- * renders nothing. Polls every 15 s while the tab is visible.
+ * renders nothing. Polls every 15 s while the tab is visible. `variant="nav"` is the v4 app-nav
+ * bell (frames 109:21 / 109:40): bare icon with an orange unread dot; the count stays in the label.
  */
 export function NotificationBell({
   audience,
   className,
+  variant = 'boxed',
 }: {
   audience: Audience;
   className?: string;
+  variant?: 'boxed' | 'nav';
 }) {
   const [data, setData] = useState<NotificationsResponse | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -109,10 +112,21 @@ export function NotificationBell({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => setOpen((o) => !o)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-sm border border-border bg-white text-charcoal hover:text-ink"
+        className={cn(
+          'relative inline-flex items-center justify-center rounded-sm text-charcoal hover:text-ink',
+          variant === 'nav'
+            ? 'h-9 w-9 hover:bg-surface'
+            : 'h-10 w-10 border border-border bg-white',
+        )}
       >
         <BellIcon />
-        {badge && (
+        {badge && variant === 'nav' && (
+          <span
+            aria-hidden
+            className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-orange ring-2 ring-white"
+          />
+        )}
+        {badge && variant === 'boxed' && (
           <span
             aria-hidden
             className="label absolute -top-1.5 -right-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1 text-[10px] leading-none text-white"
@@ -127,7 +141,11 @@ export function NotificationBell({
           id={panelId}
           role="region"
           aria-label="Notifications"
-          className="absolute right-0 z-30 mt-2 w-[min(92vw,380px)] rounded-md border border-border bg-white shadow-card"
+          className={cn(
+            'absolute right-0 z-30 mt-2 w-[min(92vw,380px)] rounded-md border border-border bg-white shadow-card',
+            // In the nav the bell is not flush right on phones: pin the panel to the viewport.
+            variant === 'nav' && 'max-sm:fixed max-sm:inset-x-4 max-sm:top-16 max-sm:w-auto',
+          )}
         >
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="label text-[11px] text-muted">

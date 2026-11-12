@@ -27,7 +27,6 @@ import {
   type WidgetTheme,
 } from '../../lib/embed';
 import { paths } from '../../lib/routes';
-import { BrandNav } from './BrandOverview';
 import { useBrand } from './BrandGate';
 
 /** Stats are counts, not a live feed: a slow re-read is enough (features/14 out of scope). */
@@ -65,7 +64,6 @@ export function EmbedPage() {
 
   return (
     <div className="flex flex-col lg:flex-row lg:gap-8">
-      <BrandNav />
       <div className="min-w-0 flex-1">
         <PageHeader
           eyebrow={me.brand.name}

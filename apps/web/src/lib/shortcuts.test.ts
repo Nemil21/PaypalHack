@@ -3,8 +3,10 @@ import {
   setShortcutsEnabled,
   shortcutFor,
   shortcutsEnabled,
+  shortcutsHint,
   type KeyEventLike,
 } from './shortcuts.js';
+import { DEMO_OFFER_SLUG, paths } from './routes.js';
 
 const body = { tag: 'BODY' };
 const html = { tag: 'HTML' };
@@ -22,26 +24,47 @@ const key = (k: string, over: Partial<KeyEventLike> = {}): KeyEventLike => ({
   ...over,
 });
 
+const to = (k: string, role: 'brand' | 'buyer' | 'public', over: Partial<KeyEventLike> = {}) =>
+  shortcutFor(key(k, over), doc, role)?.to ?? null;
+
 describe('shortcutFor', () => {
-  it('maps b and p when nothing is focused', () => {
-    expect(shortcutFor(key('b'), doc)).toBe('brand');
-    expect(shortcutFor(key('p'), doc)).toBe('bid');
-    expect(shortcutFor(key('p', { target: html }), doc)).toBe('bid');
-    expect(shortcutFor(key('x'), doc)).toBeNull();
+  it('brand: S opens brand settings, P opens payouts', () => {
+    expect(to('s', 'brand')).toBe(paths.brandSettings);
+    expect(to('p', 'brand')).toBe(paths.brandPayouts);
+    expect(to('p', 'brand', { target: html })).toBe(paths.brandPayouts);
+    expect(to('b', 'brand')).toBeNull();
+  });
+
+  it('buyer: P places a bid, S opens buyer settings', () => {
+    expect(to('p', 'buyer')).toBe(paths.offer(DEMO_OFFER_SLUG));
+    expect(to('s', 'buyer')).toBe(paths.settings);
+    expect(to('b', 'buyer')).toBeNull();
+  });
+
+  it('public nav has no shortcuts', () => {
+    expect(to('p', 'public')).toBeNull();
+    expect(to('s', 'public')).toBeNull();
+    expect(shortcutsHint('public')).toBeNull();
+  });
+
+  it('names the keys for the on/off toggle', () => {
+    expect(shortcutsHint('brand')).toBe('S settings, P payouts');
+    expect(shortcutsHint('buyer')).toBe('P place a bid, S settings');
   });
 
   it('ignores keys while any element has focus (AG Grid cell, Studio menu, textbox widget)', () => {
     for (const target of [{ role: 'gridcell' }, { role: 'menu' }, { role: 'textbox' }, {}]) {
-      expect(shortcutFor(key('p', { target }), doc)).toBeNull();
+      expect(to('p', 'buyer', { target })).toBeNull();
+      expect(to('s', 'brand', { target })).toBeNull();
     }
   });
 
   it('ignores handled, repeated and modified keys, including Shift', () => {
-    expect(shortcutFor(key('p', { defaultPrevented: true }), doc)).toBeNull();
-    expect(shortcutFor(key('p', { repeat: true }), doc)).toBeNull();
-    expect(shortcutFor(key('P', { shiftKey: true }), doc)).toBeNull();
+    expect(to('p', 'buyer', { defaultPrevented: true })).toBeNull();
+    expect(to('p', 'buyer', { repeat: true })).toBeNull();
+    expect(to('P', 'buyer', { shiftKey: true })).toBeNull();
     for (const mod of ['metaKey', 'ctrlKey', 'altKey'] as const) {
-      expect(shortcutFor(key('b', { [mod]: true }), doc)).toBeNull();
+      expect(to('s', 'brand', { [mod]: true })).toBeNull();
     }
   });
 });
