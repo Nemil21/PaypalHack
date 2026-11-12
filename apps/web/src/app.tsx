@@ -39,6 +39,8 @@ const BrandSettings = screen(() => import('./routes/brand/BrandSettings'), 'Bran
 const BrandOverview = screen(() => import('./routes/brand/BrandOverview'), 'BrandOverview');
 const BrandOnboarding = screen(() => import('./routes/brand/BrandOnboarding'), 'BrandOnboarding');
 const BrandSignIn = screen(() => import('./routes/brand/BrandSignIn'), 'BrandSignIn');
+const SignInChooser = screen(() => import('./routes/auth/SignInChooser'), 'SignInChooser');
+const BuyerSignIn = screen(() => import('./routes/auth/BuyerSignIn'), 'BuyerSignIn');
 const CreateListingWizard = screen(
   () => import('./routes/brand/CreateListingWizard'),
   'CreateListingWizard',
@@ -87,6 +89,10 @@ const router = createBrowserRouter([
       // AG suppresses its licence watermark on localhost; any path containing "forceWatermark"
       // shows it as production would: /dev/components/forceWatermark is the local licence check.
       { path: 'dev/components/*', element: <DevComponents /> },
+
+      // v4 sign-in (plan §0): pick a role, then PayPal (brand) or an email link (buyer).
+      { path: 'sign-in', element: <SignInChooser /> },
+      { path: 'sign-in/buyer', element: <BuyerSignIn /> },
 
       // Brand
       // W02 (HF-010): Log in with PayPal, plus the DEMO_MODE sign-ins.
