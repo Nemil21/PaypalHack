@@ -67,7 +67,8 @@ export interface ListingRowView {
 
 const AFTER_CLEAR: readonly ListingStatus[] = FILTER_STATUSES.cleared;
 
-function initials(title: string): string {
+/** "A7" for "Aurel A7 Wireless": the image fallback tile on cards and rows. */
+export function listingInitials(title: string): string {
   const words = title.split(/\s+/).filter(Boolean);
   const pick = words.find((w) => /\d/.test(w)) ?? words[1] ?? words[0] ?? '';
   return pick.slice(0, 3).toUpperCase() || '—';
@@ -90,7 +91,7 @@ export function listingRow(
     href: paths.listingConsole(c.listingId),
     title,
     imageUrl: c.imageUrl,
-    initials: initials(title),
+    initials: listingInitials(title),
     pill: p.pill,
     tone: p.tone,
     draft,
