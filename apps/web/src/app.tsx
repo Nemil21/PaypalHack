@@ -4,6 +4,7 @@ import { AppShell } from './components/layout/AppShell';
 import { BrandSectionLayout } from './components/layout/BrandSidebar';
 import { ToastProvider } from './components/ui';
 import { configReady } from './lib/client-config';
+import { DocsPage } from './routes/Docs';
 import { Landing } from './routes/Landing';
 import { NotFound, RouteError, ScreenPlaceholder } from './routes/ScreenPlaceholder';
 
@@ -74,6 +75,8 @@ const BrandNotificationsBoard = screen(
 const router = createBrowserRouter([
   // W01 / M12 landing (HF-057): its own nav and footer, outside the app shell.
   { index: true, element: <Landing /> },
+  // v4 Docs (frame 107:137): static, shares the landing's nav and footer.
+  { path: 'docs', element: <DocsPage /> },
   {
     element: <AppShell />,
     // A lazy chunk that fails to load (stale tab after a redeploy) reloads once (HF-057).
