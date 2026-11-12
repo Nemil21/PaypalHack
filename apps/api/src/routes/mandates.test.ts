@@ -408,6 +408,82 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-017b mandate routes', () => {
     expect(mixed.statusCode).toBe(400);
   });
 
+  it('revoke (v4) releases every live hold, is terminal and audits MANDATE_REVOKED', async () => {
+    const l1 = await fx.listing();
+    const l2 = await fx.listing();
+    const s = await fx.shopper();
+    const m = (await create(s.id, { maxPriceCents: 25_000, totalHoldCapCents: 50_000 })).json()
+      .mandate;
+    const b1 = (await placeUnder(l1.id, s.id, m.mandateId, 22_900)).json();
+    const b2 = (await placeUnder(l2.id, s.id, m.mandateId, 21_000)).json();
+
+    // Revoke must be sent alone.
+    const mixed = await patch(s.id, m.mandateId, { status: 'REVOKED', maxPriceCents: 1_000 });
+    expect(mixed.statusCode).toBe(400);
+
+    // Another shopper cannot revoke it.
+    const other = await fx.shopper();
+    expect((await patch(other.id, m.mandateId, { status: 'REVOKED' })).statusCode).toBe(404);
+
+    const key = randomUUID();
+    const res = await patch(s.id, m.mandateId, { status: 'REVOKED' }, key);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      mandate: { status: 'REVOKED', state: 'revoked', liveHoldCents: 0, liveHolds: [] },
+      release: { voided: 2, releasing: 0 },
+    });
+    for (const b of [b1, b2]) {
+      expect(fake.authorization(b.authorizationId)?.status).toBe('VOIDED');
+      expect(await fx.bid(b.bidId)).toMatchObject({
+        status: 'VOIDED',
+        void_reason: 'MANDATE_PAUSED',
+      });
+    }
+    const row = await tdb.db.pool.query(`SELECT revoked_at FROM mandates WHERE id = $1`, [
+      m.mandateId,
+    ]);
+    expect((row.rows[0] as { revoked_at: Date | null }).revoked_at).toBeInstanceOf(Date);
+
+    // Replays and repeats are no-ops: one void per bid, one audit row.
+    const replay = await patch(s.id, m.mandateId, { status: 'REVOKED' }, key);
+    expect(replay.headers['idempotent-replayed']).toBe('true');
+    expect((await patch(s.id, m.mandateId, { status: 'REVOKED' })).statusCode).toBe(200);
+    for (const b of [b1, b2]) {
+      expect(
+        fake.calls.filter((c) => c.op === 'void' && c.requestId === voidKey(b.bidId)),
+      ).toHaveLength(1);
+    }
+
+    // Terminal: no resume, pause or edit; no new holds.
+    for (const body of [{ status: 'ACTIVE' }, { status: 'PAUSED' }, { maxPriceCents: 20_000 }]) {
+      const r = await patch(s.id, m.mandateId, body);
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error).toMatchObject({
+        code: 'STATE_CONFLICT',
+        reason: 'MANDATE_REVOKED',
+      });
+    }
+    expect((await placeUnder(l1.id, s.id, m.mandateId, 20_000)).statusCode).not.toBe(201);
+    expect(await auditActions(m.mandateId)).toEqual(['MANDATE_CREATED', 'MANDATE_REVOKED']);
+  });
+
+  it('a paused mandate can be revoked; a FULFILLED one cannot (409)', async () => {
+    const s = await fx.shopper();
+    const paused = (await create(s.id, { maxPriceCents: 23_000 })).json().mandate;
+    expect((await patch(s.id, paused.mandateId, { status: 'PAUSED' })).statusCode).toBe(200);
+    const revoked = await patch(s.id, paused.mandateId, { status: 'REVOKED' });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json().mandate.state).toBe('revoked');
+
+    const done = (await create(s.id, { maxPriceCents: 23_000 })).json().mandate;
+    await tdb.db.pool.query(`UPDATE mandates SET status = 'FULFILLED' WHERE id = $1`, [
+      done.mandateId,
+    ]);
+    const r = await patch(s.id, done.mandateId, { status: 'REVOKED' });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error).toMatchObject({ reason: 'MANDATE_FULFILLED' });
+  });
+
   it('a FULFILLED mandate cannot be edited, paused or resumed (409)', async () => {
     const s = await fx.shopper();
     const m = (await create(s.id, { maxPriceCents: 23_000 })).json().mandate;

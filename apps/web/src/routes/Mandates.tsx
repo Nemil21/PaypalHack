@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import {
   formatUsd,
   MANDATE_PAUSE_CONFIRM,
+  MANDATE_REVOKE_CONFIRM,
   type MandateBody,
   type MandateListBody,
   type MandateProduct,
@@ -42,7 +43,7 @@ import { useApiAction } from '../lib/use-api-action';
  * screen: a stacked form with steppers and toggles at 375 px, two columns from `lg`.
  *   /mandates              list (state "none set" when empty)
  *   /mandates/new          create; W13 "Let my agent manage this" prefills ?productId&maxPriceCents
- *   /mandates/:mandateId   edit, live holds vs cap, pause (confirm) / resume
+ *   /mandates/:mandateId   edit, live holds vs cap, pause (confirm) / resume, revoke (confirm, v4)
  */
 
 type Load<T> =
@@ -81,6 +82,7 @@ const STATE_BADGE: Record<MandateState, { tone: BadgeTone; label: string }> = {
   paused: { tone: 'neutral', label: 'Paused' },
   expired: { tone: 'sim', label: 'Expired' },
   fulfilled: { tone: 'success', label: 'Done · item bought' },
+  revoked: { tone: 'neutral', label: 'Revoked' },
 };
 
 function StateBadge({ state }: { state: MandateState }) {
@@ -257,12 +259,16 @@ function MandateEditor({
   );
   const [capTouched, setCapTouched] = useState(!!initial);
   const [errors, setErrors] = useState<MandateFormErrors>({});
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<'pause' | 'revoke' | null>(null);
   const save = useApiAction<MandateBody>();
   const pause = useApiAction<MandateBody>();
   const resume = useApiAction<MandateBody>();
+  const revoke = useApiAction<MandateBody>();
 
-  const ended = mandate?.status === 'FULFILLED' || mandate?.status === 'EXPIRED';
+  const ended =
+    mandate?.status === 'FULFILLED' ||
+    mandate?.status === 'EXPIRED' ||
+    mandate?.status === 'REVOKED';
   const liveHoldCents = mandate?.liveHoldCents ?? 0;
   const catalog = new Map<string, MandateProduct>();
   for (const p of [...list.productOptions, ...(mandate?.products ?? [])])
@@ -328,7 +334,7 @@ function MandateEditor({
       path: `/api/mandates/${mandate.mandateId}`,
       body: { status: 'PAUSED' },
     });
-    setConfirming(false);
+    setConfirming(null);
     if (!res) return;
     pause.reset();
     const released = mandate.liveHolds.filter((h) => h.status === 'HELD');
@@ -338,6 +344,27 @@ function MandateEditor({
       body: released.length
         ? `Released ${formatUsd(released.reduce((s, h) => s + h.amountCents, 0))} in ${released.length} ${released.length === 1 ? 'hold' : 'holds'}. Your bank may show them as pending for a few days.`
         : 'Your agent won’t place new holds.',
+      tone: 'success',
+    });
+  }
+
+  async function onRevoke() {
+    if (!mandate) return;
+    const res = await revoke.run({
+      method: 'PATCH',
+      path: `/api/mandates/${mandate.mandateId}`,
+      body: { status: 'REVOKED' },
+    });
+    setConfirming(null);
+    if (!res) return;
+    revoke.reset();
+    const released = mandate.liveHolds.filter((h) => h.status === 'HELD');
+    setMandate(res.mandate);
+    toast.show({
+      title: 'Mandate revoked',
+      body: released.length
+        ? `Released ${formatUsd(released.reduce((s, h) => s + h.amountCents, 0))} in ${released.length} ${released.length === 1 ? 'hold' : 'holds'}. Your bank may show them as pending for a few days.`
+        : 'Your agent won’t bid under this mandate again.',
       tone: 'success',
     });
   }
@@ -361,7 +388,8 @@ function MandateEditor({
   const actionError =
     (saveError && !capServerError ? saveError : null) ??
     (pause.status === 'error' ? pause.error : null) ??
-    (resume.status === 'error' ? resume.error : null);
+    (resume.status === 'error' ? resume.error : null) ??
+    (revoke.status === 'error' ? revoke.error : null);
   const usage = capUsage(liveHoldCents, mandate?.totalHoldCapCents ?? 0);
   const options = list.productOptions.filter((p) => !values.productIds.includes(p.productId));
 
@@ -399,7 +427,9 @@ function MandateEditor({
           <p className="rounded-md border border-line bg-surface p-4 text-[14px] text-body">
             {mandate?.status === 'FULFILLED'
               ? 'This mandate is done: your agent bought the item. Set up a new one to keep bidding.'
-              : 'This mandate has ended. Set up a new one to keep bidding.'}
+              : mandate?.status === 'REVOKED'
+                ? 'You revoked this mandate. Set up a new one to keep bidding.'
+                : 'This mandate has ended. Set up a new one to keep bidding.'}
           </p>
         )}
 
@@ -509,9 +539,9 @@ function MandateEditor({
                   variant="outline"
                   block
                   className="sm:w-auto"
-                  onClick={() => setConfirming(true)}
+                  onClick={() => setConfirming('pause')}
                 >
-                  Pause mandate
+                  Pause
                 </Button>
               )}
               {mandate?.status === 'PAUSED' && (
@@ -523,6 +553,16 @@ function MandateEditor({
                   disabled={resume.status === 'pending'}
                 >
                   {resume.status === 'pending' ? 'Resuming…' : 'Resume'}
+                </Button>
+              )}
+              {(mandate?.status === 'ACTIVE' || mandate?.status === 'PAUSED') && (
+                <Button
+                  variant="outline"
+                  block
+                  className="sm:w-auto"
+                  onClick={() => setConfirming('revoke')}
+                >
+                  Revoke
                 </Button>
               )}
             </div>
@@ -591,15 +631,16 @@ function MandateEditor({
       </aside>
 
       {mandate && (
-        <PauseSheet
-          open={confirming}
-          pending={pause.status === 'pending'}
+        <ConfirmSheet
+          kind={confirming ?? 'pause'}
+          open={confirming !== null}
+          pending={pause.status === 'pending' || revoke.status === 'pending'}
           heldCents={mandate.liveHolds
             .filter((h) => h.status === 'HELD')
             .reduce((s, h) => s + h.amountCents, 0)}
           heldCount={mandate.liveHolds.filter((h) => h.status === 'HELD').length}
-          onCancel={() => setConfirming(false)}
-          onConfirm={onPause}
+          onCancel={() => setConfirming(null)}
+          onConfirm={confirming === 'revoke' ? onRevoke : onPause}
         />
       )}
     </div>
@@ -739,8 +780,26 @@ function Toggle({
   );
 }
 
-/** Pause confirm: a bottom sheet on phones (M09), a centred dialog from `sm`. */
-function PauseSheet({
+const CONFIRM_COPY = {
+  pause: {
+    title: 'Pause this mandate?',
+    lead: `${MANDATE_PAUSE_CONFIRM}.`,
+    idle: 'You have no live holds right now. Your agent stops placing new ones.',
+    keep: 'Keep active',
+    confirm: 'Pause and release',
+  },
+  revoke: {
+    title: 'Revoke this mandate?',
+    lead: MANDATE_REVOKE_CONFIRM,
+    idle: 'You have no live holds right now. You can’t resume a revoked mandate.',
+    keep: 'Keep it',
+    confirm: 'Revoke and release',
+  },
+} as const;
+
+/** Pause / revoke confirm: a bottom sheet on phones (M09), a centred dialog from `sm`. */
+function ConfirmSheet({
+  kind,
   open,
   pending,
   heldCents,
@@ -748,6 +807,7 @@ function PauseSheet({
   onCancel,
   onConfirm,
 }: {
+  kind: keyof typeof CONFIRM_COPY;
   open: boolean;
   pending: boolean;
   heldCents: number;
@@ -757,6 +817,7 @@ function PauseSheet({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const copy = CONFIRM_COPY[kind];
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -775,13 +836,13 @@ function PauseSheet({
     >
       <div className="flex flex-col gap-4 p-6">
         <h2 id={titleId} className="text-[23px] font-medium tracking-title">
-          Pause this mandate?
+          {copy.title}
         </h2>
-        <p className="text-[16px] text-ink">{MANDATE_PAUSE_CONFIRM}.</p>
+        <p className="text-[16px] text-ink">{copy.lead}</p>
         <p className="text-[14px] text-body">
           {heldCount > 0
             ? `${formatUsd(heldCents)} across ${heldCount} ${heldCount === 1 ? 'hold' : 'holds'} goes back to you. Bids already won keep settling.`
-            : 'You have no live holds right now. Your agent stops placing new ones.'}
+            : copy.idle}
         </p>
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button
@@ -791,7 +852,7 @@ function PauseSheet({
             onClick={onCancel}
             disabled={pending}
           >
-            Keep active
+            {copy.keep}
           </Button>
           <Button
             variant="secondary"
@@ -800,7 +861,7 @@ function PauseSheet({
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? 'Releasing…' : 'Pause and release'}
+            {pending ? 'Releasing…' : copy.confirm}
           </Button>
         </div>
       </div>

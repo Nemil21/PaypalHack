@@ -365,6 +365,59 @@ export async function pauseMandate(
   return { ok: true, mandate: step.mandate, alreadyPaused: step.alreadyPaused, release };
 }
 
+export type RevokeMandateResult =
+  | { ok: true; mandate: MandateRow; alreadyRevoked: boolean; release: ReleaseResult }
+  | { ok: false; code: 'NOT_FOUND' }
+  | { ok: false; code: 'STATE_CONFLICT'; status: string };
+
+/**
+ * Revoke (v4 §3.2): ACTIVE or PAUSED → REVOKED (terminal) and every HELD bid under the mandate →
+ * VOIDING (`MANDATE_PAUSED`, the existing "mandate stopped" void reason) in one transaction, audit
+ * `MANDATE_REVOKED`; then the PayPal voids. A hold in flight is refused by `landHold`, which sees a
+ * non-ACTIVE mandate. Revoking a REVOKED mandate is a no-op that re-releases any HELD bid left
+ * over; FULFILLED and EXPIRED are STATE_CONFLICT.
+ */
+export async function revokeMandate(
+  deps: MoneyDeps,
+  mandateId: string,
+  opts: Omit<PauseMandateOptions, 'revoke'>,
+): Promise<RevokeMandateResult> {
+  const step = await deps.db.tx(async (tx) => {
+    const current = await lockMandateRow(tx, mandateId);
+    if (!current || (opts.shopperId && current.shopper_id !== opts.shopperId)) {
+      return { ok: false as const, code: 'NOT_FOUND' as const };
+    }
+    const alreadyRevoked = current.status === 'REVOKED';
+    if (!alreadyRevoked && current.status !== 'ACTIVE' && current.status !== 'PAUSED') {
+      return { ok: false as const, code: 'STATE_CONFLICT' as const, status: current.status };
+    }
+    let mandate: MandateRow = current;
+    if (!alreadyRevoked) {
+      const revoked = await transition<'mandates', MandateRow>(
+        tx,
+        'mandates',
+        mandateId,
+        ['ACTIVE', 'PAUSED'],
+        'REVOKED',
+        { revoked_at: SQL_NOW },
+      );
+      if (!revoked) throw new Error(`revokeMandate: ${mandateId} changed under its own lock`);
+      mandate = revoked;
+    }
+    const bidIds = await flipHeldBids(deps, tx, mandateId, 'MANDATE_PAUSED', opts.actor);
+    if (!alreadyRevoked) {
+      await auditMandate(tx, opts.actor, mandateId, 'MANDATE_REVOKED', {
+        from: current.status,
+        voidingBidIds: bidIds,
+      });
+    }
+    return { ok: true as const, mandate, alreadyRevoked, bidIds };
+  });
+  if (!step.ok) return step;
+  const release = await releaseMandateHolds(deps, step.bidIds, 'MANDATE_PAUSED', opts.actor);
+  return { ok: true, mandate: step.mandate, alreadyRevoked: step.alreadyRevoked, release };
+}
+
 export interface OnCapturedResult {
   mandateId: string | null;
   /** The mandate is FULFILLED (by this call or before it). */

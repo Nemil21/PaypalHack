@@ -129,7 +129,7 @@ export const promoteWithin: PromoteWithin = async (tx, failedBidId) => {
             AND b.paypal_authorization_id IS NOT NULL
             AND b.authorized_amount_cents = b.amount_cents
             AND b.authorized_at > now() - make_interval(hours => $3)
-            AND (m.id IS NULL OR m.status NOT IN ('PAUSED', 'FULFILLED'))
+            AND (m.id IS NULL OR m.status NOT IN ('PAUSED', 'FULFILLED', 'REVOKED'))
             AND NOT (b.release_if_cheaper AND $4::int IS NOT NULL AND b.amount_cents > $4::int)
             AND b.id <> ALL($5::uuid[])
           ORDER BY b.amount_cents DESC, b.placed_at ASC, b.id ASC
