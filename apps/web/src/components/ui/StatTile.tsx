@@ -11,6 +11,7 @@ export function StatTile({
   value,
   caption,
   emphasis,
+  dark,
   className,
 }: {
   label: string;
@@ -18,29 +19,36 @@ export function StatTile({
   caption?: ReactNode;
   /** Orange value, for the one number the screen is about. */
   emphasis?: boolean;
+  /** Ink tile with white text (v4 overview's headline KPI). */
+  dark?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col gap-2 rounded-md border border-line bg-white p-4',
+        'flex min-w-0 flex-col gap-2 rounded-md border p-4',
+        dark ? 'border-ink bg-ink' : 'border-line bg-white',
         className,
       )}
     >
-      <span className="label text-[11px] text-muted">{label}</span>
+      <span className={cn('label text-[11px]', dark ? 'text-white/70' : 'text-muted')}>
+        {label}
+      </span>
       {value === undefined ? (
         <MoneySkeleton />
       ) : (
         <span
           className={cn(
             'truncate text-[28px] leading-[34px] font-medium tracking-headline tabular-nums sm:text-[34px]',
-            emphasis ? 'text-orange' : 'text-ink',
+            dark ? 'text-white' : emphasis ? 'text-orange' : 'text-ink',
           )}
         >
           {value}
         </span>
       )}
-      {caption && <span className="text-[13px] text-body">{caption}</span>}
+      {caption && (
+        <span className={cn('text-[13px]', dark ? 'text-white/70' : 'text-body')}>{caption}</span>
+      )}
     </div>
   );
 }

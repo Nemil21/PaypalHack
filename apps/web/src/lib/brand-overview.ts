@@ -19,7 +19,7 @@ import { paths } from './routes';
  */
 export const BRAND_NAV: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Overview', to: paths.brand },
-  { label: 'Listings', to: `${paths.brand}#listings` },
+  { label: 'Listings', to: paths.brandListings },
   { label: 'Embed', to: paths.brandEmbed },
 ];
 

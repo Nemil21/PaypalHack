@@ -270,7 +270,9 @@ export type RaiseQuantityResult =
   { ok: true; value: UpdateListingResponse } | { ok: false; error: RaiseQuantityError };
 
 /**
- * `PATCH /api/listings/:id {quantity}`: raise only, while OPEN (02 §Edge cases). The listing row is
+ * `PATCH /api/listings/:id {quantity}`: raise only, while OPEN (02 §Edge cases). A DRAFT has no
+ * bids yet, so its quantity can be set either way (v4 §2.2 "Edit" on a draft; audited
+ * `LISTING_DRAFT_UPDATED`, no event). The listing row is
  * locked `FOR UPDATE`, so a concurrent cancel, Clear or rounds start either waits for this or wins
  * first and this answers STATE_CONFLICT. Audits `LISTING_QUANTITY_RAISED`, emits `listing.updated`.
  */
@@ -287,6 +289,31 @@ export async function raiseListingQuantity(
     );
     const listing = rows[0];
     if (!listing) return { ok: false, error: { code: 'NOT_FOUND' } };
+    if (listing.status === 'DRAFT') {
+      await tx.query(`UPDATE listings SET quantity = $2 WHERE id = $1 AND status = 'DRAFT'`, [
+        listing.id,
+        input.quantity,
+      ]);
+      await audit(tx, {
+        actorType: input.actor.type,
+        actorId: input.actor.id ?? null,
+        brandId: listing.brand_id,
+        listingId: listing.id,
+        entity: 'listing',
+        entityId: listing.id,
+        action: 'LISTING_DRAFT_UPDATED',
+        data: { from: listing.quantity, to: input.quantity },
+      });
+      return {
+        ok: true,
+        value: {
+          listingId: listing.id,
+          status: 'DRAFT',
+          previousQuantity: listing.quantity,
+          quantity: input.quantity,
+        },
+      };
+    }
     if (listing.status !== 'OPEN') {
       return {
         ok: false,

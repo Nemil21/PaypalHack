@@ -136,7 +136,8 @@ export type UpdateListingRequest = z.infer<typeof updateListingRequestSchema>;
 /** `200` from `PATCH /api/listings/:id`. */
 export interface UpdateListingResponse {
   listingId: string;
-  status: 'OPEN';
+  /** DRAFT: the quantity was set (either way) before publish. */
+  status: 'OPEN' | 'DRAFT';
   previousQuantity: number;
   quantity: number;
 }
