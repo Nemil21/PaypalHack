@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { PageHeader } from '../../components/layout/AppShell';
 import { Badge, Button, ErrorBanner, Skeleton, useToast } from '../../components/ui';
 import { ApiAction, ApiError, api, type HttpMethod } from '../../lib/api';
@@ -24,6 +24,7 @@ import {
   type SettingsTab,
 } from '../../lib/brand-settings';
 import { cn } from '../../lib/cn';
+import { paths } from '../../lib/routes';
 import { useBrand } from './BrandGate';
 
 /**
@@ -120,8 +121,60 @@ export function BrandSettings() {
           <RetailersTab data={data} canEdit={can.editRetailers} onChange={reload} />
         )}
         {tab === 'notifications' && <NotificationsTab data={data} onChange={reload} />}
+        <AccountCard isAdmin={!!me.isAdmin} />
       </div>
     </>
+  );
+}
+
+/**
+ * v4 Settings › Account (frame 113:125): switch to the buyer side (a separate session), sign out,
+ * and the W20 Ops console for `ADMIN_EMAILS` members only (the API enforces it too).
+ */
+function AccountCard({ isAdmin }: { isAdmin: boolean }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const signOut = async () => {
+    setBusy(true);
+    try {
+      await send('POST', '/api/auth/logout', { who: 'brand' });
+      navigate(paths.home);
+    } catch {
+      setBusy(false);
+    }
+  };
+  const row = 'flex items-center justify-between gap-4 border-t border-line py-4';
+  const action = 'font-mono text-[13px] text-ink hover:underline';
+  return (
+    <section aria-label="Account" className="flex flex-col border border-line bg-white px-5 pt-5">
+      <h2 className="label pb-4 text-[11px] text-muted">Account</h2>
+      <div className={row}>
+        <div className="flex flex-col">
+          <span className="text-[15px] text-ink">Signed in as a brand</span>
+          <span className="text-[13px] text-body">Switch to your buyer account to place bids</span>
+        </div>
+        <Link to={paths.bids} className={action}>
+          Switch to buyer →
+        </Link>
+      </div>
+      <div className={row}>
+        <span className="text-[15px] text-ink">Sign out</span>
+        <button type="button" className={action} disabled={busy} onClick={() => void signOut()}>
+          {busy ? 'Signing out…' : 'Sign out →'}
+        </button>
+      </div>
+      {isAdmin && (
+        <div className={row}>
+          <div className="flex flex-col">
+            <span className="text-[15px] text-ink">Ops console</span>
+            <span className="text-[13px] text-body">Shown to Holdfast admins only</span>
+          </div>
+          <Link to={paths.admin} className={action}>
+            Open →
+          </Link>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -150,10 +203,12 @@ function TeamTab({
 }) {
   const toast = useToast();
   const [role, setRole] = useState<BrandRole>('VIEWER');
+  const [email, setEmail] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const roleId = useId();
+  const emailId = useId();
 
   const run = async (id: string, fn: () => Promise<unknown>, done?: string) => {
     if (busy) return;
@@ -172,8 +227,13 @@ function TeamTab({
 
   const createLink = () =>
     run('invite', async () => {
-      const res = await send<{ url: string }>('POST', '/api/brands/me/invites', { role });
+      const to = email.trim();
+      const res = await send<{ url: string }>('POST', '/api/brands/me/invites', {
+        role,
+        ...(to ? { email: to } : {}),
+      });
       setLink(res.url);
+      setEmail('');
     });
 
   const copy = async () => {
@@ -191,10 +251,25 @@ function TeamTab({
       {canManage ? (
         <div className="flex flex-col gap-4 border border-line bg-white p-5">
           <p className="text-[15px] text-body">
-            Create a link and send it to your teammate. They sign in with PayPal and join with the
-            role you pick. Links work once and last 7 days.
+            Invite by email, then send your teammate the link. They sign in with PayPal and join
+            with the role you pick; with an email, only that address can use it. Links work once and
+            last 7 days.
           </p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <label htmlFor={emailId} className="label text-[12px] text-ink">
+                Email (optional)
+              </label>
+              <input
+                id={emailId}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="teammate@yourbrand.com"
+                autoComplete="off"
+                className="h-9 min-w-0 rounded-sm border border-border bg-white px-3 text-[14px]"
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <label htmlFor={roleId} className="label text-[12px] text-ink">
                 Role
@@ -211,7 +286,7 @@ function TeamTab({
               </select>
             </div>
             <Button onClick={() => void createLink()} disabled={!!busy}>
-              {busy === 'invite' ? 'Creating…' : 'Create invite link'}
+              {busy === 'invite' ? 'Creating…' : '+ Invite teammate'}
             </Button>
           </div>
           <p className="text-[13px] text-muted">{ROLE_COPY[role]}</p>
@@ -457,6 +532,14 @@ function VerificationTab({ data, onChange }: { data: Settings; onChange(): Promi
     }
   }, [brand.name, onChange, toast]);
 
+  const copyTxt = async () => {
+    const ok = await navigator.clipboard?.writeText(brand.dnsTxtRecord ?? '').then(
+      () => true,
+      () => false,
+    );
+    toast.show({ title: ok ? 'TXT record copied' : 'Copy failed: select the record instead' });
+  };
+
   // While PENDING with a domain, re-check every 30 s.
   useEffect(() => {
     if (!pending || !brand.domain) return;
@@ -487,9 +570,12 @@ function VerificationTab({ data, onChange }: { data: Settings; onChange(): Promi
           <p className="text-[15px] text-body">
             TXT record on <span className="font-mono text-ink">{brand.domain}</span>:
           </p>
-          <code className="rounded-sm border border-line bg-surface p-4 font-mono text-[14px] break-all text-ink">
-            {brand.dnsTxtRecord}
-          </code>
+          <div className="flex flex-col gap-3 rounded-sm border border-line bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+            <code className="font-mono text-[14px] break-all text-ink">{brand.dnsTxtRecord}</code>
+            <Button variant="outline" onClick={() => void copyTxt()}>
+              Copy
+            </Button>
+          </div>
         </>
       ) : (
         <ReadOnlyNote>Add your website domain in onboarding to verify by DNS.</ReadOnlyNote>
@@ -603,6 +689,7 @@ function RetailersTab({
 // --- Notifications -------------------------------------------------------------------------------
 
 function NotificationsTab({ data, onChange }: { data: Settings; onChange(): Promise<void> }) {
+  const toast = useToast();
   const [prefs, setPrefs] = useState(data.notifications);
   const [error, setError] = useState<string | null>(null);
 
@@ -617,6 +704,8 @@ function NotificationsTab({ data, onChange }: { data: Settings; onChange(): Prom
         { prefs: { [t]: { [c]: value } } },
       );
       setPrefs(res.notifications);
+      // W11: each toggle saves at once; say so (UI-GAPS W11 "Saved" toast).
+      toast.show({ title: 'Saved', tone: 'success', duration: 2000 });
       void onChange();
     } catch (err) {
       setPrefs(data.notifications);
