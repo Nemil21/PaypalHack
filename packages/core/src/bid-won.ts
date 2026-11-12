@@ -99,17 +99,22 @@ export function carrierTrackingUrl(
  * carries the brand's typed carrier and number, but the parcel is not shipped as far as the
  * winner is concerned: show neither.
  */
-export const TRACKED_SHIPMENT_STATUSES: ReadonlySet<string> = new Set(['SHIPPED', 'DELIVERED']);
+export const TRACKED_SHIPMENT_STATUSES: ReadonlySet<string> = new Set([
+  'SHIPPED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+]);
 
 /**
- * Stage from the shipments row. Without carrier events we only know "PayPal has the tracking
- * number" (shipped) and DELIVERED; out for delivery is reached together with delivered.
+ * Stage from the shipments row. Without carrier events we know "PayPal has the tracking number"
+ * (shipped); OUT_FOR_DELIVERY and DELIVERED come from the demo "Mark delivered" action (v4 §3.6).
  */
 export function shippingStage(
   s: { status: string; tracking_number: string | null } | null,
 ): ShippingStage {
   if (!s || !TRACKED_SHIPMENT_STATUSES.has(s.status)) return 'ORDERED';
   if (s.status === 'DELIVERED') return 'DELIVERED';
+  if (s.status === 'OUT_FOR_DELIVERY') return 'OUT_FOR_DELIVERY';
   return s.tracking_number ? 'SHIPPED' : 'ORDERED';
 }
 

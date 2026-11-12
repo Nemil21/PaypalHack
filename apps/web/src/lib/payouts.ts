@@ -50,6 +50,8 @@ export function shipmentBadge(row: Pick<ShipmentRosterRow, 'trackable' | 'shipme
   switch (s.status) {
     case 'SHIPPED':
       return { label: 'Shipped', tone: 'success' };
+    case 'OUT_FOR_DELIVERY':
+      return { label: 'Out for delivery', tone: 'success' };
     case 'DELIVERED':
       return { label: 'Delivered', tone: 'success' };
     case 'TRACKING_FAILED':
@@ -61,7 +63,10 @@ export function shipmentBadge(row: Pick<ShipmentRosterRow, 'trackable' | 'shipme
 
 /** Whether a roster row still takes manual tracking entry. */
 export const canEnterTracking = (row: Pick<ShipmentRosterRow, 'trackable' | 'shipment'>) =>
-  row.trackable && row.shipment?.status !== 'SHIPPED' && row.shipment?.status !== 'DELIVERED';
+  row.trackable &&
+  row.shipment?.status !== 'SHIPPED' &&
+  row.shipment?.status !== 'OUT_FOR_DELIVERY' &&
+  row.shipment?.status !== 'DELIVERED';
 
 export type UploadState =
   | { kind: 'idle' }

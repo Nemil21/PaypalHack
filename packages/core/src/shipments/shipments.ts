@@ -34,8 +34,16 @@ import { isUuid } from '../tenancy.js';
  *
  * Shipment statuses: PENDING (claimed, or a retryable failure with `error_code` set) →
  * SHIPPED (PayPal has the tracker) | TRACKING_FAILED (PayPal refused it: TERMINAL; the brand may
- * correct the carrier or number and post again). DELIVERED is reserved for a later carrier feed.
+ * correct the carrier or number and post again). OUT_FOR_DELIVERY and DELIVERED come from the
+ * demo-only `advanceShipment` (v4 §3.6) until a carrier feed exists.
  */
+
+/** PayPal has the tracker: shipped, and any later delivery step. */
+export const SHIPPED_OR_LATER: ReadonlySet<string> = new Set([
+  'SHIPPED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+]);
 
 /** A PENDING claim older than this is treated as a crashed call and may be retried. */
 export const TRACK_LEASE_SECONDS = 60;
@@ -171,7 +179,7 @@ async function claim(tx: Queryable, input: AddShipmentInput): Promise<ClaimResul
     )
   ).rows[0];
 
-  if (existing && (existing.status === 'SHIPPED' || existing.status === 'DELIVERED')) {
+  if (existing && SHIPPED_OR_LATER.has(existing.status)) {
     if (sameDetails(existing, input)) {
       return {
         kind: 'done',
@@ -272,7 +280,7 @@ async function settle(
     )
   ).rows[0];
   const current = row ?? (await loadShipment(tx, c.shipment.id))!;
-  if (current.status === 'SHIPPED') {
+  if (SHIPPED_OR_LATER.has(current.status)) {
     return { ok: true, created: false, replayed: true, shipment: shipmentView(current) };
   }
   return {
@@ -480,4 +488,73 @@ export async function shipmentForBid(q: Queryable, bidId: string): Promise<Shipm
     ])
   ).rows[0];
   return row ? shipmentView(row) : null;
+}
+
+// --- Demo: Mark delivered (v4 §3.6, decision 3) -------------------------------------------------
+
+/** The next delivery step, or null when there is none (DELIVERED, or never shipped). */
+export function nextDeliveryStatus(status: string): 'OUT_FOR_DELIVERY' | 'DELIVERED' | null {
+  if (status === 'SHIPPED') return 'OUT_FOR_DELIVERY';
+  if (status === 'OUT_FOR_DELIVERY') return 'DELIVERED';
+  return null;
+}
+
+export type AdvanceShipmentOutcome =
+  | { ok: true; from: string; shipment: ShipmentView }
+  | { ok: false; code: 'NOT_FOUND' }
+  | {
+      ok: false;
+      code: 'STATE_CONFLICT';
+      reason: 'NOT_SHIPPED' | 'ALREADY_DELIVERED';
+      shipment: ShipmentView;
+    };
+
+/**
+ * Demo-only (`DEMO_MODE`, admin): move a shipment one step, SHIPPED → OUT_FOR_DELIVERY →
+ * DELIVERED, so the W18 tracker can show its last two steps. `id` is the shipment id or the
+ * winning bid's id (the Ops search finds either). No PayPal call: PayPal's tracker stays as the
+ * brand added it. Audits SHIPMENT_ADVANCED with `demo: true`.
+ */
+export async function advanceShipment(
+  db: Db,
+  id: string,
+  actor: ShipmentActor,
+): Promise<AdvanceShipmentOutcome> {
+  if (!isUuid(id)) return { ok: false, code: 'NOT_FOUND' };
+  return db.tx(async (tx) => {
+    const row = (
+      await tx.query<ShipmentRow>(
+        `SELECT ${SHIPMENT_COLUMNS} FROM shipments WHERE id = $1 OR bid_id = $1
+          ORDER BY (id = $1) DESC LIMIT 1 FOR UPDATE`,
+        [id],
+      )
+    ).rows[0];
+    if (!row) return { ok: false, code: 'NOT_FOUND' };
+    const to = nextDeliveryStatus(row.status);
+    if (!to) {
+      return {
+        ok: false,
+        code: 'STATE_CONFLICT',
+        reason: row.status === 'DELIVERED' ? 'ALREADY_DELIVERED' : 'NOT_SHIPPED',
+        shipment: shipmentView(row),
+      };
+    }
+    const next = (
+      await tx.query<ShipmentRow>(
+        `UPDATE shipments SET status = $2, updated_at = now() WHERE id = $1
+          RETURNING ${SHIPMENT_COLUMNS}`,
+        [row.id, to],
+      )
+    ).rows[0]!;
+    await audit(tx, {
+      actorType: actor.type,
+      actorId: actor.id,
+      entity: 'shipment',
+      entityId: row.id,
+      listingId: row.listing_id,
+      action: 'SHIPMENT_ADVANCED',
+      data: { bidId: row.bid_id, from: row.status, to, demo: true },
+    });
+    return { ok: true, from: row.status, shipment: shipmentView(next) };
+  });
 }

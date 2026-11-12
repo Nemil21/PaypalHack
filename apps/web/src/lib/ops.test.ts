@@ -10,6 +10,7 @@ import {
   healthTiles,
   isAlertRow,
   OPS_ACTIONS,
+  opsActions,
   type OpsHealth,
 } from './ops';
 
@@ -163,9 +164,23 @@ describe('W20 actions (HF-058)', () => {
       'retry-settlement',
       'replay-price',
       'void-dangling',
+      'mark-delivered',
     ]);
     expect(OPS_ACTIONS.every((a) => a.confirm.length > 20)).toBe(true);
     expect(OPS_ACTIONS.find((a) => a.kind === 'replay-price')?.demo).toBe(true);
+  });
+
+  it('v4 Mark delivered (demo): only in demo mode, takes a bid or shipment id', () => {
+    expect(opsActions(false).map((a) => a.kind)).not.toContain('mark-delivered');
+    expect(opsActions(true).map((a) => a.kind)).toContain('mark-delivered');
+    expect(actionRequest('mark-delivered', { shipmentId: BRAND })).toEqual({
+      ok: true,
+      request: { method: 'POST', path: `/api/admin/shipments/${BRAND}/advance` },
+    });
+    expect(actionRequest('mark-delivered', { shipmentId: 'nope' })).toMatchObject({ ok: false });
+    expect(actionResultText('mark-delivered', { shipment: { status: 'DELIVERED' } })).toBe(
+      'Delivered.',
+    );
   });
 
   it('builds each request and refuses bad input before calling the API', () => {

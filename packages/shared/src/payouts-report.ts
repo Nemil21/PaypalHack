@@ -13,7 +13,13 @@ import type { ListingStatus, PayoutStatus } from './status.js';
 // ---------------------------------------------------------------------------------------------
 // Shipments
 
-export const SHIPMENT_STATUSES = ['PENDING', 'SHIPPED', 'DELIVERED', 'TRACKING_FAILED'] as const;
+export const SHIPMENT_STATUSES = [
+  'PENDING',
+  'SHIPPED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'TRACKING_FAILED',
+] as const;
 export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number];
 
 export const MAX_CARRIER_LENGTH = 64;

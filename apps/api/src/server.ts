@@ -31,6 +31,7 @@ import {
 } from './routes/payouts-reports.js';
 import { registerAdminBrandRoutes } from './routes/admin-brands.js';
 import { registerAdminOpsRoutes, type AdminOpsRouteDeps } from './routes/admin-ops.js';
+import { registerAdminDemoShipmentRoutes } from './routes/admin-demo-shipments.js';
 import { registerBrandVerificationRoutes } from './routes/brand-verification.js';
 import {
   registerBrandSettingsRoutes,
@@ -217,6 +218,8 @@ export function buildServer(config: Config, deps: ServerDeps = {}): FastifyInsta
   if (deps.sql) {
     registerAdminOpsRoutes(app, { db: deps.sql, paypalMode: config.PAYPAL_MODE, ...deps.ops });
   }
+  // v4 §3.6: Ops "MARK DELIVERED (DEMO)". Not registered at all outside DEMO_MODE (404).
+  if (deps.sql && config.DEMO_MODE) registerAdminDemoShipmentRoutes(app, deps.sql);
   if (deps.paypalWebhooks) registerPayPalWebhookRoute(app, deps.paypalWebhooks);
   // W03 onboarding (HF-011b): upserts the PENDING brand and re-issues the brand session.
   if (deps.sql) registerBrandVerificationRoutes(app, { db: deps.sql, config, sessions });

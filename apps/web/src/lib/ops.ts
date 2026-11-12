@@ -232,13 +232,16 @@ export function healthTiles(h: OpsHealth, now = new Date()): HealthTile[] {
 // Actions
 // ---------------------------------------------------------------------------------------------
 
-export type OpsActionKind = 'verify-brand' | 'retry-settlement' | 'replay-price' | 'void-dangling';
+export type OpsActionKind =
+  'verify-brand' | 'retry-settlement' | 'replay-price' | 'void-dangling' | 'mark-delivered';
 
 export interface OpsActionInput {
   brandId?: string;
   listingId?: string;
   /** Dollars as typed, e.g. "199" or "199.50". */
   price?: string;
+  /** Mark delivered (demo): a winning bid's id or its shipment id. */
+  shipmentId?: string;
 }
 
 export interface OpsActionSpec {
@@ -246,9 +249,11 @@ export interface OpsActionSpec {
   label: string;
   /** What the confirm dialog says will happen. */
   confirm: string;
-  fields: ReadonlyArray<'brandId' | 'listingId' | 'price'>;
+  fields: ReadonlyArray<'brandId' | 'listingId' | 'price' | 'shipmentId'>;
   /** Shown on the button and in the dialog: replays are demo-only. */
   demo?: boolean;
+  /** Only offered when `clientConfig().demoMode` (the route is only registered in DEMO_MODE). */
+  demoModeOnly?: boolean;
 }
 
 export const OPS_ACTIONS: readonly OpsActionSpec[] = [
@@ -280,7 +285,20 @@ export const OPS_ACTIONS: readonly OpsActionSpec[] = [
       'Run the hold sweeper now: every hold whose listing no longer needs it is voided at PayPal.',
     fields: [],
   },
+  {
+    kind: 'mark-delivered',
+    label: 'Mark delivered (demo)',
+    confirm:
+      'Move this order one delivery step: shipped → out for delivery → delivered. The winner’s tracker updates; PayPal is not called.',
+    fields: ['shipmentId'],
+    demoModeOnly: true,
+  },
 ];
+
+/** The actions this deployment offers (demo-only ones need `DEMO_MODE`). */
+export function opsActions(demoMode: boolean): readonly OpsActionSpec[] {
+  return OPS_ACTIONS.filter((a) => demoMode || !a.demoModeOnly);
+}
 
 export type ActionRequest = { ok: true; request: ApiRequest } | { ok: false; error: string };
 
@@ -329,6 +347,17 @@ export function actionRequest(kind: OpsActionKind, input: OpsActionInput): Actio
     }
     case 'void-dangling':
       return { ok: true, request: { method: 'POST', path: '/api/admin/void-dangling' } };
+    case 'mark-delivered': {
+      const id = input.shipmentId?.trim() ?? '';
+      if (!isUuid(id)) return { ok: false, error: 'Enter a bid or shipment id.' };
+      return {
+        ok: true,
+        request: {
+          method: 'POST',
+          path: `/api/admin/shipments/${encodeURIComponent(id)}/advance`,
+        },
+      };
+    }
   }
 }
 
@@ -350,6 +379,10 @@ export function actionResultText(kind: OpsActionKind, body: unknown): string {
       return `Sweep done: ${r.voided ?? 0} voided, ${r.voidFailed ?? 0} void failures, ${
         r.stuck ?? 0
       } stuck.`;
+    }
+    case 'mark-delivered': {
+      const s = (b.shipment ?? {}) as Record<string, unknown>;
+      return s.status === 'DELIVERED' ? 'Delivered.' : 'Out for delivery. Run it again to deliver.';
     }
   }
 }

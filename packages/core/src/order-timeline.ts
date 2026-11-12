@@ -66,7 +66,7 @@ interface ShipAgg {
 }
 
 const SHIP_COLS = `
-  SELECT count(*) FILTER (WHERE sh.status IN ('SHIPPED', 'DELIVERED'))::int AS shipped,
+  SELECT count(*) FILTER (WHERE sh.status IN ('SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'))::int AS shipped,
          min(sh.shipped_at) AS first_shipped_at,
          max(sh.shipped_at) AS last_shipped_at`;
 
