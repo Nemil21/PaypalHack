@@ -15,7 +15,7 @@ export interface PatchedBid {
 }
 
 /**
- * "Release my hold if it's cheaper elsewhere" (W13 opt-in card, W15 summary). Owner-only
+ * "Watch prices for me" (W13 opt-in card, W15 summary; v4 frame 119:709). Owner-only
  * `PATCH /api/bids/:id {releaseIfCheaper}` with an Idempotency-Key per toggle. Switching it on
  * when a store is already below the bid releases the hold at once (PRICE_DROP); `onChanged` lets
  * the page reload the bid to show that.
@@ -67,12 +67,12 @@ export function ReleaseToggle({
     >
       <div className="flex flex-col gap-1">
         <span id={`ric-${bid.bidId}`} className="text-[15px] font-medium text-ink">
-          Release my hold if it's cheaper elsewhere
+          Watch prices for me
         </span>
         <span className="text-[13px] text-body">
           {on
-            ? `If an authorized store sells it for less than ${formatUsd(bid.amountCents)}, we release your hold and send you there.`
-            : "We won't release this bid for a cheaper store."}
+            ? `Release my hold if a store goes under ${formatUsd(bid.amountCents)}.`
+            : "Off. We won't release this bid for a cheaper store."}
         </span>
         {action.status === 'error' && (
           <span role="alert" className="text-[13px] text-danger">

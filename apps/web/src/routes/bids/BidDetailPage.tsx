@@ -140,6 +140,7 @@ export function BidDetailPage() {
   const w21Context = {
     amountCents: bid.amountCents,
     offerSlug: bid.listing.slug,
+    brandName: bid.listing.brandName ?? null,
     holdReleased: bid.status === 'VOIDED' ? true : bid.status === 'VOIDING' ? false : null,
     priceDrop: headDropped ? priceDrop : null,
   };
@@ -181,6 +182,7 @@ export function BidDetailPage() {
         <PriceDropSheet
           drop={priceDrop}
           offerSlug={bid.listing.slug}
+          brandName={bid.listing.brandName ?? null}
           onClose={() => setSheetOpen(false)}
         />
       )}

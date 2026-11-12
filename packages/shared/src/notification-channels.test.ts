@@ -23,8 +23,8 @@ describe('HF-054b email rendering', () => {
     expect(m.subject).toBe('You won');
     expect(m.text).toContain('You won at your bid of $229. Charged $229.');
     expect(m.html).toContain('You won at your bid of $229. Charged $229.');
-    expect(m.text).toContain(`View bid: ${BASE}/bids/${sample('won').bidId}`);
-    expect(m.html).toContain(`href="${BASE}/bids/${sample('won').bidId}"`);
+    expect(m.text).toContain(`View receipt & tracking: ${BASE}/bids/${sample('won').bidId}/won`);
+    expect(m.html).toContain(`href="${BASE}/bids/${sample('won').bidId}/won"`);
   });
 
   it('every release adds the bank-pending note (D14)', () => {
@@ -59,7 +59,9 @@ describe('HF-054b email rendering', () => {
   });
 
   it('keeps relative links without a base URL', () => {
-    expect(notificationEmail('won', sample('won')).text).toContain('View bid: /bids/');
+    expect(notificationEmail('won', sample('won')).text).toContain(
+      'View receipt & tracking: /bids/',
+    );
   });
 });
 

@@ -26,7 +26,7 @@ describe('notification bell helpers (HF-054a)', () => {
       id: 'n1',
       title: 'You won',
       body: 'You won at your bid of $229. Charged $229.',
-      link: { href: '/bids/b1', label: 'View bid' },
+      link: { href: '/bids/b1/won', label: 'View receipt & tracking' },
       unread: true,
       when: '5 min ago',
       external: false,

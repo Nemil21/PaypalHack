@@ -50,6 +50,8 @@ export interface MyBid {
     slug: string | null;
     status: string;
     title: string | null;
+    /** The selling brand; optional so older payloads and fixtures still type-check. */
+    brandName?: string | null;
     imageUrl: string | null;
     windowClosesAt: string | null;
     roundsEndAt: string | null;
@@ -362,6 +364,11 @@ export function canCancel(status: BidStatus): boolean {
 
 export function canRaise(bid: MyBid): boolean {
   return bid.status === 'HELD' && bid.listing.raisable;
+}
+
+/** v4 My bids "Raise" on OPEN listings (ROUNDS has its own nudge block, `roundsAction`). */
+export function canRaiseOpen(bid: MyBid): boolean {
+  return canRaise(bid) && bid.listing.status === 'OPEN';
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -886,7 +893,9 @@ export interface ErrorCopy {
   replayed?: boolean;
 }
 
-const MY_BIDS: ErrorLink = { label: 'View my bids', href: '/bids' };
+const MY_BIDS: ErrorLink = { label: 'Go to my bids', href: '/bids' };
+/** v4 sign-in role chooser (frame 109:63); buyers pick the email link from there. */
+const SIGN_IN: ErrorLink = { label: 'Sign in', href: '/sign-in' };
 
 export function offerHref(
   slug: string | null | undefined,
@@ -895,6 +904,11 @@ export function offerHref(
   if (!slug) return null;
   const base = `/o/${encodeURIComponent(slug)}`;
   return amountCents ? `${base}?amount=${amountCents}` : base;
+}
+
+/** "Bid lower in Aurel Audio's book" (v4 frame 119:603); plain "Bid lower" without a brand. */
+export function bidLowerLabel(brandName: string | null | undefined): string {
+  return brandName ? `Bid lower in ${brandName}'s book` : 'Bid lower';
 }
 
 export function errorCopy(variant: ErrorVariant, ctx: ErrorContext = {}): ErrorCopy {
@@ -910,9 +924,9 @@ export function errorCopy(variant: ErrorVariant, ctx: ErrorContext = {}): ErrorC
             ? `Window closed, your ${amount} was released. ${BANK_PENDING_NOTE}`
             : ctx.holdReleased === false && amount
               ? `Window closed. ${releasingHoldMessage(ctx.amountCents!)}`
-              : 'Nothing was held. Get notified about the next one from the offer page.',
-        primary: offer ? { label: 'See the offer', href: offer } : MY_BIDS,
-        secondary: offer ? MY_BIDS : undefined,
+              : 'Nothing was held, and nothing was charged.',
+        primary: MY_BIDS,
+        secondary: offer ? { label: 'See the offer', href: offer } : undefined,
       };
     case 'hold_failed':
       return {
@@ -947,7 +961,7 @@ export function errorCopy(variant: ErrorVariant, ctx: ErrorContext = {}): ErrorC
         : null;
       const lower: ErrorLink | null = offer
         ? {
-            label: ctx.brandName ? `Bid lower in ${ctx.brandName}'s book` : 'Bid lower',
+            label: bidLowerLabel(ctx.brandName),
             href: offer,
           }
         : null;
@@ -990,10 +1004,10 @@ export function errorCopy(variant: ErrorVariant, ctx: ErrorContext = {}): ErrorC
     case 'session_expired':
       return {
         variant,
-        title: 'Your session expired.',
-        body: 'Your bids are safe. Reload to start a new session, or sign in to see them.',
-        primary: { label: 'Reload', href: '' },
-        secondary: { label: 'Home', href: '/' },
+        title: 'Session expired.',
+        body: 'Sign in again to see your bids. Your holds are safe.',
+        primary: SIGN_IN,
+        secondary: { label: 'Reload', href: '' },
       };
     case 'generic':
       return {

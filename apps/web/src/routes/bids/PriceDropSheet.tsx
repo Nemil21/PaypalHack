@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AFFILIATE_DISCLOSURE, BANK_PENDING_NOTE, formatUsd } from '@holdfast/shared';
 import { Badge, Button } from '../../components/ui';
-import { offerHref, type PriceDrop } from '../../lib/bids';
+import { bidLowerLabel, offerHref, type PriceDrop } from '../../lib/bids';
 import { ActionLink } from './ErrorState';
 
 /**
@@ -13,10 +13,13 @@ import { ActionLink } from './ErrorState';
 export function PriceDropSheet({
   drop,
   offerSlug,
+  brandName = null,
   onClose,
 }: {
   drop: PriceDrop;
   offerSlug: string | null;
+  /** v4 (frame 119:603): "Bid lower in <Brand>'s book". */
+  brandName?: string | null;
   onClose(): void;
 }) {
   useEffect(() => {
@@ -90,7 +93,9 @@ export function PriceDropSheet({
               }}
             />
           )}
-          {lower && <ActionLink variant="outline" link={{ label: 'Bid lower', href: lower }} />}
+          {lower && (
+            <ActionLink variant="outline" link={{ label: bidLowerLabel(brandName), href: lower }} />
+          )}
           <Button autoFocus variant="ghost" onClick={onClose}>
             Close
           </Button>

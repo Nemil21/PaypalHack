@@ -23,7 +23,8 @@ export function RaiseSheet({
 }: {
   currentCents: number;
   suggestedCents: number;
-  cutoffCents: number;
+  /** The round's cutoff; null on an OPEN listing (no rounds yet, v4 "Raise" on OPEN bids). */
+  cutoffCents: number | null;
   /** Why the agent asked; shown above the numbers when set. */
   agentMessage: string | null;
   pending: boolean;
@@ -40,7 +41,7 @@ export function RaiseSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const wins = amount > cutoffCents;
+  const wins = cutoffCents == null || amount > cutoffCents;
 
   // Portalled to <body>: <main> is its own stacking context and the footer would paint over it.
   return createPortal(
@@ -59,7 +60,9 @@ export function RaiseSheet({
       >
         <span aria-hidden className="mx-auto h-1 w-10 rounded-full bg-line sm:hidden" />
         <h2 id="m07-title" className="text-[20px] font-medium tracking-headline text-ink">
-          Bids around {formatUsd(cutoffCents)} are likely to clear.
+          {cutoffCents != null
+            ? `Bids around ${formatUsd(cutoffCents)} are likely to clear.`
+            : 'Raise your bid'}
         </h2>
         {agentMessage && <p className="text-[14px] text-body">{agentMessage}</p>}
         <dl className="grid grid-cols-2 gap-3">
@@ -97,7 +100,7 @@ export function RaiseSheet({
         </div>
         {!wins && (
           <p className="text-[13px] text-orange">
-            {formatUsd(amount)} may still be below the cutoff of {formatUsd(cutoffCents)}.
+            {formatUsd(amount)} may still be below the cutoff of {formatUsd(cutoffCents!)}.
           </p>
         )}
         <p className="text-[13px] text-body">

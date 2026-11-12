@@ -31,6 +31,8 @@ export interface MyBidListing {
   slug: string | null;
   status: string;
   title: string | null;
+  /** The selling brand ("Bid lower in <Brand>'s book", "Sold by <Brand>"). */
+  brandName: string | null;
   imageUrl: string | null;
   windowClosesAt: string | null;
   roundsEndAt: string | null;
@@ -134,6 +136,7 @@ interface BidViewRow {
   listing_slug: string | null;
   listing_status: string;
   listing_title: string | null;
+  brand_name: string | null;
   listing_image_url: string | null;
   window_closes_at: Date | null;
   rounds_end_at: Date | null;
@@ -164,7 +167,7 @@ const VIEW_SQL = `
          b.placed_at, b.voided_at, b.authorized_at, b.release_if_cheaper, b.raise_count, b.replaces_bid_id,
          succ.id AS replaced_by_bid_id,
          l.id AS listing_id, l.product_id, l.slug AS listing_slug, l.status AS listing_status,
-         p.title AS listing_title, p.image_url AS listing_image_url,
+         p.title AS listing_title, p.image_url AS listing_image_url, br.name AS brand_name,
          l.window_closes_at, l.rounds_end_at, l.round_ends_at, l.cleared_at,
          n.id AS nudge_id, n.round AS nudge_round, n.bid_id AS nudge_bid_id,
          n.cutoff_cents AS nudge_cutoff_cents, n.target_cents AS nudge_target_cents,
@@ -178,6 +181,7 @@ const VIEW_SQL = `
     FROM bids b
     JOIN listings l ON l.id = b.listing_id
     JOIN products p ON p.id = l.product_id
+    JOIN brands br ON br.id = l.brand_id
     LEFT JOIN bids succ ON succ.replaces_bid_id = b.id
     LEFT JOIN nudges n ON l.status = 'ROUNDS' AND n.listing_id = b.listing_id
                       AND n.shopper_id = b.shopper_id AND n.round = l.current_round
@@ -310,6 +314,7 @@ function toMyBid(r: BidViewRow, drop: Record<string, unknown> | undefined = unde
       slug: r.listing_slug,
       status: r.listing_status,
       title: r.listing_title,
+      brandName: r.brand_name,
       imageUrl: r.listing_image_url,
       windowClosesAt: iso(r.window_closes_at),
       roundsEndAt: iso(r.rounds_end_at),
