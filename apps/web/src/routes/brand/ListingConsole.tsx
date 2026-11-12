@@ -1,4 +1,5 @@
 import {
+  Component,
   lazy,
   Suspense,
   useCallback,
@@ -9,7 +10,15 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { Link, NavLink, useNavigate, useParams } from 'react-router';
-import type { BookListing, BrandListingView, ListingPhaseName } from '@holdfast/shared';
+import {
+  feeCents,
+  formatUsd,
+  netCents,
+  type BookListing,
+  type BrandListingView,
+  type ListingPhaseName,
+  type RoundsState,
+} from '@holdfast/shared';
 import {
   createKpiStore,
   KpiTile,
@@ -35,7 +44,12 @@ import {
   withRoundsOverlay,
   type RoundsOverlay,
 } from '../../lib/console/rounds';
-import { createSliderStore, SliderContext, type SliderStore } from '../../lib/console/slider-store';
+import {
+  createSliderStore,
+  SliderContext,
+  useSlider,
+  type SliderStore,
+} from '../../lib/console/slider-store';
 import { useConsoleBook } from '../../lib/console/use-console-book';
 import { useRecommendationProse } from '../../lib/console/use-recommendation-prose';
 import { useRoundsActivity } from '../../lib/console/use-rounds-activity';
@@ -209,6 +223,11 @@ export function ListingConsole() {
   }
 
   const empty = book !== null && book.stats.liveBids === 0 && book.pending.length === 0;
+  const onRoundsChanged = (state?: RoundsState) => {
+    if (state) setRounds({ listingId, overlay: overlayFromState(state) });
+    live.refresh();
+    activity.refresh();
+  };
 
   return (
     <ConsoleFrame listings={listings} current={listingId} currentPhase={phase?.phase}>
@@ -246,11 +265,8 @@ export function ListingConsole() {
               viewer={viewer}
               now={now}
               feed={activity.feed}
-              onChanged={(state) => {
-                if (state) setRounds({ listingId, overlay: overlayFromState(state) });
-                live.refresh();
-                activity.refresh();
-              }}
+              placement="card"
+              onChanged={onRoundsChanged}
             />
           </SliderContext.Provider>
         )}
@@ -270,17 +286,22 @@ export function ListingConsole() {
             aria-disabled={locked || undefined}
             data-testid="console-panels"
           >
-            {book && !empty && phase && (
-              <DemandPanel
-                book={book}
-                slider={slider}
-                locked={locked}
-                phase={phase.phase}
-                viewer={viewer}
-              />
+            {book && !empty && phase && listing && (
+              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <DemandPanel book={book} slider={slider} />
+                <ClearPanel
+                  book={book}
+                  listing={listing}
+                  locked={locked}
+                  phase={phase.phase}
+                  viewer={viewer}
+                  now={now}
+                  onRoundsChanged={onRoundsChanged}
+                />
+              </div>
             )}
-            {book?.recommendation && phase && CLEARABLE.has(phase.phase) && (
-              <AgentPanel book={book} locked={locked} />
+            {book && phase && phase.phase !== 'DRAFT' && (
+              <AgentPanel book={book} locked={locked} clearable={CLEARABLE.has(phase.phase)} />
             )}
             {book && !empty && <BidsPanel book={book} slider={slider} tracker={tracker} />}
           </div>
@@ -411,29 +432,19 @@ function Note({
   );
 }
 
-/**
- * Demand curve and quantity slider (HF-024, features/08 §Layout 3–4). The curve model changes
- * with the book only; the slider and the curve's cutoff marker read the slider store. The Clear
- * button (HF-028) sits under the slider and clears at its committed quantity.
- */
+/** Demand curve (HF-024, features/08 §Layout 3). The cutoff marker reads the slider store. */
 function DemandPanel({
   book,
   slider,
-  locked,
-  phase,
-  viewer,
 }: {
   book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
   slider: SliderStore;
-  locked: boolean;
-  phase: ListingPhaseName;
-  viewer: boolean;
 }) {
   const model = useMemo(() => buildCurveModel(book), [book]);
   return (
     <section
       aria-label="Demand curve"
-      className="flex flex-col gap-4 rounded-md border border-line bg-white p-4"
+      className="flex min-w-0 flex-col gap-4 rounded-md border border-line bg-white p-4"
     >
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="label text-[11px] text-muted">Committed demand</h2>
@@ -448,37 +459,138 @@ function DemandPanel({
           The curve appears with the first held bid.
         </p>
       )}
-      <QuantitySlider disabled={locked} />
-      <ClearAction
-        listingId={book.listing.id}
-        phase={phase}
-        viewer={viewer}
-        recommendation={book.recommendation}
-      />
     </section>
   );
 }
 
 /**
- * Brand agent (HF-051a card + HF-051b): the code recommendation with Claude's prose under it,
- * then "Ask about this book" on AG Studio. Claude down → the card alone, without prose.
+ * v4 Clear panel (frame 112:64): units slider (HF-024), gross · fee · net at the slider, Clear
+ * (HF-028, W07 modal) and "Start live rounds" (HF-037a). Cancel window stays in the header.
+ */
+function ClearPanel({
+  book,
+  listing,
+  locked,
+  phase,
+  viewer,
+  now,
+  onRoundsChanged,
+}: {
+  book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
+  listing: BookListing;
+  locked: boolean;
+  phase: ListingPhaseName;
+  viewer: boolean;
+  now: number;
+  onRoundsChanged(state?: RoundsState): void;
+}) {
+  const s = useSlider();
+  const gross = s.numbers?.grossCents ?? 0;
+  const pct = (book.listing.feeBps / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return (
+    <section
+      aria-label="Clear this window"
+      className="flex flex-col gap-4 rounded-md border border-line bg-white p-4"
+    >
+      <h2 className="label text-[11px] text-muted">Clear this window</h2>
+      <QuantitySlider disabled={locked} />
+      <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-[14px] tabular-nums">
+        <dt className="text-body">Gross</dt>
+        <dd className="text-right text-ink">{formatUsd(gross)}</dd>
+        <dt className="text-body">Holdfast fee ({pct}%)</dt>
+        <dd className="text-right text-ink">−{formatUsd(feeCents(gross, book.listing.feeBps))}</dd>
+        <dt className="font-medium text-ink">Net to you</dt>
+        <dd className="text-right text-[18px] font-medium text-ink">
+          {formatUsd(netCents(gross, book.listing.feeBps))}
+        </dd>
+      </dl>
+      <div className="flex flex-col gap-2">
+        <ClearAction
+          listingId={book.listing.id}
+          phase={phase}
+          viewer={viewer}
+          recommendation={book.recommendation}
+          layout="panel"
+        />
+        <RoundsPanel
+          listingId={book.listing.id}
+          listing={listing}
+          phase={phase}
+          viewer={viewer}
+          now={now}
+          placement="clear-panel"
+          onChanged={onRoundsChanged}
+        />
+      </div>
+      <p className="text-[13px] text-body">
+        Each winner pays their own bid. Everyone below the cutoff is released.
+      </p>
+    </section>
+  );
+}
+
+/**
+ * Brand agent (HF-051a card + HF-051b), always shown once the window is published (v4 §2.2): the
+ * code recommendation with Claude's prose, then "Ask about this book" on AG Studio. No
+ * recommendation yet, or AG Studio failed → a paused note; Clear never depends on it.
  */
 function AgentPanel({
   book,
   locked,
+  clearable,
 }: {
   book: NonNullable<ReturnType<typeof useConsoleBook>['book']>;
   locked: boolean;
+  clearable: boolean;
 }) {
   const prose = useRecommendationProse(book.listing.id, book.recommendation);
+  const paused = (
+    <section
+      aria-label="Brand agent"
+      className="flex flex-col gap-1 rounded-md border border-line bg-white p-4"
+      data-testid="brand-agent-paused"
+    >
+      <h2 className="label text-[11px] text-muted">Brand agent</h2>
+      <p className="text-[14px] text-body">
+        {clearable
+          ? 'Recommendations paused. You can still clear.'
+          : 'Recommendations stop once the window closes.'}
+      </p>
+    </section>
+  );
   return (
     <>
-      <RecommendationCard recommendation={book.recommendation!} disabled={locked} prose={prose} />
-      <Suspense fallback={<Skeleton className="h-[120px] w-full" />}>
-        <BrandAgentStudio key={book.listing.id} book={book} />
-      </Suspense>
+      {book.recommendation && clearable ? (
+        <RecommendationCard recommendation={book.recommendation} disabled={locked} prose={prose} />
+      ) : (
+        paused
+      )}
+      {clearable && (
+        <StudioBoundary fallback={book.recommendation ? paused : null}>
+          <Suspense fallback={<Skeleton className="h-[120px] w-full" />}>
+            <BrandAgentStudio key={book.listing.id} book={book} />
+          </Suspense>
+        </StudioBoundary>
+      )}
     </>
   );
+}
+
+/** AG Studio failing to load or render must never take the console (and Clear) down with it. */
+class StudioBoundary extends Component<
+  { fallback: React.ReactNode; children: React.ReactNode },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  override componentDidCatch(err: unknown) {
+    console.error('brand agent: AG Studio failed', err);
+  }
+  override render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
 }
 
 /** Bids grid (HF-025, features/08 §Layout 5): every live bid, anonymized, with SIM chips. */

@@ -86,10 +86,11 @@ test('OWNER runs rounds; VIEWER watches without controls', async ({ page, browse
   await page.goto(`/brand/listings/${listing.id}`);
 
   const panel = page.getByTestId('rounds-panel');
+  // v4: "Start live rounds" sits in the Clear panel; the target (from the slider) is in its dialog.
+  await page.getByRole('button', { name: 'Start live rounds' }).click({ timeout: 15_000 });
   // Target prefilled from the slider (listing quantity 4, 6 bids).
-  await expect(panel.getByTestId('rounds-target-input')).toHaveValue('4', { timeout: 15_000 });
-  await panel.getByTestId('rounds-target-input').fill('3');
-  await panel.getByRole('button', { name: 'Start live rounds' }).click();
+  await expect(page.getByTestId('rounds-target-input')).toHaveValue('4');
+  await page.getByTestId('rounds-target-input').fill('3');
   await expect(page.getByTestId('rounds-start-copy')).toHaveText(
     /^Starting rounds closes bidding to new bids\. Rounds end by .+\. Clear by .+\.$/,
   );

@@ -56,6 +56,7 @@ export function RoundsPanel({
   viewer,
   now,
   feed = EMPTY_FEED,
+  placement = 'card',
   onChanged,
 }: {
   listingId: string;
@@ -66,11 +67,28 @@ export function RoundsPanel({
   now: number;
   /** Raises feed (HF-037b, `useRoundsActivity`). */
   feed?: Feed;
+  /**
+   * v4 console (frame 112:64): `clear-panel` is only the "Start live rounds" button inside the Clear
+   * panel; `card` is the running / ended rounds card. `all` keeps both in one card.
+   */
+  placement?: 'all' | 'clear-panel' | 'card';
   /** A rounds call landed (its state) or failed (no state; the view may be stale): re-read the book. */
   onChanged(state?: RoundsState): void;
 }) {
   const mode = roundsPanelMode(phase, listing, viewer);
   if (mode === 'hidden') return null;
+  if (placement === 'clear-panel') {
+    return mode === 'start' ? (
+      <StartRounds
+        listingId={listingId}
+        listing={listing}
+        now={now}
+        onChanged={onChanged}
+        compact
+      />
+    ) : null;
+  }
+  if (placement === 'card' && mode === 'start') return null;
   return (
     <section
       aria-label="Live rounds"
@@ -99,11 +117,14 @@ function StartRounds({
   listing,
   now,
   onChanged,
+  compact = false,
 }: {
   listingId: string;
   listing: RoundsListing;
   now: number;
   onChanged(state?: RoundsState): void;
+  /** Just the button, for the Clear panel; the target (from the slider) is set in the dialog. */
+  compact?: boolean;
 }) {
   const slider = useSlider();
   const setSliderQuantity = useSetSliderQuantity();
@@ -117,7 +138,7 @@ function StartRounds({
   const preview = startPreview(listing, now);
 
   const open = () => {
-    if (!target.ok || !preview.possible) return;
+    if ((!compact && !target.ok) || !preview.possible) return;
     start.reset();
     dialog.current?.showModal();
   };
@@ -134,6 +155,69 @@ function StartRounds({
     }
     onChanged(state);
   };
+
+  const dialogEl = (
+    <dialog ref={dialog} aria-labelledby={`${inputId}-title`} className={DIALOG}>
+      <div className="flex flex-col gap-4 p-6">
+        <h2 id={`${inputId}-title`} className="text-[20px] font-medium tracking-headline text-ink">
+          Start live rounds for {target.ok ? target.value.toLocaleString('en-US') : '…'} units?
+        </h2>
+        {compact && (
+          <label className="flex flex-col gap-1 text-[13px] text-body">
+            Target quantity
+            <input
+              inputMode="numeric"
+              value={raw}
+              onChange={(e) => setTyped(e.target.value)}
+              aria-invalid={!target.ok || undefined}
+              className="h-10 w-32 rounded-sm border border-border px-3 font-mono text-[14px] text-ink tabular-nums"
+              data-testid="rounds-target-input"
+            />
+            {!target.ok && <span className="text-danger">{target.message}</span>}
+          </label>
+        )}
+        <p className="text-[15px] leading-[22px] text-body" data-testid="rounds-start-copy">
+          {startConfirmCopy(preview)}
+        </p>
+        {start.status === 'error' && <ErrorBanner message={start.error.message} />}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => dialog.current?.close()}>
+            Not yet
+          </Button>
+          <Button
+            variant="primary"
+            onClick={confirm}
+            disabled={start.status === 'pending' || !target.ok}
+          >
+            {start.status === 'pending' ? 'Starting…' : 'Start rounds'}
+          </Button>
+        </div>
+      </div>
+    </dialog>
+  );
+
+  if (compact) {
+    return (
+      <>
+        <Button
+          variant="outline"
+          size="lg"
+          block
+          onClick={open}
+          disabled={!preview.possible}
+          title={
+            preview.possible
+              ? 'Give bidders under the cutoff a few short rounds to raise.'
+              : 'It is too late to start live rounds.'
+          }
+          data-testid="rounds-start-button"
+        >
+          Start live rounds
+        </Button>
+        {dialogEl}
+      </>
+    );
+  }
 
   return (
     <>
@@ -172,28 +256,7 @@ function StartRounds({
           It is too late to start live rounds on this listing.
         </p>
       )}
-      <dialog ref={dialog} aria-labelledby={`${inputId}-title`} className={DIALOG}>
-        <div className="flex flex-col gap-4 p-6">
-          <h2
-            id={`${inputId}-title`}
-            className="text-[20px] font-medium tracking-headline text-ink"
-          >
-            Start live rounds for {target.ok ? target.value.toLocaleString('en-US') : '…'} units?
-          </h2>
-          <p className="text-[15px] leading-[22px] text-body" data-testid="rounds-start-copy">
-            {startConfirmCopy(preview)}
-          </p>
-          {start.status === 'error' && <ErrorBanner message={start.error.message} />}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => dialog.current?.close()}>
-              Not yet
-            </Button>
-            <Button variant="primary" onClick={confirm} disabled={start.status === 'pending'}>
-              {start.status === 'pending' ? 'Starting…' : 'Start rounds'}
-            </Button>
-          </div>
-        </div>
-      </dialog>
+      {dialogEl}
     </>
   );
 }
