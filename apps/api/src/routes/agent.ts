@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   confirmAction,
+  declineAction,
   findConversation,
   loadAgentMessages,
   openConversation,
@@ -121,6 +122,27 @@ export function registerAgentRoutes(app: FastifyInstance, deps: AgentRoutesDeps)
           reply.header('agent-action-id', outcome.action.id);
           if (outcome.replayed) reply.header('idempotent-replayed', 'true');
           return reply.code(outcome.result.status).send(outcome.result.body);
+      }
+    },
+  );
+
+  // W16 Decline (v4): persisted, so the card stays declined after a reload.
+  app.post(
+    '/api/agent/actions/:id/decline',
+    { onRequest: app.guards.requireShopper },
+    async (req) => {
+      const { id } = req.params as { id: string };
+      const outcome = await declineAction(db.pool, req.auth.shopper!.id, id);
+      switch (outcome.kind) {
+        case 'not_found':
+          throw new ApiError('NOT_FOUND', 'Action not found.');
+        case 'already':
+          throw stateConflict(
+            `ACTION_${outcome.status}`,
+            'This proposal was already handled and can no longer be declined.',
+          );
+        case 'declined':
+          return { status: 'REJECTED', replayed: outcome.replayed };
       }
     },
   );

@@ -11,10 +11,23 @@ const clientLogo: Record<AgentClient, (p: { className?: string }) => ReactNode> 
 };
 
 /** Claude Code / Codex / OpenCode tabs with a COPY button; the snippet crossfades (120 ms). */
-export function AgentCodeCard({ className }: { className?: string }) {
+export function AgentCodeCard({
+  className,
+  token = null,
+  footer,
+}: {
+  className?: string;
+  /** A just-created token fills the snippets (W19); otherwise the hf_mcp_… placeholder. */
+  token?: string | null;
+  /** Extra line under the snippet, e.g. W19's "Then try: …". */
+  footer?: ReactNode;
+}) {
   const [client, setClient] = useState<AgentClient>('claude');
   const [copied, setCopied] = useState(false);
-  const snippets = agentSnippets(typeof window === 'undefined' ? '' : window.location.origin);
+  const snippets = agentSnippets(
+    typeof window === 'undefined' ? '' : window.location.origin,
+    token,
+  );
   const s = snippets[client];
   useEffect(() => setCopied(false), [client]);
   const copy = async () => {
@@ -73,6 +86,7 @@ export function AgentCodeCard({ className }: { className?: string }) {
         <pre className="mt-3 overflow-x-auto font-mono text-[12px] leading-[20px] text-ink sm:text-[13px]">
           <code>{s.code}</code>
         </pre>
+        {footer && <p className="mt-4 text-[14px] leading-[21px] text-body">{footer}</p>}
         <p aria-live="polite" className="mt-4 min-h-[26px]">
           {copied && (
             <span className="inline-flex items-center gap-2 rounded-[2px] bg-orange-key px-2.5 py-1 font-mono text-[12px] text-ink">

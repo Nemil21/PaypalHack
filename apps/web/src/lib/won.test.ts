@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { wonMessage } from '@holdfast/shared';
 import {
+  trackerDetail,
   hasWonPage,
   NOT_SHIPPED_COPY,
   receiptLines,
@@ -128,5 +129,15 @@ describe('hasWonPage', () => {
     expect(['HELD', 'LOST', 'VOIDED', 'CAPTURE_FAILED'].some((s) => hasWonPage(s as never))).toBe(
       false,
     );
+  });
+});
+
+describe('v4 tracker details', () => {
+  it('names the brand on the first step', () => {
+    expect(trackerDetail('ORDERED', 'Aurel Audio')).toBe(
+      'Aurel Audio adds tracking after clearing',
+    );
+    expect(trackerDetail('ORDERED', null)).toBe('The brand adds tracking after clearing');
+    expect(trackerDetail('SHIPPED', null)).toBe('Tracking accepted by PayPal');
   });
 });

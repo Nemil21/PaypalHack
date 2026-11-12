@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardEyebrow,
+  productInitials,
   activeConfirmId,
   cardTitle,
   cardWhere,
@@ -334,6 +336,24 @@ describe('history rebuild', () => {
     expect(s.phase).toBe('idle');
   });
 
+  it('v4: a server decline note keeps the card declined after a reload', () => {
+    const s = threadFromHistory(FIXTURE_CONVERSATION_ID, [
+      ...messages,
+      {
+        seq: 6,
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `[Holdfast server] The shopper declined action ${FIXTURE_ACTION_ID} (place_bid). Nothing was held or changed.`,
+          },
+        ],
+      },
+    ]);
+    expect(confirmItem(s).state).toEqual({ status: 'declined' });
+    expect(s.items.filter((i) => i.kind === 'user')).toHaveLength(1);
+  });
+
   it('a server confirm note with an error body rebuilds as failed, not done', () => {
     const body = { error: { code: 'WINDOW_CLOSED', message: 'This book is not taking bids.' } };
     const s = threadFromHistory(FIXTURE_CONVERSATION_ID, [
@@ -408,5 +428,17 @@ describe('HF-052 intent and move cards', () => {
       'That move didn’t go through: Couldn’t move.',
     );
     expect(resultLabel('my_intents', true, { intents: [{}] })).toBe('Checked 1 intent');
+  });
+});
+
+describe('v4 chat restyle (frame 120:687)', () => {
+  it('the confirm eyebrow names the action', () => {
+    expect(cardEyebrow({ tool: 'place_bid' })).toBe('Confirm · place a held bid');
+    expect(cardEyebrow({ tool: 'cancel_bid' })).toBe('Confirm · cancel and release');
+  });
+
+  it('a product tile shows the model token, else initials', () => {
+    expect(productInitials('Aurel A7 Wireless — Midnight')).toBe('A7');
+    expect(productInitials('Kestrel Trail Runner')).toBe('KT');
   });
 });

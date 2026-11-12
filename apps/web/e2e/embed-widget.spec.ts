@@ -164,7 +164,7 @@ test('W10: link with source, QR, snippet, mock preview and stats by source', asy
   await expect.poll(async () => (await clicks(slug)).length).toBe(1);
 
   await page.goto('/brand/embed');
-  await expect(page.getByRole('heading', { name: 'Embed & share' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bring bidders in.' })).toBeVisible();
   await page.getByLabel('Listing').selectOption({ label: `Embed E2E ${slug} · open` });
   await expect(page.getByLabel('Share link')).toHaveValue(
     new RegExp(`/o/${slug}\\?utm_source=email$`),

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { AgentCodeCard } from '../components/marketing/AgentCodeCard';
 import { Accent, column, MarketingPage } from '../components/marketing/MarketingPage';
 import { cn } from '../lib/cn';
@@ -9,6 +9,7 @@ import {
   docsReference,
   docsSections,
   docsSteps,
+  scrollToHash,
   type DocsSection,
 } from '../lib/docs';
 import { paths } from '../lib/routes';
@@ -20,6 +21,14 @@ import { paths } from '../lib/routes';
  */
 export function DocsPage() {
   const active = useActiveDoc();
+  // Deep links from the app (`/docs#mcp-tools`) land on their section; React Router won't.
+  const { hash } = useLocation();
+  useEffect(() => {
+    scrollToHash(hash, {
+      getElementById: (id) => document.getElementById(id),
+      scrollTo: (x, y) => window.scrollTo(x, y),
+    });
+  }, [hash]);
   return (
     <MarketingPage current="docs">
       <main

@@ -11,6 +11,7 @@ export function PriceInput({
   onChange,
   range,
   hint,
+  band = null,
   label = 'Your price',
   disabled,
 }: {
@@ -18,6 +19,8 @@ export function PriceInput({
   onChange(cents: number): void;
   range: { min: number; max: number };
   hint?: string | null;
+  /** The likely-clearing band drawn on the slider track (W12), in percent. */
+  band?: { left: number; width: number } | null;
   label?: string;
   disabled?: boolean;
 }) {
@@ -84,17 +87,27 @@ export function PriceInput({
           +
         </button>
       </div>
-      <input
-        type="range"
-        aria-label={`${label} slider`}
-        min={range.min}
-        max={range.max}
-        step={100}
-        value={Math.min(range.max, Math.max(range.min, amount))}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-orange"
-      />
+      <div className="relative">
+        {band && (
+          <span
+            aria-hidden
+            data-testid="likely-band"
+            className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2 rounded-full bg-orange-tint"
+            style={{ left: `${band.left}%`, width: `${band.width}%` }}
+          />
+        )}
+        <input
+          type="range"
+          aria-label={`${label} slider`}
+          min={range.min}
+          max={range.max}
+          step={100}
+          value={Math.min(range.max, Math.max(range.min, amount))}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="relative w-full accent-orange"
+        />
+      </div>
       <div className="flex justify-between font-mono text-[12px] text-muted">
         <span>{formatUsd(range.min)}</span>
         <span>{formatUsd(range.max)}</span>

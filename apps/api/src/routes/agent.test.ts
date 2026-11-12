@@ -354,6 +354,42 @@ describe.skipIf(!TEST_DATABASE_URL)('buyer agent (HF-039)', () => {
     expect(last[0].text).toContain('"status":"HELD"');
   });
 
+  it('v4 decline is stored: REJECTED, a server note, repeat is a no-op, confirm then refuses', async () => {
+    await aurelListing();
+    const s = await vaultedShopper();
+    policy = happyPath();
+    const first = await chat(s, 'Aurel headphones under $230');
+    const card = first.events.find((e) => e.type === 'confirm_required')!;
+    const decline = (shopperId: string) =>
+      app.inject({
+        method: 'POST',
+        url: `/api/agent/actions/${card.actionId as string}/decline`,
+        headers: { cookie: session(shopperId), 'idempotency-key': randomUUID() },
+      });
+
+    const other = await vaultedShopper();
+    expect((await decline(other)).statusCode).toBe(404);
+
+    const res = await decline(s);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'REJECTED', replayed: false });
+    expect((await decline(s)).json()).toEqual({ status: 'REJECTED', replayed: true });
+    const action = (await q(`SELECT * FROM agent_pending_actions WHERE id = $1`, [card.actionId]))
+      .rows[0];
+    expect(action.status).toBe('REJECTED');
+    const notes = (
+      await q(`SELECT content FROM agent_messages WHERE conversation_id = $1 ORDER BY seq`, [
+        first.conversationId,
+      ])
+    ).rows.filter((r) => /shopper declined action/.test(JSON.stringify(r.content)));
+    expect(notes).toHaveLength(1);
+
+    const refused = await confirm(s, card.actionId as string);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.reason).toBe('ACTION_REJECTED');
+    expect(await bidsOf(s)).toHaveLength(0);
+  });
+
   it('race: two tabs confirm the same action at once → one hold, the same bid', async () => {
     await aurelListing();
     const s = await vaultedShopper();

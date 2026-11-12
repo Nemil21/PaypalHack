@@ -30,10 +30,12 @@ export {
   actionIdFor,
   confirmAction,
   createPendingAction,
+  declineAction,
   findAction as findAgentAction,
   type ActionResult,
   type ConfirmDeps,
   type ConfirmOutcome,
+  type DeclineOutcome,
   type PendingActionRow,
 } from './pending.js';
 export {

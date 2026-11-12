@@ -4,6 +4,7 @@ import { formatUsd } from '@holdfast/shared';
 import { Badge, Button, ButtonLink, Skeleton } from '../../components/ui';
 import {
   activeConfirmId,
+  productInitials,
   SUGGESTED_PROMPTS,
   type ProductCardView,
   type ThreadItem,
@@ -11,7 +12,6 @@ import {
 } from '../../lib/agent-chat';
 import { api } from '../../lib/api';
 import { clientConfig } from '../../lib/client-config';
-import { cn } from '../../lib/cn';
 import { DEMO_OFFER_SLUG, paths } from '../../lib/routes';
 import { useAgentChat } from '../../lib/use-agent-chat';
 import { useApiAction } from '../../lib/use-api-action';
@@ -96,6 +96,13 @@ export function AgentChatPage() {
             onSend={(t) => void chat.send(t)}
           />
         )}
+        {!signedOut && items.length > 0 && (
+          <PromptPills
+            prompts={FOLLOW_UP_PROMPTS}
+            disabled={phase === 'thinking'}
+            onPick={(p) => void chat.send(p)}
+          />
+        )}
       </section>
 
       <div className="hidden lg:block">
@@ -140,13 +147,13 @@ function Item({
   switch (item.kind) {
     case 'user':
       return (
-        <p className="max-w-[85%] self-end rounded-md bg-charcoal px-4 py-2.5 text-[15px] leading-[22px] text-white">
+        <p className="max-w-[85%] self-end rounded-md bg-ink px-4 py-2.5 text-[15px] leading-[22px] text-white">
           {item.text}
         </p>
       );
     case 'text':
       return (
-        <p className="max-w-[92%] text-[16px] leading-[25px] whitespace-pre-line text-ink">
+        <p className="max-w-[92%] self-start rounded-md bg-surface px-4 py-3 text-[15px] leading-[23px] whitespace-pre-line text-ink">
           {item.text}
         </p>
       );
@@ -191,11 +198,14 @@ function chipIcon(c: ToolChip) {
   if (c.status === 'running') {
     return <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-orange" />;
   }
-  return (
-    <span
-      aria-hidden
-      className={cn('h-1.5 w-1.5 rounded-full', c.status === 'ok' ? 'bg-success' : 'bg-danger')}
-    />
+  return c.status === 'ok' ? (
+    <span aria-hidden className="text-success">
+      ✓
+    </span>
+  ) : (
+    <span aria-hidden className="text-danger">
+      ×
+    </span>
   );
 }
 
@@ -207,7 +217,7 @@ function ToolChips({ chips }: { chips: ToolChip[] }) {
       {chips.map((c) => (
         <li
           key={c.id}
-          className="inline-flex items-center gap-2 rounded-sm border border-line bg-white px-2.5 py-1 font-mono text-[12px] text-body"
+          className="inline-flex items-center gap-1.5 rounded-sm border border-line bg-surface px-2.5 py-1 font-mono text-[12px] text-body"
         >
           {chipIcon(c)}
           {c.label}
@@ -219,7 +229,7 @@ function ToolChips({ chips }: { chips: ToolChip[] }) {
     <div data-testid="tool-chips">
       <div className="hidden sm:block">{list}</div>
       <details className="group sm:hidden">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-2 rounded-sm border border-line bg-white px-2.5 py-1 font-mono text-[12px] text-body">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-sm border border-line bg-surface px-2.5 py-1 font-mono text-[12px] text-body">
           {chipIcon(chips[chips.length - 1]!)}
           {running ? chips[chips.length - 1]!.label : chips[0]!.label}
           {chips.length > 1 && <span className="text-muted">+{chips.length - 1}</span>}
@@ -232,16 +242,23 @@ function ToolChips({ chips }: { chips: ToolChip[] }) {
 
 function ProductCard({ product: p }: { product: ProductCardView }) {
   return (
-    <div className="flex h-full gap-3 rounded-md border border-line bg-white p-3">
-      {p.imageUrl && (
+    <div className="flex h-full gap-4 rounded-md border border-line bg-white p-4">
+      {p.imageUrl ? (
         <img
           src={p.imageUrl}
           alt=""
           className="h-14 w-14 shrink-0 rounded-sm border border-line object-contain"
         />
+      ) : (
+        <span
+          aria-hidden
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-sm bg-ink font-mono text-[13px] text-white"
+        >
+          {productInitials(p.title)}
+        </span>
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <p className="text-[14px] leading-[20px] text-ink">{p.title}</p>
+        <p className="text-[15px] leading-[21px] text-ink">{p.title}</p>
         {p.brand && <p className="text-[12px] text-muted">{p.brand}</p>}
         <dl className="grid grid-cols-2 gap-2 pt-1">
           <div>
@@ -306,7 +323,7 @@ function EmptyChat({ onPick }: { onPick(prompt: string): void }) {
             <button
               type="button"
               onClick={() => onPick(p)}
-              className="w-full rounded-sm border border-border bg-white px-3 py-2 text-left text-[14px] text-charcoal hover:bg-surface sm:w-auto"
+              className="w-full rounded-sm border border-line bg-white px-3 py-2 text-left text-[14px] text-charcoal hover:bg-surface sm:w-auto sm:rounded-full sm:py-1.5"
             >
               {p}
             </button>
@@ -314,6 +331,36 @@ function EmptyChat({ onPick }: { onPick(prompt: string): void }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Follow-ups under the composer once a chat is going (frame 120:687). */
+const FOLLOW_UP_PROMPTS = ['Track my live bids', 'Is my bid likely to clear?'] as const;
+
+function PromptPills({
+  prompts,
+  disabled,
+  onPick,
+}: {
+  prompts: readonly string[];
+  disabled: boolean;
+  onPick(prompt: string): void;
+}) {
+  return (
+    <ul className="hidden flex-wrap gap-2 pt-3 sm:flex" aria-label="Follow-up prompts">
+      {prompts.map((p) => (
+        <li key={p}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(p)}
+            className="rounded-full border border-line bg-white px-3 py-1.5 text-[13px] text-charcoal hover:bg-surface disabled:opacity-50"
+          >
+            {p}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -331,7 +378,7 @@ function Composer({ disabled, onSend }: { disabled: boolean; onSend(text: string
   return (
     <form
       onSubmit={submit}
-      className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-end gap-2 border-t border-line bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-md sm:border sm:px-3"
+      className="sticky bottom-0 z-20 -mx-4 mt-4 flex items-end gap-2 border-t border-line bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-md sm:border sm:border-ink sm:px-3 sm:py-2"
     >
       <label htmlFor="agent-input" className="sr-only">
         Message your agent
@@ -343,11 +390,11 @@ function Composer({ disabled, onSend }: { disabled: boolean; onSend(text: string
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKey}
-        placeholder="Aurel headphones under $230"
+        placeholder="Ask your agent…"
         className="max-h-32 min-h-10 flex-1 resize-none rounded-sm px-2 py-2 text-[16px] text-ink focus:outline-none"
       />
-      <Button type="submit" size="lg" disabled={disabled || !text.trim()}>
-        {disabled ? '…' : 'Send'}
+      <Button type="submit" variant="secondary" disabled={disabled || !text.trim()}>
+        {disabled ? '…' : 'Send ↵'}
       </Button>
     </form>
   );

@@ -124,8 +124,9 @@ export function offerUrl(slug: string): string {
 }
 
 /**
- * Share offer link (W06): reads `GET /api/listings/:id/share` for the live slug and how shared links
- * are doing, copies the link and says so. The share read failing never blocks the copy.
+ * Share offer link (W06): copies the link inside the click (Safari only allows clipboard writes in
+ * the user-gesture task, so nothing is awaited before it), then reads `GET /api/listings/:id/share`
+ * for how shared links are doing and adds it to the toast. The read failing never blocks the copy.
  */
 export function ShareButton({
   listingId,
@@ -138,25 +139,31 @@ export function ShareButton({
 }) {
   const toast = useToast();
   if (!slug) return null;
-  const copy = async () => {
-    const stats = await api
+  const copy = () => {
+    const url = offerUrl(slug);
+    // `clipboard` is missing outside secure contexts: fall back to showing the link.
+    const copied = (navigator.clipboard?.writeText(url) ?? Promise.reject(new Error())).then(
+      () => true,
+      () => false,
+    );
+    const stats = api
       .request<ShareStats>({
         method: 'GET',
         path: `/api/listings/${encodeURIComponent(listingId)}/share`,
       })
       .catch(() => null);
-    const url = offerUrl(stats?.slug ?? slug);
-    const summary = stats ? shareSummary(stats) : null;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.show({
-        title: 'Offer link copied',
-        body: summary ? `${url} · ${summary}` : url,
-        tone: 'success',
-      });
-    } catch {
-      toast.show({ title: 'Copy this offer link', body: url, duration: 0 });
-    }
+    void Promise.all([copied, stats]).then(([ok, s]) => {
+      const summary = s ? shareSummary(s) : null;
+      if (ok) {
+        toast.show({
+          title: 'Offer link copied',
+          body: summary ? `${url} · ${summary}` : url,
+          tone: 'success',
+        });
+      } else {
+        toast.show({ title: 'Copy this offer link', body: url, duration: 0 });
+      }
+    });
   };
   return (
     <Button variant={variant} onClick={copy}>

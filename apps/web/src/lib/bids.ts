@@ -184,6 +184,43 @@ export function bidsInTab(bids: readonly MyBid[], tab: BidTab): MyBid[] {
   return chainHeads(bids).filter((b) => tabFor(b.status) === tab);
 }
 
+/**
+ * v4 My bids eyebrow and right rail (frame 114:145): what PayPal is holding right now. Only
+ * HELD money counts (a PENDING_APPROVAL bid holds nothing yet; a WON one is being charged).
+ */
+export function heldSummary(bids: readonly MyBid[]): { cents: number; count: number } {
+  const held = chainHeads(bids).filter((b) => b.status === 'HELD');
+  return { cents: held.reduce((sum, b) => sum + b.amountCents, 0), count: held.length };
+}
+
+/** "N live bids · nothing charged" under the held total. */
+export function heldCaption(count: number): string {
+  if (count === 0) return 'No live holds · nothing charged';
+  return `Across ${count} live ${count === 1 ? 'bid' : 'bids'} · nothing charged`;
+}
+
+/** The latest win with a won page (W18), for the rail's "Recently won" card. */
+export function recentlyWon(bids: readonly MyBid[]): MyBid | null {
+  const won = chainHeads(bids).filter(
+    (b) => b.status === 'WON' || b.status === 'CAPTURED' || b.status === 'SHIPPED',
+  );
+  won.sort((a, b) => b.placedAt.localeCompare(a.placedAt));
+  return won[0] ?? null;
+}
+
+/** "Paid $349 · shipped, tracking added" under a recent win. */
+export function wonCaption(bid: Pick<MyBid, 'status' | 'amountCents'>): string {
+  const amount = formatUsd(bid.amountCents);
+  switch (bid.status) {
+    case 'WON':
+      return `Won at ${amount} · charging`;
+    case 'SHIPPED':
+      return `Paid ${amount} · shipped, tracking added`;
+    default:
+      return `Paid ${amount} · waiting to ship`;
+  }
+}
+
 export function statusPill(status: BidStatus): { label: string; tone: BadgeTone } {
   switch (status) {
     case 'PENDING_APPROVAL':

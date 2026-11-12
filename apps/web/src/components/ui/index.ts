@@ -4,4 +4,5 @@ export { EmptyState } from './EmptyState';
 export { ErrorBanner } from './ErrorBanner';
 export { MoneySkeleton, Skeleton } from './Skeleton';
 export { StatTile } from './StatTile';
+export { StepBar } from './StepBar';
 export { ToastProvider, useToast, type ToastInput, type ToastTone } from './Toast';

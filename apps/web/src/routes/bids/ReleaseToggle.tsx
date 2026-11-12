@@ -24,10 +24,13 @@ export function ReleaseToggle({
   bid,
   onChanged,
   className,
+  bare = false,
 }: {
   bid: Pick<MyBid, 'bidId' | 'status' | 'amountCents' | 'releaseIfCheaper'>;
   onChanged(res: PatchedBid): void;
   className?: string;
+  /** A row inside a parent card (v4 W13), without its own border and padding. */
+  bare?: boolean;
 }) {
   const toast = useToast();
   const action = useApiAction<PatchedBid>();
@@ -61,7 +64,8 @@ export function ReleaseToggle({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 rounded-md border border-line bg-white p-4',
+        'flex items-start justify-between gap-4',
+        !bare && 'rounded-md border border-line bg-white p-4',
         className,
       )}
     >

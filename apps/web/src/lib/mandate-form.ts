@@ -187,3 +187,75 @@ export function capUsage(liveHoldCents: number, capCents: number) {
     roomCents: Math.max(0, capCents - liveHoldCents),
   };
 }
+
+function shortDate(iso: string, timeZone?: string): string {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone });
+}
+
+/**
+ * Mandates have no name field, so the v4 list (frame 120:784) names one from its limits:
+ * "Aurel A7 under $250", "2 products under $250", "Anything under $250".
+ */
+export function mandateName(m: Pick<MandateView, 'maxPriceCents' | 'products'>): string {
+  const under = `under ${formatUsd(m.maxPriceCents)}`;
+  if (m.products.length === 0) return `Anything ${under}`;
+  if (m.products.length > 1) return `${m.products.length} products ${under}`;
+  return `${m.products[0]!.title ?? 'One product'} ${under}`;
+}
+
+/** List caption: "Cap $600 · expires Dec 1", "Cap $400 · paused Nov 8", "Cap $600 · revoked". */
+export function mandateCaption(
+  m: Pick<MandateView, 'totalHoldCapCents' | 'state' | 'expiresAt' | 'pausedAt'>,
+  timeZone?: string,
+): string {
+  const cap = `Cap ${formatUsd(m.totalHoldCapCents)}`;
+  switch (m.state) {
+    case 'paused':
+      return m.pausedAt ? `${cap} · paused ${shortDate(m.pausedAt, timeZone)}` : `${cap} · paused`;
+    case 'expired':
+      return m.expiresAt ? `${cap} · ended ${shortDate(m.expiresAt, timeZone)}` : `${cap} · ended`;
+    case 'fulfilled':
+      return `${cap} · item bought`;
+    case 'revoked':
+      return `${cap} · revoked`;
+    default:
+      return m.expiresAt ? `${cap} · expires ${shortDate(m.expiresAt, timeZone)}` : cap;
+  }
+}
+
+/**
+ * W17 payment-method row. A method is saved by the shopper's next PayPal or card hold, so
+ * "Update →" opens a live offer for one of the mandate's products (else any live product).
+ * No live listing: no action rather than a dead link.
+ */
+export function paymentMethodRow(
+  saved: boolean,
+  products: ReadonlyArray<{ listingSlug: string | null }>,
+  options: ReadonlyArray<{ listingSlug: string | null }>,
+): { detail: string; action: { label: string; slug: string } | null } {
+  const slug =
+    products.find((p) => p.listingSlug)?.listingSlug ??
+    options.find((p) => p.listingSlug)?.listingSlug ??
+    null;
+  return {
+    detail: saved
+      ? 'Saved for agent holds'
+      : 'None saved. Your agent asks before each hold until your next PayPal or card hold saves one.',
+    action: slug ? { label: saved ? 'Update' : 'Add one', slug } : null,
+  };
+}
+
+/**
+ * Which mandate the editor shows. `/mandates/:id` → that one; `/mandates/new` → none. On bare
+ * `/mandates` the editor keeps the mandate it last acted on (`pinnedId`), so pausing or revoking
+ * the default pick doesn't jump to another; otherwise the first active one, else the first.
+ */
+export function pickMandate<M extends Pick<MandateView, 'mandateId' | 'state'>>(
+  mandates: readonly M[],
+  route: { creating: boolean; mandateId?: string | undefined; pinnedId?: string | null },
+): M | undefined {
+  if (route.creating) return undefined;
+  if (route.mandateId) return mandates.find((m) => m.mandateId === route.mandateId);
+  const pinned = route.pinnedId && mandates.find((m) => m.mandateId === route.pinnedId);
+  return pinned || (mandates.find((m) => m.state === 'active') ?? mandates[0]);
+}

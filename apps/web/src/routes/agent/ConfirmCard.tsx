@@ -6,6 +6,7 @@ import {
   approveLabel,
   cardAmount,
   cardNote,
+  cardEyebrow,
   cardTitle,
   cardWhere,
   doneText,
@@ -48,10 +49,41 @@ export function ConfirmCard({
   const now = useNow(15_000);
   const action = useRef<ApiAction | null>(null);
   action.current ??= new ApiAction(api);
+  const declineAction = useRef<ApiAction | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const expiry = state.status === 'pending' ? expiryText(card.expiresAt, now) : null;
   const expired = expiry === 'Expired';
+
+  // v4 W16: Decline is stored (PENDING → REJECTED), so the card stays declined after a reload.
+  const decline = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!fixture) {
+        declineAction.current ??= new ApiAction(api);
+        await declineAction.current.run({
+          method: 'POST',
+          path: `/api/agent/actions/${encodeURIComponent(card.actionId)}/decline`,
+        });
+      }
+      dispatch({ type: 'declined', actionId: card.actionId });
+    } catch (err) {
+      const e =
+        err instanceof ApiError ? err : new ApiError(0, 'CLIENT_ERROR', 'Something went wrong.');
+      if (e.code === 'NOT_FOUND' || e.details.reason === 'ACTION_EXPIRED') {
+        dispatch({
+          type: 'expired',
+          actionId: card.actionId,
+          message: 'This proposal expired. Ask the agent again.',
+        });
+      } else {
+        setError(e);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const approve = async () => {
     setBusy(true);
@@ -109,14 +141,20 @@ export function ConfirmCard({
       className={cn(
         'flex flex-col gap-4 bg-white p-5',
         sheet
-          ? 'rounded-t-md pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-card lg:rounded-md lg:border lg:border-line lg:shadow-none'
-          : 'rounded-md border border-line',
-        state.status === 'pending' && 'border-orange/40',
+          ? 'rounded-t-md pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-card lg:rounded-md lg:border lg:border-ink lg:shadow-none'
+          : cn('rounded-md border', state.status === 'pending' ? 'border-ink' : 'border-line'),
       )}
     >
       {sheet && <span aria-hidden className="mx-auto h-1 w-10 rounded-full bg-line lg:hidden" />}
       <div className="flex items-center justify-between gap-3">
-        <p className="label text-[11px] text-muted">Agent proposal</p>
+        <p
+          className={cn(
+            'label text-[11px]',
+            state.status === 'pending' ? 'text-orange' : 'text-muted',
+          )}
+        >
+          {cardEyebrow(card)}
+        </p>
         <StatusBadge item={item} expired={expired} />
       </div>
 
@@ -189,14 +227,14 @@ export function ConfirmCard({
               </Button>
             )}
             <Button
-              variant="ghost"
+              variant="outline"
               size="lg"
               block
               className="sm:w-auto"
               disabled={busy}
-              onClick={() => dispatch({ type: 'declined', actionId: card.actionId })}
+              onClick={() => void decline()}
             >
-              Not now
+              Decline
             </Button>
           </div>
           {expiry && !expired && (
@@ -272,7 +310,7 @@ function StatusBadge({ item, expired }: { item: ConfirmItem; expired: boolean })
     case 'failed':
       return <Badge tone="danger">Didn’t go through</Badge>;
     case 'declined':
-      return <Badge tone="sim">Not now</Badge>;
+      return <Badge tone="sim">Declined</Badge>;
   }
 }
 
