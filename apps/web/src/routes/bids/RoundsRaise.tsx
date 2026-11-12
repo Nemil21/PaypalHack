@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { formatUsd } from '@holdfast/shared';
 import { Button, useToast } from '../../components/ui';
 import {
+  canRaiseOpen,
   markSheetAutoOpened,
+  raiseSheetMinCents,
   raisedCopy,
   raiseErrorCopy,
   raiseToastBody,
@@ -27,6 +29,94 @@ import { RaiseSheet } from './RaiseSheet';
  * price, out of raises), the M07 raise sheet opens by itself once per nudge, with the agent's
  * reason. "Choose amount" opens it any time.
  */
+/**
+ * One raise through `POST /api/bids/:id/raise` (HF-018 swap), shared by the rounds block and the
+ * v4 "Raise" on OPEN bids. Each call is one user action with its own Idempotency-Key; wallet-only
+ * bids go to PayPal (`approveUrl`).
+ */
+export function useBidRaise(
+  bid: MyBid,
+  {
+    onRaised,
+    onRefresh,
+    onDone,
+  }: { onRaised(res: RaiseResponse): void; onRefresh(): void; onDone?(): void },
+) {
+  const toast = useToast();
+  const raise = useApiAction<RaiseResponse>();
+  const pending = raise.status === 'pending';
+  const doRaise = async (amountCents: number) => {
+    if (pending) return;
+    const res = await raise.run({
+      method: 'POST',
+      path: `/api/bids/${bid.bidId}/raise`,
+      body: { amountCents },
+    });
+    if (!res) {
+      // The window may have closed (or the bid changed) under us: reload so the page says so.
+      onRefresh();
+      return;
+    }
+    if (res.approveUrl) {
+      window.location.assign(res.approveUrl);
+      return;
+    }
+    raise.reset(); // the next tap is a new action with a fresh Idempotency-Key
+    onDone?.();
+    toast.show({ tone: 'success', title: raisedCopy(res), body: raiseToastBody(res) });
+    onRaised(res);
+  };
+  const error =
+    raise.status === 'error' ? raiseErrorCopy(raise.error.code, raise.error.message, bid) : null;
+  const clearError = () => {
+    if (raise.status === 'error') raise.reset();
+  };
+  return { pending, error, doRaise, clearError };
+}
+
+/**
+ * v4 (frame 114:145): "Raise" on a HELD bid while the listing is still OPEN, not just in ROUNDS.
+ * Opens the M07 sheet without a cutoff (there is none before rounds) at the minimum raise.
+ */
+export function OpenRaise({
+  bid,
+  onRaised,
+  onRefresh,
+}: {
+  bid: MyBid;
+  onRaised(res: RaiseResponse): void;
+  onRefresh(): void;
+}) {
+  const [open, setOpen] = useState(false);
+  const raise = useBidRaise(bid, { onRaised, onRefresh, onDone: () => setOpen(false) });
+  if (!canRaiseOpen(bid)) return null;
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)} disabled={raise.pending}>
+        Raise
+      </Button>
+      {open && (
+        <RaiseSheet
+          currentCents={bid.amountCents}
+          suggestedCents={raiseSheetMinCents(bid.amountCents)}
+          cutoffCents={null}
+          agentMessage={null}
+          pending={raise.pending}
+          error={raise.error}
+          onRaise={(amountCents) => {
+            raise.clearError();
+            void raise.doRaise(amountCents);
+          }}
+          onClose={() => {
+            raise.clearError();
+            setOpen(false);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 export function RoundsRaise({
   bid,
   onRaised,
@@ -43,10 +133,9 @@ export function RoundsRaise({
   onRefresh(): void;
   className?: string;
 }) {
-  const toast = useToast();
-  const raise = useApiAction<RaiseResponse>();
   const action = roundsAction(bid);
   const [sheetOpen, setSheetOpen] = useState(initialSheetOpen);
+  const raise = useBidRaise(bid, { onRaised, onRefresh, onDone: () => setSheetOpen(false) });
   useEffect(() => {
     if (action?.kind === 'nudge' && shouldAutoOpenSheet(action)) {
       markSheetAutoOpened(action.nudgeId);
@@ -66,28 +155,7 @@ export function RoundsRaise({
     );
   }
 
-  const pending = raise.status === 'pending';
-  const doRaise = async (amountCents: number) => {
-    if (pending) return;
-    const res = await raise.run({
-      method: 'POST',
-      path: `/api/bids/${bid.bidId}/raise`,
-      body: { amountCents },
-    });
-    if (!res) {
-      // Rounds may have ended (or the bid changed) under us: reload so the page says so.
-      onRefresh();
-      return;
-    }
-    if (res.approveUrl) {
-      window.location.assign(res.approveUrl);
-      return;
-    }
-    raise.reset(); // the next tap is a new action with a fresh Idempotency-Key
-    setSheetOpen(false);
-    toast.show({ tone: 'success', title: raisedCopy(res), body: raiseToastBody(res) });
-    onRaised(res);
-  };
+  const { pending, doRaise } = raise;
 
   return (
     <div
@@ -111,9 +179,9 @@ export function RoundsRaise({
         </span>
       </div>
       {action.agentMessage && <p className="text-[13px] text-body">{action.agentMessage}</p>}
-      {raise.status === 'error' && !sheetOpen && (
+      {raise.error && !sheetOpen && (
         <p role="alert" className="text-[13px] text-danger">
-          {raiseErrorCopy(raise.error.code, raise.error.message, bid)}
+          {raise.error}
         </p>
       )}
       {sheetOpen && (
@@ -123,18 +191,14 @@ export function RoundsRaise({
           cutoffCents={action.cutoffCents}
           agentMessage={action.agentMessage}
           pending={pending}
-          error={
-            raise.status === 'error'
-              ? raiseErrorCopy(raise.error.code, raise.error.message, bid)
-              : null
-          }
+          error={raise.error}
           onRaise={(amountCents) => {
             // A different amount is a different action: a fresh Idempotency-Key.
-            if (raise.status === 'error') raise.reset();
+            raise.clearError();
             void doRaise(amountCents);
           }}
           onClose={() => {
-            if (raise.status === 'error') raise.reset();
+            raise.clearError();
             setSheetOpen(false);
           }}
         />

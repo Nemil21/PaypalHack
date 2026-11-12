@@ -530,6 +530,15 @@ describe('W21 error states', () => {
     expect(errorCopy('above_mandate', { mandateMaxCents: 23_000 }).title).toBe(
       "That's above the $230 limit you set.",
     );
+    expect(errorCopy('window_closed', { offerSlug: 'aurel-a7' })).toMatchObject({
+      body: 'Nothing was held, and nothing was charged.',
+      primary: { label: 'Go to my bids', href: '/bids' },
+      secondary: { label: 'See the offer', href: '/o/aurel-a7' },
+    });
+    expect(errorCopy('session_expired')).toMatchObject({
+      title: 'Session expired.',
+      primary: { label: 'Sign in', href: '/sign-in' },
+    });
     expect(errorCopy('window_closed', { amountCents: 22_900, holdReleased: true }).body).toBe(
       `Window closed, your $229 was released. ${BANK_PENDING_NOTE}`,
     );

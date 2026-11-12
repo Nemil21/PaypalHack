@@ -167,6 +167,11 @@ const bidLink = (bidId: string, label = 'View bid') => ({
   href: `/bids/${encodeURIComponent(bidId)}`,
   label,
 });
+/** W18 won page: receipt and tracking (v4: wins, promotions and shipping deep-link here). */
+const wonLink = (bidId: string, label = 'View receipt & tracking') => ({
+  href: `/bids/${encodeURIComponent(bidId)}/won`,
+  label,
+});
 const listingLink = (listingId: string, label = 'Open listing') => ({
   href: `/brand/listings/${encodeURIComponent(listingId)}`,
   label,
@@ -230,9 +235,9 @@ const RENDERERS: Renderers = {
       `Your agent re-bid ${formatUsd(p.amountCents)} in ${p.brandName ? `${p.brandName}'s` : 'a'} new window. ${formatUsd(p.amountCents)} held, not charged.`,
       bidLink(p.bidId),
     ),
-  won: (p) => plain('You won', wonMessage(p.amountCents, { captured: true }), bidLink(p.bidId)),
+  won: (p) => plain('You won', wonMessage(p.amountCents, { captured: true }), wonLink(p.bidId)),
   promoted: (p) =>
-    plain('You won', promotedMessage(p.amountCents, { captured: true }), bidLink(p.bidId)),
+    plain('You won', promotedMessage(p.amountCents, { captured: true }), wonLink(p.bidId)),
   reserve: (p) =>
     plain(
       "You're on the reserve list",
@@ -256,7 +261,7 @@ const RENDERERS: Renderers = {
     return plain(
       'On its way',
       what ? `On its way: ${what}` : 'On its way.',
-      bidLink(p.bidId, 'Track'),
+      wonLink(p.bidId, 'Track'),
     );
   },
   brand_demand_milestone: (p) =>

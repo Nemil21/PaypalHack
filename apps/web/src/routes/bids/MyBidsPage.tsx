@@ -33,7 +33,7 @@ import { cn } from '../../lib/cn';
 import { useApiAction } from '../../lib/use-api-action';
 import { NotificationBell } from '../../components/NotificationBell';
 import { ErrorState } from './ErrorState';
-import { RoundsRaise } from './RoundsRaise';
+import { OpenRaise, RoundsRaise } from './RoundsRaise';
 import { SWIPE_OPEN_PX, useNow, usePolling, usePullToRefresh, useSwipeLeft } from './hooks';
 
 type Load =
@@ -145,9 +145,8 @@ export function MyBidsPage() {
         {load.state === 'error' && (
           <ErrorBanner message={load.message} onRetry={() => void fetchBids()} />
         )}
-        {load.state === 'signed_out' && (
-          <EmptyState message="No bids yet. Bids you place on this device show up here." />
-        )}
+        {/* v4 (frame 120:960): a 401 is an expired session, not an empty list. */}
+        {load.state === 'signed_out' && <ErrorState code="UNAUTHENTICATED" />}
         {load.state === 'ready' && (
           <TabList bids={bids} tab={tab} onChanged={() => void fetchBids()} />
         )}
@@ -284,7 +283,8 @@ function BidCard({ bid, now, onChanged }: { bid: MyBid; now: number; onChanged()
               )}
             </div>
           ) : (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <OpenRaise bid={bid} onRaised={onChanged} onRefresh={onChanged} />
               <Button variant="outline" onClick={() => setConfirming(true)}>
                 Cancel bid
               </Button>
