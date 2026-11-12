@@ -86,9 +86,8 @@ test('live: a raise reaches the feed, summary and grid within 2 s; stop shows th
   await page.goto(`/brand/listings/${listing.id}`);
 
   const panel = page.getByTestId('rounds-panel');
-  await expect(panel.getByTestId('rounds-target-input')).toBeVisible({ timeout: 15_000 });
-  await panel.getByTestId('rounds-target-input').fill('3');
-  await panel.getByRole('button', { name: 'Start live rounds' }).click();
+  await page.getByRole('button', { name: 'Start live rounds' }).click({ timeout: 15_000 });
+  await page.getByTestId('rounds-target-input').fill('3');
   await page.getByRole('button', { name: 'Start rounds' }).click();
   await expect(panel.getByTestId('round-header')).toContainText('Round 1', { timeout: 5_000 });
   await expect(panel.getByTestId('round-summary-1')).toHaveText(

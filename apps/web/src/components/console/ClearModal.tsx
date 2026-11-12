@@ -13,6 +13,7 @@ import {
   shortfallNote,
 } from '../../lib/console/clear';
 import { recommendationClearNote } from '../../lib/console/recommendation';
+import { cn } from '../../lib/cn';
 import { useSlider } from '../../lib/console/slider-store';
 import { useClear } from '../../lib/console/use-clear';
 import { Button, ErrorBanner, Skeleton } from '../ui';
@@ -38,11 +39,14 @@ export function ClearAction({
   phase,
   viewer,
   recommendation,
+  layout = 'bar',
 }: {
   listingId: string;
   phase: ListingPhaseName;
   viewer: boolean;
   recommendation?: Recommendation;
+  /** `panel`: the full-width orange button in the v4 Clear panel (frame 112:64). */
+  layout?: 'bar' | 'panel';
 }) {
   const slider = useSlider();
   const clear = useClear(listingId);
@@ -76,16 +80,19 @@ export function ClearAction({
       : undefined;
 
   return (
-    <div className="flex justify-end border-t border-line pt-4">
+    <div className={layout === 'panel' ? 'flex' : 'flex justify-end border-t border-line pt-4'}>
       <Button
         variant="primary"
         size="lg"
+        block={layout === 'panel'}
         onClick={open}
         disabled={viewer || !canClear}
         title={title}
         data-testid="clear-button"
       >
-        {quantity !== null && !viewer ? `${label} ${quantity.toLocaleString('en-US')}` : label}
+        {quantity !== null && !viewer
+          ? `${label} ${quantity.toLocaleString('en-US')}${layout === 'panel' ? ' units' : ''}`
+          : label}
       </Button>
       <dialog
         ref={dialog}
@@ -147,13 +154,21 @@ export function ClearBody({
       ? 'Some holds are too old to clear'
       : step === 'released' || step === 'releasing'
         ? 'Releasing every hold'
-        : `Clear ${quantity?.toLocaleString('en-US') ?? ''} units?`;
+        : summary?.cutoffCents != null && quantity !== null
+          ? `Fill ${quantity.toLocaleString('en-US')} units at a ${formatUsd(summary.cutoffCents)} cutoff?`
+          : `Clear ${quantity?.toLocaleString('en-US') ?? ''} units?`;
 
   return (
     <div className="flex flex-col gap-5 p-6">
-      <h2 id={titleId} className="text-[20px] font-medium tracking-headline text-ink">
-        {heading}
-      </h2>
+      <div className="flex flex-col gap-2">
+        <span className="label text-[12px] text-orange">Clear this window</span>
+        <h2
+          id={titleId}
+          className="text-[24px] leading-[1.2] font-medium tracking-headline text-ink"
+        >
+          {heading}
+        </h2>
+      </div>
 
       {step === 'stopping' && <p className="text-[15px] text-body">Stopping rounds…</p>}
       {(step === 'stopping' || step === 'loading') && (
@@ -250,7 +265,6 @@ export function ClearBody({
                 . Check the numbers and confirm again.
               </div>
             )}
-            <Summary sim={summary} />
             <MoneyTable sim={summary} />
             <p className="text-[15px] leading-[22px] text-body" data-testid="clear-copy">
               {clearCopy(summary)}
@@ -279,9 +293,8 @@ export function ClearBody({
                 )
               ) : (
                 <>
-                  <label htmlFor={inputId} className="text-[14px] text-body">
-                    Type <span className="font-mono text-ink">{confirmPhrase(quantity)}</span> to
-                    confirm
+                  <label htmlFor={inputId} className="label text-[11px] text-muted">
+                    Type <span className="text-ink">{confirmPhrase(quantity)}</span> to confirm
                   </label>
                   <input
                     id={inputId}
@@ -291,7 +304,7 @@ export function ClearBody({
                     spellCheck={false}
                     disabled={submitting}
                     placeholder={confirmPhrase(quantity)}
-                    className="h-10 rounded-sm border border-border px-3 font-mono text-[14px] text-ink"
+                    className="h-11 rounded-sm border border-ink px-3 font-mono text-[15px] text-ink"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && typedOk && !submitting) void clear.confirm();
                     }}
@@ -309,9 +322,9 @@ export function ClearBody({
                 onRetry={error.retryable ? clear.retry : undefined}
               />
             )}
-            <Footer>
+            <Footer split={!slide}>
               <Button variant="outline" onClick={onClose} disabled={submitting}>
-                Cancel
+                {slide ? 'Cancel' : 'Keep window open'}
               </Button>
               {oneClick && (
                 <Button
@@ -324,7 +337,9 @@ export function ClearBody({
                     ? 'Clearing…'
                     : step === 'book_changed'
                       ? `Confirm ${formatGrossShort(summary.grossCents)}`
-                      : 'Confirm'}
+                      : slide
+                        ? 'Confirm'
+                        : 'Clear and capture'}
                 </Button>
               )}
             </Footer>
@@ -334,62 +349,59 @@ export function ClearBody({
   );
 }
 
-function Footer({ children }: { children: React.ReactNode }) {
-  return <div className="flex justify-end gap-2">{children}</div>;
-}
-
-function Summary({ sim }: { sim: SimulateResponse }) {
-  const items: [string, string][] = [
-    ['Quantity', sim.quantity.toLocaleString('en-US')],
-    ['Cutoff', sim.cutoffCents === null ? '—' : formatUsd(sim.cutoffCents)],
-    ['Gross revenue', formatUsd(sim.grossCents)],
-    ['Winners', sim.winners.toLocaleString('en-US')],
-    ['Losers', sim.losers.toLocaleString('en-US')],
-  ];
+function Footer({ children, split = false }: { children: React.ReactNode; split?: boolean }) {
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line sm:grid-cols-5">
-      {items.map(([k, v]) => (
-        <div
-          key={k}
-          className="flex flex-col gap-1 bg-white px-3 py-2 last:odd:col-span-2 sm:last:odd:col-span-1"
-        >
-          <dt className="label text-[10px] text-muted">{k}</dt>
-          <dd className="font-mono text-[15px] text-ink tabular-nums">{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className={split ? 'flex flex-wrap justify-between gap-2' : 'flex justify-end gap-2'}>
+      {children}
+    </div>
   );
 }
 
 function MoneyTable({ sim }: { sim: SimulateResponse }) {
+  const pct = (sim.feeBps / 100).toFixed(sim.feeBps % 100 ? 2 : 0);
   const rows: [string, string, string?][] = [
-    ['Gross', formatUsd(sim.grossCents), "sum of winners' bids"],
+    ['Gross', formatUsd(sim.grossCents), 'each winner pays their own bid'],
     [
-      `Fee (${(sim.feeBps / 100).toFixed(sim.feeBps % 100 ? 2 : 0)}%)`,
+      `Holdfast fee (${pct}%)`,
       `−${formatUsd(sim.feeCents)}`,
       'estimated; final on captured amount',
     ],
     ['Net to you', formatUsd(sim.netCents)],
   ];
   if (sim.liquidationCents !== null) {
+    const diff = sim.grossCents - sim.liquidationCents;
     rows.push([
-      'vs liquidation',
-      formatUsd(sim.liquidationCents),
-      sim.recoveryMultiple !== null ? `×${sim.recoveryMultiple.toFixed(1)} recovery` : undefined,
+      'vs liquidator quote',
+      `${diff >= 0 ? '+' : '−'}${formatUsd(Math.abs(diff))}${
+        sim.recoveryMultiple !== null ? ` (${sim.recoveryMultiple.toFixed(1)}×)` : ''
+      }`,
     ]);
   }
   return (
     <table className="w-full text-[14px]" data-testid="clear-money">
       <tbody>
-        {rows.map(([k, v, note]) => (
-          <tr key={k} className="border-b border-line last:border-b-0">
-            <th scope="row" className="py-2 text-left font-normal text-body">
-              {k}
-              {note && <span className="block text-[12px] text-muted">{note}</span>}
-            </th>
-            <td className="py-2 text-right font-mono text-ink tabular-nums">{v}</td>
-          </tr>
-        ))}
+        {rows.map(([k, v, note]) => {
+          const net = k === 'Net to you';
+          return (
+            <tr key={k} className="border-t border-line">
+              <th
+                scope="row"
+                className={cn('py-2.5 text-left font-normal', net ? 'text-ink' : 'text-body')}
+              >
+                {k}
+                {note && <span className="text-muted"> ({note})</span>}
+              </th>
+              <td
+                className={cn(
+                  'py-2.5 text-right text-ink tabular-nums',
+                  net && 'text-[18px] font-medium',
+                )}
+              >
+                {v}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
