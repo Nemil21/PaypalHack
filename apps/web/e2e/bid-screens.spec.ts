@@ -60,9 +60,7 @@ test('W13 confirmation → release-if-cheaper toggle → price-drop release (W21
 
   await expect(page.getByRole('heading', { name: '✓ $229 held, not charged' })).toBeVisible();
   await expect(page.getByText('What happens next')).toBeVisible();
-  await expect(
-    page.getByText("If you win, you're charged your bid of $229, exactly."),
-  ).toBeVisible();
+  await expect(page.getByText('You win and pay $229, or it’s released')).toBeVisible();
   await expect(page.getByRole('link', { name: /Let my agent manage this/ })).toHaveAttribute(
     'href',
     /^\/mandates\/new\?productId=[0-9a-f-]{36}&maxPriceCents=22900$/,
