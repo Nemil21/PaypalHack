@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { PageHeader } from '../../components/layout/AppShell';
-import { Badge, Button, ButtonLink, ErrorBanner, Skeleton, useToast } from '../../components/ui';
+import {
+  Badge,
+  Button,
+  ButtonLink,
+  ErrorBanner,
+  Skeleton,
+  StepBar,
+  useToast,
+} from '../../components/ui';
 import { ApiAction, ApiError, api } from '../../lib/api';
 import {
   companyChanged,
@@ -212,17 +220,21 @@ export function BrandOnboarding() {
   return (
     <>
       <PageHeader
-        eyebrow={brand?.name ?? 'Brand verification'}
-        title="Verify your brand."
+        eyebrow={`Set up ${brand?.name ?? 'your brand'} · Step ${step + 1} of ${ONBOARDING_STEPS.length}`}
+        title={ONBOARDING_TITLES[step]}
         lede="Only real brands sell on Holdfast. Tell us who you are; we verify you before your first window opens."
       />
 
       {brand?.verificationStatus === 'VERIFIED' && <VerifiedCard brand={brand} />}
       {brand?.verificationStatus === 'REJECTED' && <RejectedCard brand={brand} />}
 
-      <Stepper step={step} onStep={(s) => void goTo(s)} />
+      <StepBar
+        steps={ONBOARDING_STEPS}
+        step={step}
+        onStep={(i) => void goTo(i as OnboardingStep)}
+      />
 
-      <div className="mt-8 flex max-w-[760px] flex-col gap-6">
+      <div className="mt-8 flex max-w-[1120px] flex-col gap-6">
         {step === 0 && (
           <CompanyStep
             values={values}
@@ -237,14 +249,17 @@ export function BrandOnboarding() {
           />
         )}
         {step === 1 && brand && (
-          <DomainStep
-            brand={brand}
-            isAdmin={isAdmin}
-            busy={busy}
-            dnsAnswer={dnsAnswer}
-            onCheck={checkNow}
-            onVerify={verifyNow}
-          />
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+            <DomainStep
+              brand={brand}
+              isAdmin={isAdmin}
+              busy={busy}
+              dnsAnswer={dnsAnswer}
+              onCheck={checkNow}
+              onVerify={verifyNow}
+            />
+            <OnceVerified />
+          </div>
         )}
         {step === 2 && brand && <PayoutStep brand={brand} />}
 
@@ -253,11 +268,11 @@ export function BrandOnboarding() {
         <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
           {step > 0 ? (
             <Button
-              variant="ghost"
+              variant="outline"
               onClick={() => void goTo((step - 1) as OnboardingStep)}
               disabled={!!busy}
             >
-              Back
+              ← Back
             </Button>
           ) : (
             <span />
@@ -268,12 +283,11 @@ export function BrandOnboarding() {
             </Button>
             {step < 2 ? (
               <Button
-                variant="secondary"
                 onClick={() => void goTo((step + 1) as OnboardingStep)}
                 disabled={!!busy}
                 aria-busy={busy === 'next'}
               >
-                {busy === 'next' ? 'Saving…' : 'Next'}
+                {busy === 'next' ? 'Saving…' : `Next: ${ONBOARDING_STEPS[step + 1]} →`}
               </Button>
             ) : brand?.verificationStatus === 'VERIFIED' ? (
               <ButtonLink to={paths.newListing}>Create your first listing</ButtonLink>
@@ -289,32 +303,27 @@ export function BrandOnboarding() {
   );
 }
 
-// --- Stepper ---------------------------------------------------------------------------------
+/** v4 W03 (frame 117:349): each step's page title. */
+const ONBOARDING_TITLES: Record<OnboardingStep, string> = {
+  0: 'Tell us about your brand.',
+  1: 'Prove you own the domain.',
+  2: 'Where your payouts go.',
+};
 
-function Stepper({ step, onStep }: { step: OnboardingStep; onStep(s: OnboardingStep): void }) {
+/** What verification unlocks, next to the DNS step. */
+function OnceVerified() {
   return (
-    <ol className="flex flex-wrap gap-2" aria-label="Steps">
-      {ONBOARDING_STEPS.map((label, i) => (
-        <li key={label}>
-          <button
-            type="button"
-            onClick={() => onStep(i as OnboardingStep)}
-            aria-current={i === step ? 'step' : undefined}
-            className={cn(
-              'label flex items-center gap-2 rounded-sm border px-3 py-2 text-[12px]',
-              i === step
-                ? 'border-charcoal bg-charcoal text-white'
-                : i < step
-                  ? 'border-border bg-white text-ink hover:bg-surface'
-                  : 'border-line bg-white text-muted hover:bg-surface',
-            )}
-          >
-            <span className="font-mono">{i + 1}</span>
-            {label}
-          </button>
-        </li>
-      ))}
-    </ol>
+    <aside className="flex flex-col gap-3 rounded-md border border-line bg-white p-5">
+      <p className="label text-[11px] text-muted">Once verified</p>
+      <ul className="flex flex-col gap-2 text-[14px] text-ink">
+        <li>✓ Your windows can open</li>
+        <li>✓ Shoppers see a “Verified brand” badge</li>
+        <li>✓ You can create your first listing</li>
+      </ul>
+      <p className="text-[13px] text-body">
+        If a check fails, the result of that check shows here on the left.
+      </p>
+    </aside>
   );
 }
 

@@ -100,7 +100,7 @@ export function PayoutsPage() {
             <DateField id={fromId} label="Cleared from" value={from} onChange={setFrom} />
             <DateField id={toId} label="to" value={to} onChange={setTo} />
             <Button variant="outline" onClick={() => void exportCsv()} disabled={!loaded}>
-              Export CSV
+              Download CSV
             </Button>
           </div>
         </div>
@@ -137,7 +137,7 @@ export function PayoutsPage() {
                 caption={`${totals?.units ?? 0} units`}
               />
               <StatTile label="Holdfast fee" value={usd(totals?.feeCents)} />
-              <StatTile label="Net to you" value={usd(totals?.netCents)} emphasis />
+              <StatTile label="Net to you" value={usd(totals?.netCents)} dark />
               <StatTile
                 label="Paid out"
                 value={usd(
