@@ -19,6 +19,7 @@ import {
   verificationBanner,
   type CardView,
 } from '../../lib/brand-overview';
+import { listingInitials } from '../../lib/brand-listings';
 import { cn } from '../../lib/cn';
 import { formatUsdCompact } from '../../lib/console/kpis';
 import { paths } from '../../lib/routes';
@@ -58,14 +59,18 @@ export function BrandOverview() {
           <div
             role="status"
             className={cn(
-              'mb-6 flex flex-col gap-1 rounded-md border p-4',
+              'mb-6 flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between',
               banner.tone === 'rejected'
                 ? 'border-danger/30 bg-danger-tint'
                 : 'border-orange/30 bg-orange-tint',
             )}
           >
-            <p className="text-[15px] font-medium text-ink">{banner.title}</p>
-            <p className="text-[14px] text-body">{banner.body}</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-[15px] font-medium text-ink">{banner.title}</p>
+              <p className="text-[14px] text-body">{banner.body}</p>
+            </div>
+            {/* UI-GAPS W03/W04: the banner leads back to verification. */}
+            <ButtonLink to={paths.brandOnboarding}>Continue verification →</ButtonLink>
           </div>
         )}
 
@@ -86,9 +91,17 @@ export function BrandOverview() {
             <KpiRow overview={overview} />
             <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_320px]">
               <section id="listings" aria-labelledby="listings-h" className="scroll-mt-24">
-                <h2 id="listings-h" className="label mb-3 text-[11px] text-muted">
-                  Listings
-                </h2>
+                <div className="mb-3 flex items-baseline justify-between gap-3">
+                  <h2 id="listings-h" className="label text-[11px] text-muted">
+                    Listings
+                  </h2>
+                  <Link
+                    to={paths.brandListings}
+                    className="font-mono text-[12px] text-ink hover:underline"
+                  >
+                    View all in My listings →
+                  </Link>
+                </div>
                 <ul className="grid gap-4 sm:grid-cols-2">
                   {overview.listings.map((c) => (
                     <li key={c.listingId}>
@@ -149,7 +162,7 @@ function KpiRow({ overview }: { overview: Overview }) {
         label="Recovered this month"
         value={formatUsdCompact(k.recoveredThisMonthCents)}
         caption="Captured from winners"
-        emphasis
+        dark
       />
       <StatTile
         label="Held demand now"
@@ -180,7 +193,12 @@ function ListingCard({ view: v }: { view: CardView }) {
             className="size-14 shrink-0 rounded-sm border border-line object-contain"
           />
         ) : (
-          <span aria-hidden className="size-14 shrink-0 rounded-sm border border-line bg-surface" />
+          <span
+            aria-hidden
+            className="flex size-14 shrink-0 items-center justify-center rounded-sm bg-charcoal font-mono text-[12px] text-white"
+          >
+            {listingInitials(v.title)}
+          </span>
         )}
         <div className="flex min-w-0 flex-col gap-1">
           <span className="truncate text-[15px] font-medium text-ink">{v.title}</span>
