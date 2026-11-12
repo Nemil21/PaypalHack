@@ -76,7 +76,7 @@ export function isLinkActive(pathname: string, activePrefix: string): boolean {
 }
 
 export interface ShellNav {
-  /** Where the logo goes (role default landing). */
+  /** Where the logo goes: always the marketing home page, for every role. */
   home: string;
   links: { label: string; to: string; activePrefix: string }[];
   actions: ShellAction[];
@@ -88,7 +88,7 @@ export const BRAND_LISTINGS_HREF = `${paths.brand}#listings`;
 export function shellNav(role: ViewerRole): ShellNav {
   if (role === 'brand') {
     return {
-      home: paths.brand,
+      home: paths.home,
       links: [
         { label: 'My listings', to: BRAND_LISTINGS_HREF, activePrefix: '/brand/listings' },
         { label: 'Developer', to: paths.developer, activePrefix: paths.developer },
@@ -101,7 +101,7 @@ export function shellNav(role: ViewerRole): ShellNav {
   }
   if (role === 'buyer') {
     return {
-      home: paths.bids,
+      home: paths.home,
       links: [
         { label: 'My bids', to: paths.bids, activePrefix: paths.bids },
         { label: 'Developer', to: paths.developer, activePrefix: paths.developer },
