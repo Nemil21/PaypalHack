@@ -20,6 +20,7 @@ import {
 } from '../../components/ui';
 import { ApiError, api } from '../../lib/api';
 import type { BrandMe } from '../../lib/brand-gate';
+import { clientConfig } from '../../lib/client-config';
 import { cn } from '../../lib/cn';
 import {
   actionRequest,
@@ -28,7 +29,7 @@ import {
   auditSearchPath,
   EMPTY_SEARCH,
   healthTiles,
-  OPS_ACTIONS,
+  opsActions,
   type AuditPage,
   type AuditRow,
   type AuditSearch,
@@ -178,6 +179,10 @@ function OpsScreen() {
       ...i,
       brandId: row.brandId ?? i.brandId,
       listingId: row.listingId ?? i.listingId,
+      shipmentId:
+        (row.entity === 'bid' || row.entity === 'shipment') && row.entityId
+          ? row.entityId
+          : i.shipmentId,
     }));
   };
 
@@ -405,6 +410,7 @@ function ActionsPanel({
 }) {
   const id = useId();
   const [pending, setPending] = useState<OpsActionSpec | null>(null);
+  const { demoMode } = clientConfig();
   return (
     <section className="flex flex-col gap-4" aria-labelledby="ops-actions">
       <h2 id="ops-actions" className="label text-[12px] text-muted">
@@ -420,6 +426,9 @@ function ActionsPanel({
             ['brandId', 'Brand id', 'font-mono'],
             ['listingId', 'Listing id', 'font-mono'],
             ['price', 'New public price ($, replay only)', 'tabular-nums'],
+            ...(demoMode
+              ? ([['shipmentId', 'Bid or shipment id (demo)', 'font-mono']] as const)
+              : []),
           ] as const
         ).map(([key, label, cls]) => (
           <div key={key} className="flex flex-col gap-1">
@@ -439,7 +448,7 @@ function ActionsPanel({
         ))}
       </div>
       <div className="flex flex-wrap gap-3">
-        {OPS_ACTIONS.map((a) => (
+        {opsActions(demoMode).map((a) => (
           <Button
             key={a.kind}
             variant={a.kind === 'void-dangling' ? 'secondary' : 'outline'}
@@ -521,7 +530,7 @@ function ConfirmAction({
             <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 font-mono text-[12px]">
               {spec.fields.map((f) => (
                 <div key={f} className="contents">
-                  <dt className="text-muted">{f === 'price' ? 'price' : f}</dt>
+                  <dt className="text-muted">{f === 'shipmentId' ? 'bid / shipment' : f}</dt>
                   <dd className="break-all text-ink">{inputs[f] || '–'}</dd>
                 </div>
               ))}
