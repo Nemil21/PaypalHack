@@ -9,6 +9,10 @@ import {
 } from '@holdfast/shared';
 import {
   bidLowerLabel,
+  heldCaption,
+  heldSummary,
+  recentlyWon,
+  wonCaption,
   canRaiseOpen,
   belowHint,
   bidsInTab,
@@ -742,5 +746,34 @@ describe('v4 raise on OPEN and brand name', () => {
   it('bidLowerLabel names the brand when known', () => {
     expect(bidLowerLabel('Aurel Audio')).toBe("Bid lower in Aurel Audio's book");
     expect(bidLowerLabel(null)).toBe('Bid lower');
+  });
+});
+
+describe('v4 My bids rail', () => {
+  it('heldSummary counts HELD money only', () => {
+    const list = [
+      bid({ bidId: 'a', amountCents: 22_900 }),
+      bid({ bidId: 'b', amountCents: 9_400 }),
+      bid({ bidId: 'c', status: 'PENDING_APPROVAL', amountCents: 10_000 }),
+      bid({ bidId: 'd', status: 'CAPTURED', amountCents: 34_900 }),
+    ];
+    expect(heldSummary(list)).toEqual({ cents: 32_300, count: 2 });
+    expect(heldCaption(2)).toBe('Across 2 live bids · nothing charged');
+    expect(heldCaption(1)).toBe('Across 1 live bid · nothing charged');
+    expect(heldCaption(0)).toBe('No live holds · nothing charged');
+  });
+
+  it('recentlyWon picks the newest win', () => {
+    const list = [
+      bid({ bidId: 'old', status: 'CAPTURED', placedAt: '2026-11-01T00:00:00Z' }),
+      bid({ bidId: 'new', status: 'SHIPPED', placedAt: '2026-11-10T00:00:00Z' }),
+      bid({ bidId: 'held', placedAt: '2026-11-11T00:00:00Z' }),
+    ];
+    expect(recentlyWon(list)?.bidId).toBe('new');
+    expect(recentlyWon([bid()])).toBeNull();
+    expect(wonCaption({ status: 'SHIPPED', amountCents: 34_900 })).toBe(
+      'Paid $349 · shipped, tracking added',
+    );
+    expect(wonCaption({ status: 'WON', amountCents: 34_900 })).toBe('Won at $349 · charging');
   });
 });
