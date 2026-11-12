@@ -278,6 +278,59 @@ export async function confirmAction(
   return { kind: 'executed', action: executed, result, replayed: false };
 }
 
+export type DeclineOutcome =
+  | { kind: 'declined'; replayed: boolean }
+  | { kind: 'not_found' }
+  | { kind: 'already'; status: ActionStatus };
+
+/**
+ * W16 Decline (v4 §4.1): PENDING → REJECTED, so a reload shows the card declined and a later
+ * confirm answers ACTION_REJECTED. Appends a server note to the conversation (like confirm), which
+ * the thread replays and the model reads next turn. Declining twice is a no-op; an action already
+ * confirmed or executed is left alone (`already`).
+ */
+export async function declineAction(
+  q: Queryable,
+  shopperId: string,
+  actionId: string,
+): Promise<DeclineOutcome> {
+  const existing = await findAction(q, shopperId, actionId);
+  if (!existing) return { kind: 'not_found' };
+  if (existing.status === 'REJECTED') return { kind: 'declined', replayed: true };
+  const res = await q.query(
+    `UPDATE agent_pending_actions SET status = 'REJECTED', updated_at = now()
+      WHERE id = $1 AND shopper_id = $2 AND status = 'PENDING'
+      RETURNING *`,
+    [actionId, shopperId],
+  );
+  const row = res.rows[0] as PendingActionRow | undefined;
+  if (!row) {
+    const now = await findAction(q, shopperId, actionId);
+    return now?.status === 'REJECTED'
+      ? { kind: 'declined', replayed: true }
+      : { kind: 'already', status: (now ?? existing).status };
+  }
+  await audit(q, {
+    actorType: 'SHOPPER',
+    actorId: shopperId,
+    listingId: 'listingId' in row.args ? row.args.listingId : null,
+    entity: 'agent_action',
+    entityId: row.id,
+    action: 'AGENT_ACTION_REJECTED',
+    data: { tool: row.tool },
+  });
+  await appendMessage(q, shopperId, row.conversation_id, {
+    role: 'user',
+    content: [
+      {
+        type: 'text',
+        text: `[Holdfast server] The shopper declined action ${row.id} (${row.tool}). Nothing was held or changed.`,
+      },
+    ],
+  });
+  return { kind: 'declined', replayed: false };
+}
+
 /** Run the stored arguments. Never reads anything the model said after the action was stored. */
 async function execute(money: PlaceBidDeps, action: PendingActionRow): Promise<ActionResult> {
   const actor = { type: 'BUYER_AGENT', id: action.shopper_id };

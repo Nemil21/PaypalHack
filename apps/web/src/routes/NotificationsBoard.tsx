@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import type { NotificationsResponse } from '@holdfast/shared';
 import { PushToggle } from '../components/PushToggle';
 import { ErrorBanner, Skeleton } from '../components/ui';
@@ -8,6 +8,7 @@ import { cn } from '../lib/cn';
 import { boardCards, sampleCards, type BoardCard } from '../lib/notification-board';
 import { NOTIFICATIONS_POLL_MS, notificationsQuery, type Audience } from '../lib/notifications';
 import { usePolling } from './bids/hooks';
+import { BuyerNotifications } from './BuyerNotifications';
 
 /**
  * M11 push / email notification set (HF-054b; screens.md §M11, features/13 §Templates). Mobile
@@ -200,7 +201,13 @@ function EmailPreview({ card, sample }: { card: BoardCard; sample: boolean }) {
 
 /** Route entries (lazy-loaded in app.tsx): `/notifications` and `/brand/notifications`. */
 export function ShopperNotificationsBoard() {
-  return <NotificationsBoard audience="shopper" />;
+  // v4 (frame 120:896): buyers get the plain list; the M11 push / email set stays one link away.
+  const [params] = useSearchParams();
+  return params.get('view') === 'templates' ? (
+    <NotificationsBoard audience="shopper" />
+  ) : (
+    <BuyerNotifications />
+  );
 }
 
 export function BrandNotificationsBoard() {

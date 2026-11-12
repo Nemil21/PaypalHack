@@ -664,6 +664,8 @@ export interface HistoryMessage {
 const SERVER_CONFIRM =
   /^\[Holdfast server\] The shopper confirmed action ([0-9a-f-]{36}) \((\w+)\)\. Result: ([\s\S]*)$/;
 
+const SERVER_DECLINE = /^\[Holdfast server\] The shopper declined action ([0-9a-f-]{36}) /;
+
 /**
  * Rebuild the thread after a reload. History is replayed through the same reducer as the live
  * stream; a money tool's card is rebuilt from its stored tool result (the action id and amount the
@@ -694,6 +696,11 @@ export function threadFromHistory(conversationId: string, messages: HistoryMessa
             /* keep the card, without numbers */
           }
           state = chatReducer(state, { type: 'confirmed', actionId: server[1]!, result });
+          continue;
+        }
+        const declined = SERVER_DECLINE.exec(b.text);
+        if (declined) {
+          state = chatReducer(state, { type: 'declined', actionId: declined[1]! });
           continue;
         }
         if (b.text.startsWith('[Holdfast server]')) continue;

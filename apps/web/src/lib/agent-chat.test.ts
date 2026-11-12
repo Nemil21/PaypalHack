@@ -334,6 +334,24 @@ describe('history rebuild', () => {
     expect(s.phase).toBe('idle');
   });
 
+  it('v4: a server decline note keeps the card declined after a reload', () => {
+    const s = threadFromHistory(FIXTURE_CONVERSATION_ID, [
+      ...messages,
+      {
+        seq: 6,
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `[Holdfast server] The shopper declined action ${FIXTURE_ACTION_ID} (place_bid). Nothing was held or changed.`,
+          },
+        ],
+      },
+    ]);
+    expect(confirmItem(s).state).toEqual({ status: 'declined' });
+    expect(s.items.filter((i) => i.kind === 'user')).toHaveLength(1);
+  });
+
   it('a server confirm note with an error body rebuilds as failed, not done', () => {
     const body = { error: { code: 'WINDOW_CLOSED', message: 'This book is not taking bids.' } };
     const s = threadFromHistory(FIXTURE_CONVERSATION_ID, [
