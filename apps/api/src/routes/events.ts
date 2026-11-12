@@ -13,7 +13,7 @@ import { ApiError } from '../http/errors.js';
  * SSE streams on the listing event bus (HF-008; api.md §`GET /listings/:id/events`).
  *
  *   GET /api/listings/:id/events   brand users of the listing's brand (any role)
- *   GET /api/bids/:id/events       the bid's own shopper (M07 `belowCutoff`; HF-038a still polls)
+ *   GET /api/bids/:id/events       the bid's own shopper (M07 `belowCutoff`; the W15 bid page follows it, v4)
  *
  * Another tenant's listing or bid is a 404, never a 403. Each frame is `event: <type>` plus the
  * small `{listingId, type, ids}` notice as `data`; clients re-fetch details. A `: ping` comment

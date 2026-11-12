@@ -13,6 +13,9 @@ import {
   heldSummary,
   recentlyWon,
   wonCaption,
+  detailPollMs,
+  ROUNDS_POLL_MS,
+  STREAM_SAFETY_POLL_MS,
   canRaiseOpen,
   belowHint,
   bidsInTab,
@@ -775,5 +778,14 @@ describe('v4 My bids rail', () => {
       'Paid $349 · shipped, tracking added',
     );
     expect(wonCaption({ status: 'WON', amountCents: 34_900 })).toBe('Won at $349 · charging');
+  });
+});
+
+describe('v4 W15 bid page refresh', () => {
+  it('the stream drives updates; settling keeps the fast poll', () => {
+    expect(detailPollMs(true, false, true)).toBe(STREAM_SAFETY_POLL_MS);
+    expect(detailPollMs(true, false, false)).toBe(ROUNDS_POLL_MS);
+    expect(detailPollMs(false, true, true)).toBe(ROUNDS_POLL_MS);
+    expect(detailPollMs(false, false, false)).toBeNull();
   });
 });

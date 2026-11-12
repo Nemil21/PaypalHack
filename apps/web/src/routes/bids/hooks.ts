@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type TouchEvent } from 'react';
+import { subscribeBidEvents } from '../../lib/listing-events';
 
 /** `Date.now()`, re-rendered every `ms`. */
 export function useNow(ms = 1000): number {
@@ -21,6 +22,36 @@ export function usePolling(active: boolean, ms: number, fn: () => void): void {
     }, ms);
     return () => window.clearInterval(id);
   }, [active, ms]);
+}
+
+/**
+ * W15 (v4 §4.1): follow the bid's own SSE stream (`GET /api/bids/:id/events`) and call
+ * `onChange` (debounced) on every notice and after a reconnect. Returns whether the stream is
+ * open, so the page can fall back to polling while it is not.
+ */
+export function useBidStream(bidId: string, enabled: boolean, onChange: () => void): boolean {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(onChange);
+  ref.current = onChange;
+  useEffect(() => {
+    if (!enabled || !bidId || typeof EventSource === 'undefined') return;
+    let timer: number | undefined;
+    const kick = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => ref.current(), 250);
+    };
+    const stop = subscribeBidEvents(bidId, {
+      onEvent: kick,
+      onReconnect: kick,
+      onStatus: (s) => setOpen(s === 'open'),
+    });
+    return () => {
+      window.clearTimeout(timer);
+      stop();
+      setOpen(false);
+    };
+  }, [bidId, enabled]);
+  return open;
 }
 
 /** Past this many px left, a released swipe opens the cancel confirm (M03). */
