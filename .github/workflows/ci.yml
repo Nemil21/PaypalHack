@@ -1,11 +1,13 @@
 name: ci
 
-# Whole-repo check on every PR and every push to main (no path filter), so lockfile drift or a
-# break in any workspace is caught. db.yml stays as HF-002's schema-focused workflow.
+# Code is frozen: runs only on code PRs (not on pushes to main, not on docs-only changes) or by
+# hand, to save Actions minutes. db.yml stays as HF-002's schema-focused workflow.
 on:
-  push:
-    branches: [main]
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}

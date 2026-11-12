@@ -1,9 +1,7 @@
 name: db
 
 on:
-  push:
-    branches: [main]
-    paths: ['db/**', '.github/workflows/db.yml']
+  workflow_dispatch:
   pull_request:
     paths: ['db/**', '.github/workflows/db.yml']
 
