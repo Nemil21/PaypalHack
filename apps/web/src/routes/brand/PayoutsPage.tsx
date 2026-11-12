@@ -137,7 +137,7 @@ export function PayoutsPage() {
                 caption={`${totals?.units ?? 0} units`}
               />
               <StatTile label="Holdfast fee" value={usd(totals?.feeCents)} />
-              <StatTile label="Net to you" value={usd(totals?.netCents)} emphasis />
+              <StatTile label="Net to you" value={usd(totals?.netCents)} dark />
               <StatTile
                 label="Paid out"
                 value={usd(
