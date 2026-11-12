@@ -1,6 +1,7 @@
 import { lazy, type ComponentType } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './components/layout/AppShell';
+import { BrandSectionLayout } from './components/layout/BrandSidebar';
 import { ToastProvider } from './components/ui';
 import { configReady } from './lib/client-config';
 import { Landing } from './routes/Landing';
@@ -98,20 +99,26 @@ const router = createBrowserRouter([
         // HF-023: brand session + listings. `/brand` is the W04 overview (HF-026).
         element: <BrandGate />,
         children: [
-          { path: 'brand', element: <BrandOverview /> },
+          {
+            // v4 §2.1: section pages share the left sidebar; drill-in pages below have none.
+            element: <BrandSectionLayout />,
+            children: [
+              { path: 'brand', element: <BrandOverview /> },
+              // W09 payouts, statements and tracking upload (HF-059b).
+              { path: 'brand/payouts', element: <PayoutsPage /> },
+              // W10 embed widget & share links (HF-055).
+              { path: 'brand/embed', element: <EmbedPage /> },
+              // W11 brand settings (HF-056): team, payout, verification, retailers, notifications.
+              { path: 'brand/settings', element: <BrandSettings /> },
+              // M11 push / email set for brand users (HF-054b).
+              { path: 'brand/notifications', element: <BrandNotificationsBoard /> },
+            ],
+          },
           // W05 create listing wizard (HF-013); before `:listingId` so "new" is not an id.
           { path: 'brand/listings/new', element: <CreateListingWizard /> },
           { path: 'brand/listings/:listingId', element: <ListingConsole /> },
           // W08 settlement live view (HF-035).
           { path: 'brand/listings/:listingId/settlement', element: <SettlementPage /> },
-          // W09 payouts, statements and tracking upload (HF-059b).
-          { path: 'brand/payouts', element: <PayoutsPage /> },
-          // W10 embed widget & share links (HF-055).
-          { path: 'brand/embed', element: <EmbedPage /> },
-          // W11 brand settings (HF-056): team, payout, verification, retailers, notifications.
-          { path: 'brand/settings', element: <BrandSettings /> },
-          // M11 push / email set for brand users (HF-054b).
-          { path: 'brand/notifications', element: <BrandNotificationsBoard /> },
         ],
       },
       {

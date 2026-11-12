@@ -33,6 +33,8 @@ export const paths = {
   },
   mandate: (mandateId: string) => `/mandates/${encodeURIComponent(mandateId)}`,
   developer: '/developer',
+  /** v4 buyer settings (frame 115:303): PayPal account, notifications, switch to brand, sign out. */
+  settings: '/settings',
   admin: '/admin',
   devComponents: '/dev/components',
 } as const;
