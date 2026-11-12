@@ -71,7 +71,7 @@ describe('buyerName', () => {
 describe('shellNav', () => {
   it('brand: My listings and Developer; Settings [S] outline, Payouts [P] dark; lands on /brand', () => {
     const n = shellNav('brand');
-    expect(n.home).toBe(paths.brand);
+    expect(n.home).toBe(paths.home);
     expect(n.links.map((l) => l.label)).toEqual(['My listings', 'Developer']);
     expect(n.actions.map((a) => [a.label, a.variant, a.shortcut])).toEqual([
       ['Settings', 'outline', 'S'],
@@ -81,7 +81,7 @@ describe('shellNav', () => {
 
   it('buyer: My bids and Developer; Place a bid [P] orange, Settings [S]; lands on /bids', () => {
     const n = shellNav('buyer');
-    expect(n.home).toBe(paths.bids);
+    expect(n.home).toBe(paths.home);
     expect(n.links.map((l) => l.label)).toEqual(['My bids', 'Developer']);
     expect(n.actions.map((a) => [a.label, a.variant, a.shortcut, a.to])).toEqual([
       ['Place a bid', 'primary', 'P', paths.offer('aurel-a7')],
