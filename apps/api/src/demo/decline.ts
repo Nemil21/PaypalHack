@@ -216,7 +216,12 @@ function nextReserve(
     const m = meta.get(b.id);
     if (!m) continue;
     if (m.release_if_cheaper && publicCents !== null && m.amount_cents > publicCents) continue;
-    if (m.mandate_status === 'PAUSED' || m.mandate_status === 'FULFILLED') continue;
+    if (
+      m.mandate_status === 'PAUSED' ||
+      m.mandate_status === 'FULFILLED' ||
+      m.mandate_status === 'REVOKED'
+    )
+      continue;
     if (m.aged) continue;
     return b;
   }

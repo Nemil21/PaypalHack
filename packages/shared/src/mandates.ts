@@ -7,7 +7,7 @@ import { amountCentsSchema } from './errors.js';
  * resumes, `GET /api/mandates` lists the shopper's own mandates.
  */
 
-export const MANDATE_STATUSES = ['ACTIVE', 'PAUSED', 'FULFILLED', 'EXPIRED'] as const;
+export const MANDATE_STATUSES = ['ACTIVE', 'PAUSED', 'FULFILLED', 'EXPIRED', 'REVOKED'] as const;
 export type MandateStatusName = (typeof MANDATE_STATUSES)[number];
 
 /** Allowed products per mandate (a Channel3 subscription watches ≤ 25 domains; same order). */
@@ -18,6 +18,10 @@ export const MANDATE_DEFAULT_DAYS = 30;
 
 /** Pause confirmation copy (ticket HF-017b, screens.md §W17). */
 export const MANDATE_PAUSE_CONFIRM = 'This releases all your live holds';
+
+/** Revoke confirmation copy (v4 frame 120:784): revoking is final, unlike pause. */
+export const MANDATE_REVOKE_CONFIRM =
+  'Revoke this mandate? Your agent stops for good and every live hold is released.';
 
 const productIdsSchema = z
   .array(z.string().uuid())
@@ -49,8 +53,9 @@ export type CreateMandateRequest = z.infer<typeof createMandateRequestSchema>;
 
 /**
  * `PATCH /api/mandates/:id`. Limit fields are optional; `status: 'PAUSED'` pauses (and releases
- * every live hold) and must be sent alone; `status: 'ACTIVE'` resumes a paused mandate and may
- * carry new limits.
+ * every live hold) and must be sent alone; `status: 'REVOKED'` (v4) ends it for good, also
+ * releasing every live hold, and must be sent alone; `status: 'ACTIVE'` resumes a paused mandate
+ * and may carry new limits.
  */
 export const updateMandateRequestSchema = z
   .object({
@@ -60,7 +65,7 @@ export const updateMandateRequestSchema = z
     autoRoll: z.boolean().optional(),
     notifyEveryAction: z.boolean().optional(),
     expiresAt: expiresAtSchema.optional(),
-    status: z.enum(['ACTIVE', 'PAUSED']).optional(),
+    status: z.enum(['ACTIVE', 'PAUSED', 'REVOKED']).optional(),
   })
   .strict()
   .refine((b) => Object.values(b).some((v) => v !== undefined), {
@@ -68,6 +73,10 @@ export const updateMandateRequestSchema = z
   })
   .refine((b) => b.status !== 'PAUSED' || Object.keys(b).length === 1, {
     message: 'Pause on its own; change limits separately.',
+    path: ['status'],
+  })
+  .refine((b) => b.status !== 'REVOKED' || Object.keys(b).length === 1, {
+    message: 'Revoke on its own.',
     path: ['status'],
   })
   .refine(
@@ -100,7 +109,7 @@ export interface MandateLiveHold {
 }
 
 /** W17 / M09 display state (screens.md §W17 States). */
-export type MandateState = 'active' | 'paused' | 'expired' | 'fulfilled';
+export type MandateState = 'active' | 'paused' | 'expired' | 'fulfilled' | 'revoked';
 
 export interface MandateView {
   mandateId: string;

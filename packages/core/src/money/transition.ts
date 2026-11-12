@@ -2,7 +2,7 @@ import type { BidStatus, ListingStatus, PayoutStatus, SettlementStatus } from '@
 import type { Queryable } from '../db.js';
 
 /** Status values from the CHECK constraints in db/migrations that `@holdfast/shared` does not export. */
-export const MANDATE_STATUSES = ['ACTIVE', 'PAUSED', 'FULFILLED', 'EXPIRED'] as const;
+export const MANDATE_STATUSES = ['ACTIVE', 'PAUSED', 'FULFILLED', 'EXPIRED', 'REVOKED'] as const;
 export type MandateStatus = (typeof MANDATE_STATUSES)[number];
 
 export const SETTLEMENT_RUN_STATUSES = ['PENDING', 'RUNNING', 'DONE'] as const;

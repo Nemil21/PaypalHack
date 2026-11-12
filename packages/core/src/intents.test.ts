@@ -29,6 +29,7 @@ import {
 import { CRON_JOB_IDS, holdfastCronJobs } from './crons/jobs.js';
 import { clearListing } from './listings/clear-listing.js';
 import { landHold } from './money/land-hold.js';
+import { revokeMandate } from './mandates.js';
 import type { BidRow } from './money/rows.js';
 import {
   Fixtures,
@@ -173,6 +174,10 @@ describe('HF-052 move rule (unit)', () => {
       ),
     ).toMatchObject({ kind: 'done', close: 'CANCELLED' });
     expect(decideIntent(state({ mandateStatus: 'EXPIRED', books: [book('a')] }))).toMatchObject({
+      kind: 'done',
+      close: 'CANCELLED',
+    });
+    expect(decideIntent(state({ mandateStatus: 'REVOKED', books: [book('a')] }))).toMatchObject({
       kind: 'done',
       close: 'CANCELLED',
     });
@@ -586,6 +591,32 @@ describe.skipIf(!TEST_DATABASE_URL)('HF-052 intents (stub)', () => {
     expect(await intentHeld(cancelled.intent.id)).toEqual([]);
     const [view] = (await listIntents(db.pool, s)).filter((i) => i.intentId === won.intent.id);
     expect(view).toMatchObject({ status: 'FULFILLED', mandateStatus: 'FULFILLED' });
+  });
+
+  it('v4: revoking the mandate releases the hold and the job closes the intent CANCELLED', async () => {
+    const s = await vaultedShopper();
+    const a = await listing('Aurel One');
+    const it1 = await activeIntent(s, [a.product_id]);
+    await activateIntent(deps(), s, it1.intent.id);
+    expect(await intentHeld(it1.intent.id)).toHaveLength(1);
+
+    const revoked = await revokeMandate(deps(), it1.mandate.id, {
+      actor: { type: 'SHOPPER', id: s },
+      shopperId: s,
+    });
+    expect(revoked).toMatchObject({ ok: true, alreadyRevoked: false });
+    expect(await intentHeld(it1.intent.id)).toEqual([]);
+
+    await runOpenIntents(deps());
+    const row = (
+      await db.pool.query(
+        `SELECT i.status, m.status AS mandate_status
+           FROM intents i JOIN mandates m ON m.id = i.mandate_id WHERE i.id = $1`,
+        [it1.intent.id],
+      )
+    ).rows[0];
+    // Closing never touches a REVOKED mandate (it only pauses ACTIVE ones).
+    expect(row).toMatchObject({ status: 'CANCELLED', mandate_status: 'REVOKED' });
   });
 
   describe('races (stub)', () => {

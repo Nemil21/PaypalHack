@@ -18,6 +18,7 @@ import {
   liveHoldCents,
   MANDATE_CAP_STATUSES,
   pauseMandate,
+  revokeMandate,
   type ReleaseResult,
 } from './mandates.js';
 import type { Actor, MoneyDeps } from './money/deps.js';
@@ -31,9 +32,11 @@ import type { Actor, MoneyDeps } from './money/deps.js';
  * - limit changes lock the mandate `FOR UPDATE` (the same lock `authorize()` and `landHold` take),
  *   so a cap lowered below the D12 live holds is refused even while placements race it;
  * - pause goes through `pauseMandate` (PAUSED + release every HELD bid);
- * - resume is PAUSED → ACTIVE, with optional new limits in the same transaction.
+ * - resume is PAUSED → ACTIVE, with optional new limits in the same transaction;
+ * - revoke goes through `revokeMandate` (terminal REVOKED + release every HELD bid, v4 §3.2).
  *
- * Audit: MANDATE_CREATED (in `createMandate`), MANDATE_UPDATED, MANDATE_PAUSED (in `pauseMandate`).
+ * Audit: MANDATE_CREATED (in `createMandate`), MANDATE_UPDATED, MANDATE_PAUSED (in `pauseMandate`),
+ * MANDATE_REVOKED (in `revokeMandate`).
  */
 
 export type MandateErrorCode =
@@ -134,6 +137,7 @@ function productOf(r: ProductRow): MandateProduct {
 
 function stateOf(row: MandateViewRow): MandateState {
   if (row.status === 'FULFILLED') return 'fulfilled';
+  if (row.status === 'REVOKED') return 'revoked';
   if (row.status === 'EXPIRED' || row.expired) return 'expired';
   return row.status === 'PAUSED' ? 'paused' : 'active';
 }
@@ -323,6 +327,17 @@ export async function updateShopperMandate(
 ): Promise<MandateResult> {
   const actor: Actor = { type: 'SHOPPER', id: shopperId };
 
+  if (body.status === 'REVOKED') {
+    const revoked = await revokeMandate(deps, mandateId, { actor, shopperId });
+    if (!revoked.ok) {
+      if (revoked.code === 'NOT_FOUND') return notFound();
+      return ended(revoked.status as MandateStatusName);
+    }
+    const view = await getMandateView(deps.db.pool, shopperId, mandateId);
+    if (!view) return notFound();
+    return { ok: true, status: 200, mandate: view, release: revoked.release };
+  }
+
   if (body.status === 'PAUSED') {
     const paused = await pauseMandate(deps, mandateId, { actor, shopperId });
     if (!paused.ok) {
@@ -341,7 +356,9 @@ export async function updateShopperMandate(
     );
     const m = res.rows[0] as LockedRow | undefined;
     if (!m || m.shopper_id !== shopperId) return notFound();
-    if (m.status === 'FULFILLED' || m.status === 'EXPIRED') return ended(m.status);
+    if (m.status === 'FULFILLED' || m.status === 'EXPIRED' || m.status === 'REVOKED') {
+      return ended(m.status);
+    }
 
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const sets: string[] = [];
@@ -436,7 +453,9 @@ function ended(status: MandateStatusName): MandateResult {
       message:
         status === 'FULFILLED'
           ? 'This mandate is complete: your agent already bought the item. Set up a new one.'
-          : 'This mandate has ended. Set up a new one.',
+          : status === 'REVOKED'
+            ? 'You revoked this mandate. Set up a new one.'
+            : 'This mandate has ended. Set up a new one.',
       details: { reason: `MANDATE_${status}` },
     },
   };
