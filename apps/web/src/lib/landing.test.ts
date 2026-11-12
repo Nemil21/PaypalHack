@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  agentSnippets,
   allCopy,
   comparison,
   type ComparisonRow,
@@ -8,6 +9,7 @@ import {
   DEMO_BOOK,
   footer,
   mcpPrompt,
+  multiple,
   nav,
   netAfterFee,
   sponsors,
@@ -74,6 +76,20 @@ describe('landing copy (HF-057)', () => {
     expect(compactUsd(hf.cents)).toBe('$49.4k');
     expect(hf.share).toBe(1);
     expect(liq.share).toBeCloseTo(0.231, 3);
+  });
+
+  it('For brands: the tag says 4.3× more, from comparison() numbers', () => {
+    expect(multiple()).toBe('4.3× more');
+  });
+
+  it('agent code card: every client points at the same /mcp endpoint with an hf_mcp_ token', () => {
+    const s = agentSnippets('https://holdfast.example');
+    expect(s.claude.code).toContain('claude mcp add --transport http holdfast');
+    for (const c of [s.claude, s.codex, s.opencode]) {
+      expect(c.code).toContain('https://holdfast.example/mcp');
+    }
+    expect(s.codex.comment).toContain('hf_mcp_');
+    expect(s.opencode.code).toContain('hf_mcp_');
   });
 
   it('credits only sponsors the product uses (README "Sponsor tools"; Bryntum per decision 1)', () => {

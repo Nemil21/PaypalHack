@@ -124,42 +124,108 @@ export function comparison(book = DEMO_BOOK): ComparisonRow[] {
   ];
 }
 
+/** "Money that waits for the *right price.*": the last words are the orange serif accent. */
+export const how = { lead: 'Money that waits for the ', accent: 'right price.' } as const;
+
+/** v4 How it works (frame 102:32): heading lead + serif accent, one line, a tint chip. */
 export const steps = [
   {
     n: '01',
-    title: 'Shoppers bid',
-    body: 'Shoppers and their agents bid on your exact product. PayPal holds the money. Held, not charged.',
+    lead: 'Shoppers',
+    accent: 'bid.',
+    body: 'Their agents place a bid; PayPal holds the money.',
+    chip: 'Held, not charged',
   },
   {
     n: '02',
-    title: 'You clear',
-    body: 'You see the demand curve of money already waiting, choose how many units, and press Clear.',
+    lead: 'You',
+    accent: 'clear.',
+    body: 'See the money already waiting, pick a quantity, press Clear.',
+    chip: 'Private, no markdown',
   },
   {
     n: '03',
-    title: 'You get paid',
-    body: 'Every winner pays their own bid, never more than their hold. Everyone else is released, and you get paid.',
+    lead: 'You get',
+    accent: 'paid.',
+    body: 'Every winner pays their own bid, never more than their hold. Everyone else is released.',
+    chip: 'Pay-your-bid',
   },
 ] as const;
 
+/** Hero chat scene (frame 101:69): an illustration of a shopper's agent prompt, not a live form. */
+export const heroChat = {
+  modes: ['Bid', 'Watch', 'Reserve', 'Release'],
+  active: 'Reserve',
+  prompt: 'Reserve an Aurel A7 at $229 unless a store drops under $249',
+  ceiling: '$229',
+  window: '72h',
+  submit: 'Reserve',
+} as const;
+
+export const brands = {
+  title: 'Same 240 units. Four times the money.',
+  lede: 'A liquidator buys the pallet at a fraction of retail. Holdfast fills shoppers’ held bids instead, privately, so your public price never moves.',
+  note: 'Demo listing, net to the brand. A winner never pays more than their own bid.',
+  /** Illustrative held bids floating over the Holdfast photo. */
+  chips: ['$229', '$225', '$219', '$239'],
+} as const;
+
+/** "4.3× more": Holdfast net over the liquidator quote, one decimal. */
+export function multiple(book = DEMO_BOOK): string {
+  return `${(netAfterFee(book.grossCents) / book.liquidatorCents).toFixed(1)}× more`;
+}
+
 export const agents = {
-  title: 'Any assistant can place a real, held bid.',
-  body: 'Holdfast speaks MCP. A shopper connects Claude or any MCP client once, sets a mandate, and their agent bids inside it: a max price, a total hold cap, the products allowed, an expiry.',
-  /** Illustrative only: W19 (/developer) generates the real config with the shopper's token. */
-  snippet: `{
-  "mcpServers": {
+  lead: 'Any assistant can place a ',
+  accent: 'real, held bid.',
+  body: 'Holdfast speaks MCP. Connect your assistant once, set a mandate: a max price, a total hold cap, the products allowed, an expiry. Your agent bids inside it.',
+  prompt: '“Bid $229 on the Aurel A7, release it if any store goes under $249.”',
+  cta: 'Connect an agent',
+  copy: 'Copy',
+  copied: 'Copied. Paste it into your terminal.',
+} as const;
+
+export type AgentClient = 'claude' | 'codex' | 'opencode';
+
+/**
+ * The For-agents code card: how each client connects to the Streamable HTTP `/mcp` endpoint. The
+ * token placeholder is illustrative; W19 (/developer) mints the real `hf_mcp_` token.
+ */
+export function agentSnippets(
+  origin: string,
+): Record<AgentClient, { label: string; comment: string; code: string }> {
+  const url = `${origin.replace(/\/+$/, '')}/mcp`;
+  return {
+    claude: {
+      label: 'Claude Code',
+      comment: '# one line, then ask your agent to bid',
+      code: `claude mcp add --transport http holdfast \\
+  ${url} \\
+  --header "Authorization: Bearer hf_mcp_…"`,
+    },
+    codex: {
+      label: 'Codex',
+      comment: '# ~/.codex/config.toml; export HOLDFAST_MCP_TOKEN=hf_mcp_…',
+      code: `[mcp_servers.holdfast]
+url = "${url}"
+bearer_token_env_var = "HOLDFAST_MCP_TOKEN"`,
+    },
+    opencode: {
+      label: 'OpenCode',
+      comment: '# opencode.json',
+      code: `{
+  "mcp": {
     "holdfast": {
-      "command": "npx",
-      "args": ["mcp-remote", "https://<your-holdfast>/mcp",
-               "--header", "Authorization:\${AUTH_HEADER}"],
-      "env": { "AUTH_HEADER": "Bearer hf_mcp_…" }
+      "type": "remote",
+      "url": "${url}",
+      "headers": { "Authorization": "Bearer hf_mcp_…" }
     }
   }
 }`,
-  prompt: '“Bid $229 on the Aurel A7, release it if any store goes under $249.”',
-} as const;
+    },
+  };
+}
 
-/** "9% of what clears." with a solid orange bar under the accent. */
 export const pricing = {
   lead: '9% of ',
   accent: 'what clears.',
@@ -197,10 +263,19 @@ export function allCopy(): string[] {
     nav.signIn.label,
     nav.contact.label,
     ...Object.values(hero),
-    ...steps.flatMap((s) => [s.title, s.body]),
-    agents.title,
+    how.lead + how.accent,
+    ...steps.flatMap((s) => [`${s.lead} ${s.accent}`, s.body, s.chip]),
+    heroChat.prompt,
+    ...heroChat.modes,
+    brands.title,
+    brands.lede,
+    brands.note,
+    multiple(),
+    agents.lead + agents.accent,
     agents.body,
     agents.prompt,
+    agents.cta,
+    agents.copied,
     pricing.lead + pricing.accent,
     pricing.sub,
     ...pricing.pills,
