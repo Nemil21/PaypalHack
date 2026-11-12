@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/cn';
 import { paths } from '../../lib/routes';
+import { useApiAction } from '../../lib/use-api-action';
 import {
   setShortcutsEnabled,
   shortcutFor,
@@ -286,19 +287,15 @@ function SignOutButton({
   role?: 'menuitem';
 }) {
   const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const signOut = useApiAction<unknown>();
+  const busy = signOut.status === 'pending';
   const onClick = async () => {
-    setBusy(true);
-    try {
-      await api.request({
-        method: 'POST',
-        path: '/api/auth/logout',
-        body: { who: viewer.role === 'brand' ? 'brand' : 'shopper' },
-      });
-      navigate(paths.home);
-    } finally {
-      setBusy(false);
-    }
+    const ok = await signOut.run({
+      method: 'POST',
+      path: '/api/auth/logout',
+      body: { who: viewer.role === 'brand' ? 'brand' : 'shopper' },
+    });
+    if (ok !== undefined) navigate(paths.home);
   };
   return (
     <button type="button" role={role} disabled={busy} onClick={onClick} className={className}>
