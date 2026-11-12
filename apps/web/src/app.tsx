@@ -30,6 +30,7 @@ const ErrorStatesFixture = screen(
 );
 const MyBidsPage = screen(() => import('./routes/bids/MyBidsPage'), 'MyBidsPage');
 const WonPage = screen(() => import('./routes/bids/WonPage'), 'WonPage');
+const BuyerSettings = screen(() => import('./routes/BuyerSettings'), 'BuyerSettings');
 const DemoHub = screen(() => import('./routes/DemoHub'), 'DemoHub');
 const DeveloperPage = screen(() => import('./routes/Developer'), 'DeveloperPage');
 const DevComponents = screen(() => import('./routes/DevComponents'), 'DevComponents');
@@ -140,6 +141,8 @@ const router = createBrowserRouter([
       { path: 'agent', element: <AgentChatPage /> },
       // M11 push / email notification set + phone alerts switch (HF-054b).
       { path: 'notifications', element: <ShopperNotificationsBoard /> },
+      // v4 buyer settings (frame 115:303): PayPal, notifications, switch to brand, sign out.
+      { path: 'settings', element: <BuyerSettings /> },
       { path: 'mandates', element: <MandatesPage /> },
       { path: 'mandates/new', element: <MandateEditorPage /> },
       { path: 'mandates/:mandateId', element: <MandateEditorPage /> },
