@@ -8,8 +8,12 @@ import {
   expiryIso,
   formatDollars,
   formFromMandate,
+  mandateCaption,
+  mandateName,
   newMandateForm,
   parseDollars,
+  paymentMethodRow,
+  pickMandate,
   readPrefill,
   stepDollars,
   updateRequest,
@@ -161,5 +165,67 @@ describe('cap usage', () => {
       roomCents: 23_100,
     });
     expect(capUsage(0, 23_000).percent).toBe(0);
+  });
+});
+
+describe('v4 mandate list (frame 120:784)', () => {
+  const p = (title: string | null, listingSlug: string | null = null) => ({
+    productId: PRODUCT,
+    title,
+    imageUrl: null,
+    listingSlug,
+  });
+
+  it('names a mandate from its products and max price', () => {
+    expect(mandateName(view({ products: [] }))).toBe('Anything under $230');
+    expect(mandateName(view({ products: [p('Aurel A7')] }))).toBe('Aurel A7 under $230');
+    expect(mandateName(view({ products: [p('A'), p('B')] }))).toBe('2 products under $230');
+    expect(mandateName(view({ products: [p(null)] }))).toBe('One product under $230');
+  });
+
+  it('captions the cap with the state that matters', () => {
+    const at = '2026-12-01T18:00:00Z';
+    expect(mandateCaption(view({ expiresAt: at, totalHoldCapCents: 60_000 }), 'UTC')).toBe(
+      'Cap $600 · expires Dec 1',
+    );
+    expect(mandateCaption(view({ state: 'paused', pausedAt: '2026-11-08T10:00:00Z' }), 'UTC')).toBe(
+      'Cap $230 · paused Nov 8',
+    );
+    expect(mandateCaption(view({ state: 'revoked' }))).toBe('Cap $230 · revoked');
+    expect(mandateCaption(view({ state: 'fulfilled' }))).toBe('Cap $230 · item bought');
+    expect(mandateCaption(view({ state: 'expired', expiresAt: at }), 'UTC')).toBe(
+      'Cap $230 · ended Dec 1',
+    );
+  });
+
+  it('W17: the payment-method action opens a live offer, preferring the mandate’s own product', () => {
+    expect(paymentMethodRow(true, [p('A', 'mine')], [p('B', 'other')])).toEqual({
+      detail: 'Saved for agent holds',
+      action: { label: 'Update', slug: 'mine' },
+    });
+    expect(paymentMethodRow(false, [p('A')], [p('B', 'other')]).action).toEqual({
+      label: 'Add one',
+      slug: 'other',
+    });
+    expect(paymentMethodRow(false, [], []).action).toBeNull();
+  });
+});
+
+describe('editor selection on /mandates', () => {
+  const a = { mandateId: 'a', state: 'paused' as const };
+  const b = { mandateId: 'b', state: 'active' as const };
+  const c = { mandateId: 'c', state: 'active' as const };
+
+  it('routes win; bare /mandates opens the first active one', () => {
+    expect(pickMandate([a, b, c], { creating: true })).toBeUndefined();
+    expect(pickMandate([a, b, c], { creating: false, mandateId: 'c' })).toBe(c);
+    expect(pickMandate([a, b, c], { creating: false, mandateId: 'x' })).toBeUndefined();
+    expect(pickMandate([a, b, c], { creating: false })).toBe(b);
+    expect(pickMandate([a], { creating: false })).toBe(a);
+  });
+
+  it('pausing the default pick keeps the editor on it', () => {
+    const pausedB = { ...b, state: 'paused' as const };
+    expect(pickMandate([a, pausedB, c], { creating: false, pinnedId: 'b' })).toBe(pausedB);
   });
 });
