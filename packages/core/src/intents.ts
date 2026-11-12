@@ -179,6 +179,9 @@ export function decideIntent(state: IntentState): IntentDecision {
   if (state.mandateStatus === 'EXPIRED') {
     return { kind: 'done', why: "The intent's mandate expired.", close: 'CANCELLED' };
   }
+  if (state.mandateStatus === 'REVOKED') {
+    return { kind: 'done', why: "You revoked this intent's mandate.", close: 'CANCELLED' };
+  }
   if (state.mandateStatus !== 'ACTIVE') {
     return { kind: 'stay', why: 'The intent is waiting for the shopper to approve it.' };
   }
@@ -678,7 +681,7 @@ async function closeIntent(
  * The `intent-move-rule` job: OPEN intents, one at a time, least recently checked first (each run
  * touches `updated_at`, so a backlog is worked round-robin). Under an ACTIVE mandate only for
  * shoppers with a saved payment method (the rule's holds are merchant-initiated VAULT holds);
- * under a FULFILLED or EXPIRED mandate so the rule can close them. PAUSED (awaiting confirm or
+ * under a FULFILLED, EXPIRED or REVOKED mandate so the rule can close them. PAUSED (awaiting confirm or
  * paused by the shopper) are left alone.
  */
 export async function runOpenIntents(
@@ -689,7 +692,7 @@ export async function runOpenIntents(
     `SELECT i.id FROM intents i JOIN mandates m ON m.id = i.mandate_id
        JOIN shoppers s ON s.id = i.shopper_id
       WHERE i.status = 'OPEN'
-        AND (m.status IN ('FULFILLED', 'EXPIRED')
+        AND (m.status IN ('FULFILLED', 'EXPIRED', 'REVOKED')
              OR (m.status = 'ACTIVE' AND s.paypal_vault_id IS NOT NULL))
       ORDER BY i.updated_at, i.id LIMIT $1`,
     [opts.limit ?? 200],
