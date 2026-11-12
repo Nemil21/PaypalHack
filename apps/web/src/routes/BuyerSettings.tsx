@@ -7,10 +7,12 @@ import { Badge, ButtonLink, ErrorBanner, Skeleton } from '../components/ui';
 import { api } from '../lib/api';
 import {
   BUYER_NOTIFICATION_EVENTS,
+  DISPLAY_NAME_NOTE,
   buyerSettingsState,
   paypalRow,
   profileView,
   READ_ONLY_NOTE,
+  type SavedMethod,
 } from '../lib/buyer-settings';
 import { paths } from '../lib/routes';
 import { useApiAction } from '../lib/use-api-action';
@@ -26,7 +28,7 @@ export function BuyerSettings() {
   const [me, setMe] = useState<MeResponse | null | undefined>(undefined);
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
-  const [saved, setSaved] = useState<boolean | null>(null);
+  const [saved, setSaved] = useState<SavedMethod>(null);
 
   useEffect(() => {
     let live = true;
@@ -46,7 +48,7 @@ export function BuyerSettings() {
     api
       .request<MandateListBody>({ method: 'GET', path: '/api/mandates' })
       .then((b) => live && setSaved(b.savedPaymentMethod))
-      .catch(() => live && setSaved(false));
+      .catch(() => live && setSaved('error'));
     return () => {
       live = false;
     };
@@ -74,7 +76,7 @@ export function BuyerSettings() {
               <PayPalRows me={me!} saved={saved} />
             </Card>
             <Card title="Profile">
-              <Row title="Display name" detail="Shown to brands as a shopper label only">
+              <Row title="Display name" detail={DISPLAY_NAME_NOTE}>
                 <span className="text-[15px] text-ink">{name}</span>
               </Row>
               <p className="pt-4 text-[13px] text-muted">{READ_ONLY_NOTE}</p>
@@ -108,7 +110,7 @@ export function BuyerSettings() {
   );
 }
 
-function PayPalRows({ me, saved }: { me: MeResponse; saved: boolean | null }) {
+function PayPalRows({ me, saved }: { me: MeResponse; saved: SavedMethod }) {
   const row = paypalRow(saved);
   const { email } = profileView(me);
   return (

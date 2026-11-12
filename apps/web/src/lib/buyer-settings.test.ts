@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUYER_NOTIFICATION_EVENTS,
   buyerSettingsState,
+  DISPLAY_NAME_NOTE,
   paypalRow,
   profileView,
   READ_ONLY_NOTE,
@@ -29,6 +30,13 @@ describe('paypalRow', () => {
     expect(paypalRow(false).badge).toEqual({ label: 'Not saved', tone: 'neutral' });
     expect(paypalRow(null).badge).toBeNull();
   });
+
+  it('a failed read says it could not check, never "Not saved"', () => {
+    const row = paypalRow('error');
+    expect(row.badge).toBeNull();
+    expect(row.detail).toBe("Couldn't check your saved PayPal method.");
+    expect(row.detail).not.toMatch(/not saved|nothing is saved/i);
+  });
 });
 
 describe('profileView', () => {
@@ -45,5 +53,10 @@ describe('copy', () => {
     expect(READ_ONLY_NOTE).toMatch(/come from your PayPal account and can't be edited here yet/);
     const all = [READ_ONLY_NOTE, ...BUYER_NOTIFICATION_EVENTS, paypalRow(true).detail].join(' ');
     expect(all).not.toMatch(/clearing price|fair price|single price/i);
+  });
+
+  it('never implies brands see the display name', () => {
+    expect(DISPLAY_NAME_NOTE).toMatch(/anonymous/);
+    expect(DISPLAY_NAME_NOTE).toMatch(/never your name/);
   });
 });

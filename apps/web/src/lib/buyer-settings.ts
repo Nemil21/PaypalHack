@@ -22,10 +22,16 @@ export interface PayPalRow {
   badge: { label: string; tone: 'success' | 'neutral' } | null;
 }
 
-/** The PayPal card's first row: the saved PayPal method, if a hold already vaulted one. */
-export function paypalRow(savedPaymentMethod: boolean | null): PayPalRow {
-  if (savedPaymentMethod === null) return { title: 'PayPal', detail: 'Checking…', badge: null };
-  return savedPaymentMethod
+/** Saved PayPal method from `GET /api/mandates`: null while loading, 'error' if the read failed. */
+export type SavedMethod = boolean | null | 'error';
+
+/** The PayPal row. A failed read never claims "Not saved": it says it couldn't check. */
+export function paypalRow(saved: SavedMethod): PayPalRow {
+  if (saved === null) return { title: 'PayPal', detail: 'Checking…', badge: null };
+  if (saved === 'error') {
+    return { title: 'PayPal', detail: "Couldn't check your saved PayPal method.", badge: null };
+  }
+  return saved
     ? {
         title: 'PayPal',
         detail: 'Saved. Your agent can place holds on it within your mandates.',
@@ -37,6 +43,9 @@ export function paypalRow(savedPaymentMethod: boolean | null): PayPalRow {
         badge: { label: 'Not saved', tone: 'neutral' },
       };
 }
+
+/** Brands only ever see an anonymous `shopperLabel` (shared brand-bid.ts), never this name. */
+export const DISPLAY_NAME_NOTE = 'Brands see an anonymous shopper number, never your name';
 
 export interface ProfileView {
   name: string;
