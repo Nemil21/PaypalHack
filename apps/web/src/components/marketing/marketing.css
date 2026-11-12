@@ -21,7 +21,7 @@
   transition: transform 180ms ease-out;
 }
 .hf-wipe:hover::after,
-.hf-wipe[aria-current='true']::after {
+.hf-wipe[aria-current]::after {
   transform: scaleX(1);
 }
 

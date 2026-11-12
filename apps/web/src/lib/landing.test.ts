@@ -18,6 +18,17 @@ import {
 } from './landing';
 import { paths } from './routes';
 
+/** The landing page plus the shared chrome it renders (nav, footer, agent code card). */
+function landingSource(): string {
+  return [
+    '../routes/Landing.tsx',
+    '../components/marketing/MarketingPage.tsx',
+    '../components/marketing/AgentCodeCard.tsx',
+  ]
+    .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
+    .join('\n');
+}
+
 /** Phrases that describe uniform-price settlement, which D14 replaced with pay-your-bid. */
 const UNIFORM_PRICE = [
   /one fair price/i,
@@ -30,7 +41,7 @@ const UNIFORM_PRICE = [
 
 describe('landing copy (HF-057)', () => {
   it('has no uniform-price copy, in the data or in the page markup', () => {
-    const page = readFileSync(new URL('../routes/Landing.tsx', import.meta.url), 'utf8');
+    const page = landingSource();
     for (const text of [...allCopy(), page]) {
       for (const re of UNIFORM_PRICE)
         expect(text, `${re} in "${text.slice(0, 80)}"`).not.toMatch(re);
@@ -54,7 +65,7 @@ describe('landing copy (HF-057)', () => {
   });
 
   it('drops the v3 "Open a private window" CTA and the hackathon line everywhere', () => {
-    const page = readFileSync(new URL('../routes/Landing.tsx', import.meta.url), 'utf8');
+    const page = landingSource();
     for (const text of [...allCopy(), page]) {
       expect(text).not.toMatch(/open a private window/i);
       expect(text).not.toMatch(/Built for the PayPal AI Hackathon/i);
