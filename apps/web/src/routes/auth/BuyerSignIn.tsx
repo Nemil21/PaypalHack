@@ -5,7 +5,7 @@ import { api } from '../../lib/api';
 import { safeNext } from '../../lib/brand-sign-in';
 import { clientConfig } from '../../lib/client-config';
 import { DEMO_OFFER_SLUG, paths } from '../../lib/routes';
-import { BUYER_SIGN_IN as COPY } from '../../lib/sign-in';
+import { BUYER_SIGN_IN as COPY, SHARED, withNext } from '../../lib/sign-in';
 import { useApiAction } from '../../lib/use-api-action';
 import { DemoPanel, OrDivider, SignInLayout } from './SignInLayout';
 
@@ -70,6 +70,7 @@ export function BuyerSignIn() {
       eyebrow={COPY.eyebrow}
       heading={COPY.heading}
       lede={COPY.lede}
+      back={{ to: withNext(paths.signIn, safeNext(params.get('next'))), label: SHARED.changeRole }}
       cardLabel="Buyer sign-in"
     >
       {sentTo ? (

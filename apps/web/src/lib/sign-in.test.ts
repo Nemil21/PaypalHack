@@ -39,5 +39,6 @@ describe('v4 sign-in (plan §0)', () => {
       lead: 'You’re invited to ',
       accent: 'Aurel Audio.',
     });
+    expect(inviteHeading('Acme Inc.').accent).toBe('Acme Inc.');
   });
 });

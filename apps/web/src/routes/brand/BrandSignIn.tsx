@@ -5,7 +5,7 @@ import { api } from '../../lib/api';
 import { paypalStartUrl, safeNext, signInErrorMessage } from '../../lib/brand-sign-in';
 import { clientConfig } from '../../lib/client-config';
 import { paths } from '../../lib/routes';
-import { BRAND_SIGN_IN as COPY } from '../../lib/sign-in';
+import { BRAND_SIGN_IN as COPY, SHARED, withNext } from '../../lib/sign-in';
 import { useApiAction } from '../../lib/use-api-action';
 import { DemoPanel, OrDivider, SignInLayout } from '../auth/SignInLayout';
 import type { BrandMe } from './BrandGate';
@@ -83,6 +83,7 @@ export function BrandSignIn() {
       eyebrow={COPY.eyebrow}
       heading={COPY.heading}
       lede={COPY.lede}
+      back={{ to: withNext(paths.signIn, next), label: SHARED.changeRole }}
       cardLabel="Sign in to Holdfast"
     >
       {errorMessage && (

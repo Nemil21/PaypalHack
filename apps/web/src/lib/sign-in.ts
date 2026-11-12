@@ -88,7 +88,10 @@ export const SHARED = {
 
 /** Invite landing (§4.4): brand sign-in with the inviting brand in the heading. */
 export function inviteHeading(brandName: string): Heading {
-  return { lead: 'You’re invited to ', accent: `${brandName}.` };
+  return {
+    lead: 'You’re invited to ',
+    accent: brandName.endsWith('.') ? brandName : `${brandName}.`,
+  };
 }
 
 /** Carries a same-origin `next` through the role chooser to the chosen sign-in page. */
