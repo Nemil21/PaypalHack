@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cardEyebrow,
+  productInitials,
   activeConfirmId,
   cardTitle,
   cardWhere,
@@ -408,5 +410,17 @@ describe('HF-052 intent and move cards', () => {
       'That move didn’t go through: Couldn’t move.',
     );
     expect(resultLabel('my_intents', true, { intents: [{}] })).toBe('Checked 1 intent');
+  });
+});
+
+describe('v4 chat restyle (frame 120:687)', () => {
+  it('the confirm eyebrow names the action', () => {
+    expect(cardEyebrow({ tool: 'place_bid' })).toBe('Confirm · place a held bid');
+    expect(cardEyebrow({ tool: 'cancel_bid' })).toBe('Confirm · cancel and release');
+  });
+
+  it('a product tile shows the model token, else initials', () => {
+    expect(productInitials('Aurel A7 Wireless — Midnight')).toBe('A7');
+    expect(productInitials('Kestrel Trail Runner')).toBe('KT');
   });
 });

@@ -535,6 +535,34 @@ export function cardTitle(card: ConfirmRequired): string {
   }
 }
 
+/** v4 confirm-card eyebrow (frame 120:687): what the shopper is approving, in words. */
+export function cardEyebrow(card: Pick<ConfirmRequired, 'tool'>): string {
+  switch (card.tool) {
+    case 'place_bid':
+      return 'Confirm · place a held bid';
+    case 'raise_bid':
+      return 'Confirm · raise your bid';
+    case 'cancel_bid':
+      return 'Confirm · cancel and release';
+    case 'move_bid':
+      return 'Confirm · move your bid';
+    case 'create_intent':
+      return 'Confirm · let your agent bid';
+  }
+}
+
+/** Tile text for a product with no image: a model token ("A7"), else two initials. */
+export function productInitials(title: string): string {
+  const words = title.split(/[\s—–-]+/).filter(Boolean);
+  const model = words.find((w) => /\d/.test(w) && w.length <= 4);
+  if (model) return model.toUpperCase();
+  return words
+    .slice(0, 2)
+    .map((w) => w[0]!)
+    .join('')
+    .toUpperCase();
+}
+
 export function cardWhere(card: ConfirmRequired): string | null {
   if (card.tool === 'create_intent') {
     const titles = (card.intent?.products ?? []).map((p) => p.title).filter(Boolean);
