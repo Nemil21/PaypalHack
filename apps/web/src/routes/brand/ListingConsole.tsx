@@ -274,7 +274,9 @@ export function ListingConsole() {
         {empty && !locked && (
           <EmptyState
             message="No bids yet. Share your offer link."
-            action={<ShareButton slug={book.listing.slug} variant="primary" />}
+            action={
+              <ShareButton listingId={book.listing.id} slug={book.listing.slug} variant="primary" />
+            }
           />
         )}
 

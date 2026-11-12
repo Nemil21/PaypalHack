@@ -1,7 +1,9 @@
 import {
   formatUsd,
   parseShipmentCsv,
+  statementsCsv,
   type BrandPayoutRow,
+  type ListingStatement,
   type ShipmentCsvError,
   type ShipmentRosterRow,
   type ShipmentUploadBody,
@@ -111,6 +113,31 @@ export async function downloadCsv(path: string, fileName: string): Promise<void>
   const res = await fetch(path, { headers: { Accept: 'text/csv' }, credentials: 'same-origin' });
   if (!res.ok) throw new Error(`Download failed (${res.status})`);
   const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
+/**
+ * One listing's statement as a CSV (UI-GAPS W09): the same columns as the API's statements export
+ * (shared `statementsCsv`), built in the browser from the statement already on screen.
+ */
+export function statementDownload(s: ListingStatement): { fileName: string; csv: string } {
+  const slug =
+    s.productTitle
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'listing';
+  const day = s.clearedAt ? s.clearedAt.slice(0, 10) : 'uncleared';
+  return { fileName: `holdfast-statement-${slug}-${day}.csv`, csv: statementsCsv([s]) };
+}
+
+/** Save text the page already has as a file (no round trip). */
+export function saveTextFile(text: string, fileName: string, type = 'text/csv'): void {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;

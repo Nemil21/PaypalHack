@@ -11,6 +11,7 @@ import {
   onboardingError,
   RECHECK_MS,
   statusPill,
+  rejectedCopy,
   validateCompany,
   verificationRequest,
   type CompanyErrors,
@@ -217,7 +218,7 @@ export function BrandOnboarding() {
       />
 
       {brand?.verificationStatus === 'VERIFIED' && <VerifiedCard brand={brand} />}
-      {brand?.verificationStatus === 'REJECTED' && <RejectedCard />}
+      {brand?.verificationStatus === 'REJECTED' && <RejectedCard brand={brand} />}
 
       <Stepper step={step} onStep={(s) => void goTo(s)} />
 
@@ -498,17 +499,21 @@ function VerifiedCard({ brand }: { brand: OnboardingBrand }) {
   );
 }
 
-function RejectedCard() {
+function RejectedCard({ brand }: { brand: OnboardingBrand }) {
+  const c = rejectedCopy(brand);
   return (
     <div
       role="alert"
-      className="mb-6 flex flex-col gap-1 rounded-md border border-danger/40 bg-danger-tint p-4"
+      className="mb-6 flex flex-col gap-2 rounded-md border border-danger/40 bg-danger-tint p-4"
     >
       <p className="label text-[12px] text-danger">Verification failed</p>
-      <p className="text-[14px] text-ink">
-        We couldn’t verify this brand. Contact support@holdfast.example and we’ll review it with
-        you.
-      </p>
+      <p className="text-[15px] font-medium text-ink">{c.title}</p>
+      <p className="text-[14px] text-body">{c.body}</p>
+      <ul className="flex list-disc flex-col gap-1 pl-5 text-[14px] text-ink">
+        {c.steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ul>
     </div>
   );
 }
